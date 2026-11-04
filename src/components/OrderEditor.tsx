@@ -10,7 +10,7 @@ import { Field, btnPrimary, btnSecondary, input, select, textarea, card } from "
 
 type Master = { id: number; name: string };
 
-/** Categories the admin can add to a NEW customer: pick how many of each, and their fields open below. */
+/** Categories the admin can add to a NEW customer: tick the ones the customer needs, and their fields open below. */
 export type CategoryPicker = {
   groups: { id: number; name: string; items: { templateId: number; name: string; colour: string }[] }[];
   templates: Record<number, { name: string; colour: string; fields: FieldDef[] }>;
@@ -45,9 +45,10 @@ export function OrderEditor({
   // After a warning, show what the user typed instead of the saved values.
   const pick = (name: string, initial: string | undefined) => state.values[name] ?? initial ?? "";
 
-  // new customer: how many of each category (0 to 10). Each one opens its own section of fields below.
+  // new customer: which categories are ticked. Each one opens its own section of fields below.
+  // (A link that asks for more than one of a category still gets them; the tick box just switches it on or off.)
   const [counts, setCounts] = useState<Record<number, number>>(picker?.initial ?? {});
-  const setCount = (id: number, raw: string) => setCounts((c) => ({ ...c, [id]: Math.max(0, Math.min(10, Math.floor(Number(raw)) || 0)) }));
+  const toggle = (id: number) => setCounts((c) => ({ ...c, [id]: c[id] ? 0 : 1 }));
   const chosen: EditorItem[] = [];
   for (const g of picker?.groups ?? []) {
     for (const it of g.items) {
@@ -114,24 +115,25 @@ export function OrderEditor({
             </p>
           ) : (
             <>
-              <p className="text-lg">Put a number next to each category this customer needs. Leave the others at 0. Its fields open below.</p>
+              <p className="text-lg">Tick each category this customer needs. Its fields open below.</p>
               {picker.groups.map((g) => (
                 <div key={g.id} className="space-y-2">
                   <h3 className="text-lg font-medium">{g.name}</h3>
                   {g.items.map((it) => (
-                    <label key={it.templateId} className="panel flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: it.colour }} />
-                      <span className="min-w-0 flex-1 basis-24 break-words text-xl">{it.name}</span>
+                    <label
+                      key={it.templateId}
+                      className="panel flex min-h-14 cursor-pointer items-center gap-4 !py-3 has-[:checked]:bg-accent-soft"
+                    >
                       <input
-                        type="number"
+                        type="checkbox"
                         name={`q${it.templateId}`}
-                        min={0}
-                        max={10}
-                        value={counts[it.templateId] ?? 0}
-                        onChange={(e) => setCount(it.templateId, e.target.value)}
-                        inputMode="numeric"
-                        className={`${input} !w-24 shrink-0 text-center`}
+                        value="1"
+                        checked={(counts[it.templateId] ?? 0) > 0}
+                        onChange={() => toggle(it.templateId)}
+                        className="checkbox checkbox-primary h-7 w-7 shrink-0"
                       />
+                      <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: it.colour }} />
+                      <span className="min-w-0 flex-1 break-words text-xl">{it.name}</span>
                     </label>
                   ))}
                 </div>
