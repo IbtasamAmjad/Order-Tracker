@@ -36,10 +36,10 @@ export default function Templates() {
                 <li key={sub.id}>
                   <Link
                     href={`/admin/templates/${sub.template.id}`}
-                    className="flex items-center gap-3 panel text-xl font-medium"
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 panel text-xl font-medium"
                   >
                     <span className="inline-block h-5 w-5 rounded-full" style={{ background: sub.colour }} />
-                    <span className="flex-1">{sub.name}</span>
+                    <span className="min-w-0 flex-1 basis-24 break-words">{sub.name}</span>
                     <span className="flex items-center gap-2 text-base font-normal">{sub.template.fields.length} fields<Icon name="arrow" className="h-4 w-4" /></span>
                   </Link>
                 </li>
@@ -70,7 +70,7 @@ export default function Templates() {
         <Field label="Name (e.g. Men, Ladies, Shoes)">
           <input name="name" required className={input} />
         </Field>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input type="color" name="colour" defaultValue="#64748b" className={colourInput} aria-label="Colour" />
           <button className={btnPrimary}>Add group</button>
         </div>

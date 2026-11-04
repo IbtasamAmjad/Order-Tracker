@@ -72,7 +72,7 @@ export default async function EditOrder({ params }: { params: Promise<{ id: stri
         <>
           <OrderEditor
             action={saveOrderAction}
-            masters={masters}
+            masters={masters.map((m) => ({ id: m.id, name: m.name }))}
             base={order}
             items={editorItems}
             orderId={order.id}

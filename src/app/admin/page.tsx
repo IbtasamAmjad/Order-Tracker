@@ -72,7 +72,7 @@ export default function Home() {
           {masters.length === 0 && <p className="text-base text-muted">No masters yet.</p>}
           {masters.map((m) => (
             <div key={m.id} className="space-y-2">
-              <div className="flex items-baseline justify-between gap-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
                 <Link href={`/admin/customers?master=${m.id}`} className="link inline-flex min-h-11 items-center text-lg font-medium">
                   {m.name}
                 </Link>
@@ -87,7 +87,7 @@ export default function Home() {
         </section>
 
         <section className="panel space-y-3">
-          <div className="flex items-baseline justify-between gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
             <h2 className="text-xl font-medium">Needs attention</h2>
             <Link href="/admin/reminders" className="link text-base font-medium">
               See all

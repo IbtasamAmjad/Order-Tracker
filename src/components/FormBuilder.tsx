@@ -352,7 +352,7 @@ export function FormBuilder({
       <input type="hidden" name="stages" value={stepsJson} />
 
       <DndContext id="form-builder" sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           {/* the form being built */}
           <section aria-label="The form" className="space-y-3">
             <div>
@@ -393,7 +393,7 @@ export function FormBuilder({
               {PALETTE.map((g) => (
                 <div key={g.group} className="space-y-2">
                   <p className="text-sm font-medium opacity-60">{g.group}</p>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     {g.items.map((item) => (
                       <Tile key={item.type} item={item} onAdd={(t) => add(t)} lastDragEnd={lastDragEnd} />
                     ))}

@@ -30,8 +30,8 @@ export default async function Customers({
         </Link>
       </PageHeader>
       <div className="flex flex-wrap items-center gap-3">
-        <form className="flex gap-2">
-          <select name="master" defaultValue={masterId ?? ""} className={input + " min-w-48"}>
+        <form className="flex w-full flex-wrap gap-2">
+          <select name="master" defaultValue={masterId ?? ""} className={`${input} min-w-0 flex-1 basis-40`}>
             <option value="">All masters</option>
             {masters.map((m) => (
               <option key={m.id} value={m.id}>
@@ -48,9 +48,9 @@ export default async function Customers({
       <ul className="space-y-3">
         {rows.map((o, i) => (
           <li key={o.id} className={`${card} border-l-4 ${BAND_CLASS[o.band!]}`}>
-            <div className="flex items-start gap-3">
+            <div className="flex flex-wrap items-start gap-3">
               <PositionTile n={i + 1} />
-              <Link href={`/admin/orders/${o.id}`} className="block min-w-0 flex-1">
+              <Link href={`/admin/orders/${o.id}`} className="block min-w-0 flex-1 basis-32">
                 <div className="break-words text-lg font-medium">
                   #{o.orderNumber} {o.customerName}
                 </div>

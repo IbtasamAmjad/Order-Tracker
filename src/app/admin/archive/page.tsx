@@ -11,8 +11,8 @@ export default function Archive() {
       {rows.length === 0 && <EmptyState title="Nothing here yet">Completed and cancelled orders are kept here.</EmptyState>}
       <ul className="space-y-3">
         {rows.map((o) => (
-          <li key={o.id} className="flex items-center justify-between gap-2 panel">
-            <Link href={`/admin/orders/${o.id}`} className="block flex-1">
+          <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 panel">
+            <Link href={`/admin/orders/${o.id}`} className="block min-w-0 flex-1 basis-40">
               <div className="text-xl font-medium">
                 #{o.orderNumber} {o.customerName}
               </div>

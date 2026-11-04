@@ -15,7 +15,7 @@ export default function Shipments() {
       <ul className="space-y-4">
         {rows.map((s) => (
           <li key={s.id} className={`space-y-2 panel ${s.isNew ? "bg-accent-soft" : ""}`}>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Link href={`/admin/orders/${s.orderId}`} className="link text-xl font-medium">
                 #{s.orderNumber} {s.customerName}
               </Link>

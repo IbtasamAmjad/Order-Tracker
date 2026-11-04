@@ -38,7 +38,7 @@ export default async function MasterHome({
                 <span className="block break-words text-lg font-medium">
                   #{o.orderNumber} {o.customerName}
                 </span>
-                <span className="block text-lg whitespace-nowrap">Due {o.karigarDueDate}</span>
+                <span className="block text-lg">Due <span className="whitespace-nowrap max-[240px]:whitespace-normal">{o.karigarDueDate}</span></span>
                 <span className={`block text-base font-medium ${o.flags.overdue ? "text-thread" : BAND_LABEL[o.band].className}`}>
                   {o.flags.overdue
                     ? `Late by ${o.flags.daysOverdue} day${o.flags.daysOverdue === 1 ? "" : "s"}`

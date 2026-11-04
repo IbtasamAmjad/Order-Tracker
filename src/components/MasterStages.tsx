@@ -66,7 +66,7 @@ export function MasterStages({
                       <p className="text-lg">{s.photo === "required" ? "Photo needed" : "Photo (optional)"}</p>
                       {photo && (
                         <div className="space-y-2">
-                        <div className="flex items-start gap-3">
+                        <div className="flex flex-wrap items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={img(photo.id, true)} alt="Your photo" className="h-24 w-24 border object-cover" />
                           <p

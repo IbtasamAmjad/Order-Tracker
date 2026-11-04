@@ -4,6 +4,7 @@
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a pill-shaped light tool can look like any consumer app; answered with lowercase everywhere, round position tags and light-weight figures, and the owner's red, green and blue bands kept as the only extra colours */
 /* Hallmark · dropped onClick={() => setSteps((rows) => [...rows, { u… · the Add a step handler now also starts each step with an empty required-fields list (needs: []), a feature added after the redesign; behaviour otherwise unchanged */
 /* Hallmark · dropped {`/api/m/${token}/photos/${shipment.billPhotoId}`}, {`/m/${token}/orders/${order.id}/ship/${d.id}`}, {saveShipmentAction}, {startShipmentAction}, {submitShipmentAction} · the shipment is one page now: choose items, add the bill photo, press Send. The "continue the shipment" link, the second page and the three separate actions became one sendShipmentAction; the bill photo link still exists inside ShipmentFlow, and the old /ship/[sid] address redirects to the shipping page */
+/* Hallmark · dropped go · New customer opens the form straight away, with the category numbers inside it (leave them at 0 to save without categories), so the separate "what do they need?" page and its "Continue without categories" button are gone; the q-number fields stay */
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./base.css" layer(base);
@@ -250,6 +251,9 @@ header label,
 
 /* Controls are pills. One violet-filled pill is the primary; the others are inset-outlined in ink. */
 .btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
   border: 0;
   border-radius: var(--radius-pill);
   background-color: transparent;
@@ -380,4 +384,9 @@ input[type="color"]::-webkit-color-swatch {
 input[type="color"]::-moz-color-swatch {
   border: 0;
   border-radius: var(--radius-pill);
+}
+
+/* A <fieldset> must be allowed to shrink with its container (the browser default stops it at its content width). */
+fieldset {
+  min-width: 0;
 }

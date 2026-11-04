@@ -66,7 +66,7 @@ export function MasterItemFields({
           </p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-lg">
             {measures.map(({ f, v }) => (
-              <div key={f.key} className="flex justify-between gap-2">
+              <div key={f.key} className="flex flex-wrap justify-between gap-x-2">
                 <dt>{f.label}</dt>
                 <dd className="font-medium">{v}</dd>
               </div>

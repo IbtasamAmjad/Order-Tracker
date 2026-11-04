@@ -72,7 +72,7 @@ export function AdminItemExtras({
                   </div>
                 )}
                 {s.latestPhoto && (
-                  <div className="mt-2 flex items-center gap-3">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
                     <a href={`/api/admin/photos/${s.latestPhoto.id}`} target="_blank" rel="noreferrer" className="block shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={`/api/admin/photos/${s.latestPhoto.id}?thumb=1`} alt={`Photo for ${s.label}`} className="h-16 w-16 border object-cover" />

@@ -37,7 +37,7 @@ export default async function CategoryBuilder({
       <form action={updateCategoryAction} className="panel flex flex-wrap items-center gap-2">
         <input type="hidden" name="id" value={t.sub.id} />
         <input type="hidden" name="back" value={`/admin/templates/${t.id}`} />
-        <input name="name" defaultValue={t.sub.name} required className={`${input} min-w-48 flex-1`} aria-label="Category name" />
+        <input name="name" defaultValue={t.sub.name} required className={`${input} min-w-0 flex-1 basis-40`} aria-label="Category name" />
         <input type="color" name="colour" defaultValue={t.sub.colour} className="h-12 w-14 shrink-0 cursor-pointer rounded-full border border-muted bg-paper p-1" aria-label="Colour" />
         <button className={btnSecondary}>Rename</button>
       </form>
