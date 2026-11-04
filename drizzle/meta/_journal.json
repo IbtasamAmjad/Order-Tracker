@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793733800149,
+      "tag": "0000_giant_wolverine",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793734320212,
+      "tag": "0001_goofy_terrax",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793734872524,
+      "tag": "0002_cold_patriot",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793735800913,
+      "tag": "0003_regular_serpent_society",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793736329789,
+      "tag": "0004_yummy_moonstone",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793738837970,
+      "tag": "0005_rich_loners",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `master_edited_at` integer;

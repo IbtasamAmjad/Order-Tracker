@@ -1,0 +1,108 @@
+import { beforeAll, describe, expect, it } from "vitest";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+
+process.env.DATABASE_URL = ":memory:";
+
+let o: typeof import("./orders");
+let m: typeof import("./masters");
+
+beforeAll(async () => {
+  const { db } = await import("@/db");
+  migrate(db, { migrationsFolder: "./drizzle" });
+  o = await import("./orders");
+  m = await import("./masters");
+});
+
+const input = (masterId: number, name: string, karigar = "2099-01-01") => ({
+  customerName: name,
+  myDueDate: "2099-01-01",
+  karigarDueDate: karigar,
+  masterId,
+  details: "",
+});
+
+describe("orders", () => {
+  it("numbers orders in the order they are added and isolates masters", () => {
+    const a = m.createMaster({ name: "A", pin: "1234A" });
+    const b = m.createMaster({ name: "B", pin: "9999" });
+    const o1 = o.createOrder(input(a, "One"));
+    const o2 = o.createOrder(input(a, "Two"));
+    const o3 = o.createOrder(input(a, "Three"));
+    const ob = o.createOrder(input(b, "Bee"));
+
+    expect(o.getOrder(o1)!.orderNumber).toBeLessThan(o.getOrder(o2)!.orderNumber);
+
+    // master B cannot see or open A's orders
+    expect(o.masterDashboard(b).active.map((x) => x.customerName)).toEqual(["Bee"]);
+    expect(o.masterOrder(b, o1)).toBeNull();
+    expect(o.masterComplete(b, o1)).toEqual({ ok: false, reason: "not-found" });
+    expect(o.masterOrder(a, ob)).toBeNull();
+
+    // master data never includes My due date
+    const dash = o.masterDashboard(a).active[0];
+    expect("myDueDate" in dash).toBe(false);
+
+    // move order 3 to position 1
+    o.moveOrder(o3, "up");
+    o.moveOrder(o3, "up");
+    expect(o.masterDashboard(a).active.map((x) => x.customerName)).toEqual(["Three", "One", "Two"]);
+    expect(o.masterDashboard(a).active[0].badge).toBe("New"); // never opened yet
+    // moving B's order does not touch A's list
+    expect(o.masterDashboard(b).active).toHaveLength(1);
+  });
+
+  it("blocks completing out of sequence unless Admin allows it", () => {
+    const a = m.createMaster({ name: "C", pin: "1" });
+    const first = o.createOrder(input(a, "First"));
+    const second = o.createOrder(input(a, "Second"));
+    expect(o.masterComplete(a, second)).toEqual({ ok: false, reason: "blocked" });
+    expect(o.masterOrder(a, second)!.canComplete).toBe(false);
+    o.setAllowOutOfSequence(second, true);
+    expect(o.masterComplete(a, second)).toEqual({ ok: true });
+    expect(o.masterComplete(a, first)).toEqual({ ok: true });
+  });
+
+  it("shows Seen / New / Updated badges", () => {
+    const a = m.createMaster({ name: "D", pin: "1" });
+    const id = o.createOrder(input(a, "Badge"));
+    expect(o.masterDashboard(a).active[0].badge).toBe("New");
+    o.markSeen(a, id);
+    expect(o.masterDashboard(a).active[0].badge).toBeNull();
+    expect(o.getOrder(id)!.masterSeenAt).not.toBeNull();
+    // changed after the master last looked
+    return new Promise<void>((resolve) =>
+      setTimeout(() => {
+        o.updateOrder(id, input(a, "Badge", "2099-02-02"));
+        expect(o.masterDashboard(a).active[0].badge).toBe("Updated");
+        resolve();
+      }, 5),
+    );
+  });
+
+  it("shows Moved up after the master has seen the order", () => {
+    const a = m.createMaster({ name: "F", pin: "1" });
+    o.createOrder(input(a, "X"));
+    const y = o.createOrder(input(a, "Y"));
+    o.markSeen(a, y);
+    return new Promise<void>((resolve) =>
+      setTimeout(() => {
+        o.moveOrder(y, "up");
+        expect(o.masterDashboard(a).active[0]).toMatchObject({ customerName: "Y", badge: "Moved up" });
+        resolve();
+      }, 5),
+    );
+  });
+
+  it("cancel -> master sees Cancelled for 15 days, then it disappears; archive hides it", () => {
+    const a = m.createMaster({ name: "E", pin: "1" });
+    const id = o.createOrder(input(a, "Gone"));
+    expect(o.setStatus(id, "cancelled")).toBe(true);
+    expect(o.masterDashboard(a).closed[0].status).toBe("cancelled");
+    const later = new Date(Date.now() + 16 * 86_400_000);
+    expect(o.masterDashboard(a, later).closed).toHaveLength(0);
+    expect(o.masterOrder(a, id, later)).toBeNull();
+    expect(o.setStatus(id, "archived")).toBe(true);
+    expect(o.masterOrder(a, id)).toBeNull();
+    expect(o.setStatus(id, "active" as never)).toBe(false); // no way back, no delete
+  });
+});

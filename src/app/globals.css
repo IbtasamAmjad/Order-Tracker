@@ -1,0 +1,383 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: Ultraviolet (deal 3/3, seed modern-sleek-internal-operations-9b1c·829130f5·2026-11-04·r1), colours from Cobalt (by request) · redesign: full
+ * nav: pill tabs on the paper step, the project's own destinations kept · signature: the round position tag and the readings strip, counts in light Outfit figures · states: loading, empty, error, full · ultraviolet: lavender with Cobalt colours
+ * axes: light/geometric-sans/cool · posture: committed · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a pill-shaped light tool can look like any consumer app; answered with lowercase everywhere, round position tags and light-weight figures, and the owner's red, green and blue bands kept as the only extra colours */
+/* Hallmark · dropped onClick={() => setSteps((rows) => [...rows, { u… · the Add a step handler now also starts each step with an empty required-fields list (needs: []), a feature added after the redesign; behaviour otherwise unchanged */
+/* Hallmark · dropped {`/api/m/${token}/photos/${shipment.billPhotoId}`}, {`/m/${token}/orders/${order.id}/ship/${d.id}`}, {saveShipmentAction}, {startShipmentAction}, {submitShipmentAction} · the shipment is one page now: choose items, add the bill photo, press Send. The "continue the shipment" link, the second page and the three separate actions became one sendShipmentAction; the bill photo link still exists inside ShipmentFlow, and the old /ship/[sid] address redirects to the shipping page */
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css" layer(base);
+
+/* daisyUI: component classes (btn, badge, alert, ...). Pure CSS, no JavaScript.
+   Its built-in themes are off; we define one theme from the Ultraviolet tokens. */
+@plugin "daisyui" {
+  themes: false;
+}
+@plugin "daisyui/theme" {
+  name: "tailor";
+  default: true;
+  color-scheme: light;
+  --color-base-100: oklch(96.2% 0.008 252);
+  --color-base-200: oklch(98.6% 0.005 250);
+  --color-base-300: oklch(90% 0.009 252);
+  --color-base-content: oklch(21% 0.028 262);
+  --color-primary: oklch(52% 0.19 258);
+  --color-primary-content: oklch(98.6% 0.005 250);
+  --color-secondary: oklch(43% 0.2 262);
+  --color-secondary-content: oklch(98.6% 0.005 250);
+  --color-accent: oklch(52% 0.19 258);
+  --color-accent-content: oklch(98.6% 0.005 250);
+  --color-neutral: oklch(21% 0.028 262);
+  --color-neutral-content: oklch(98.6% 0.005 250);
+  --color-info: oklch(52% 0.19 258);
+  --color-info-content: oklch(98.6% 0.005 250);
+  --color-success: oklch(46% 0.12 150);
+  --color-success-content: oklch(98.6% 0.005 250);
+  --color-warning: oklch(92% 0.04 256);
+  --color-warning-content: oklch(21% 0.028 262);
+  --color-error: oklch(48% 0.19 27);
+  --color-error-content: oklch(98.6% 0.005 250);
+  --radius-selector: 999px;
+  --radius-field: 999px;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* Tailwind names for the Ultraviolet tokens (tokens.css is the source; these expose them as utilities).
+   Red, green and blue are the owner's bands (urgent, coming due, later) and appear only as small marks and status words. */
+@theme {
+  --color-paper: oklch(98.6% 0.005 250);
+  --color-paper-2: oklch(96.2% 0.008 252);
+  --color-paper-3: oklch(93% 0.011 252);
+  --color-ink: oklch(21% 0.028 262);
+  --color-ink-2: oklch(36% 0.022 260);
+  --color-muted: oklch(50% 0.018 258);
+  --color-rule: oklch(90% 0.009 252);
+  --color-rule-2: oklch(83% 0.012 252);
+  --color-accent: oklch(52% 0.19 258);
+  --color-accent-deep: oklch(43% 0.2 262);
+  --color-accent-soft: oklch(92% 0.04 256);
+  --color-accent-ink: oklch(98.6% 0.005 250);
+  --color-bad: oklch(48% 0.19 27);
+  --color-bad-soft: oklch(93% 0.04 27);
+  --color-ok: oklch(46% 0.12 150);
+  --color-ok-soft: oklch(93% 0.04 150);
+  --color-cool: oklch(52% 0.19 258);
+  --color-cool-soft: oklch(92% 0.04 256);
+  --color-thread: oklch(48% 0.19 27);
+  --color-leaf: oklch(46% 0.12 150);
+  --color-cloth: oklch(52% 0.19 258);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-outlier);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  body {
+    font-size: 12pt;
+  }
+}
+
+/* Lowercase is the material: heads, nav, buttons, labels and chips carry no capitals. Data (a customer's name) keeps its case via .normal-case. */
+h1,
+h2,
+h3,
+.btn,
+.badge,
+aside,
+aside button,
+header label,
+.sign span {
+  text-transform: lowercase;
+}
+.normal-case {
+  text-transform: none;
+}
+
+/* ---------- Components ---------- */
+/* In the components layer so Tailwind utility classes can still override them. */
+@layer components {
+  /* A surface is a step to paper-2: no border, 16px radius, a whisper of shadow. */
+  .panel {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+    border: 0 solid var(--color-rule);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-lg);
+  }
+  a.panel,
+  button.panel {
+    transition: background-color var(--dur-micro) var(--ease-out);
+  }
+  a.panel:hover,
+  button.panel:hover {
+    background: var(--color-paper-3);
+  }
+  a.panel:active,
+  button.panel:active {
+    background: var(--color-accent-soft);
+  }
+
+  .alert {
+    border-radius: var(--radius-card);
+    border-width: 0;
+  }
+  .link {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule-2);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+  .link:hover {
+    color: var(--color-accent-deep);
+    text-decoration-color: var(--color-accent);
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: 500;
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    text-transform: lowercase;
+  }
+  .page-sub {
+    color: var(--color-muted);
+    font-size: var(--text-md);
+  }
+
+  /* A hairline between groups. */
+  .stitch {
+    border: 0;
+    border-top: var(--rule-hair) solid var(--color-rule);
+  }
+
+  /* Progress: a round track with a violet fill at a fixed width (never animated). */
+  .ruler {
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-soft);
+    overflow: hidden;
+  }
+  .ruler > span {
+    display: block;
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: var(--radius-pill);
+  }
+
+  /* Position tag: the order's place in the list, a round tag with an Outfit figure. */
+  .ticket {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    flex: none;
+    border-radius: var(--radius-pill);
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Readings strip: one rounded surface divided by hairlines; each count a light figure.
+     A count that needs a person is violet, a zero is muted. */
+  .ledger {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--rule-hair);
+    border-radius: var(--radius-card);
+    background: var(--color-rule);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .sign {
+    display: block;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+    transition: background-color var(--dur-micro) var(--ease-out);
+  }
+  .sign:hover {
+    background: var(--color-paper-3);
+  }
+  .sign .figure {
+    font-family: var(--font-display);
+    font-size: var(--text-3xl);
+    font-weight: 300;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .sign[data-live] .figure {
+    color: var(--color-accent);
+  }
+  @media (max-width: 40rem) {
+    .ledger {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* Loading placeholder: the shape of what is coming, easing in and out. */
+  .skeleton-block {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+    border-radius: var(--radius-card);
+    animation: pulse-soft 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-soft {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* daisyUI's button, input and badge rules outrank the components layer, so Ultraviolet's overrides for them live outside it. */
+
+/* Controls are pills. One violet-filled pill is the primary; the others are inset-outlined in ink. */
+.btn {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1.5px var(--color-ink);
+  transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+}
+.btn:hover {
+  background-color: var(--color-paper-3);
+}
+.btn:active {
+  background-color: var(--color-accent-soft);
+}
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn.btn-primary {
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
+  box-shadow: none;
+}
+.btn.btn-primary:hover {
+  background-color: var(--color-accent-deep);
+}
+.btn.btn-primary:active {
+  background-color: var(--color-accent-deep);
+}
+.btn.btn-quiet {
+  background-color: transparent;
+  color: var(--color-ink);
+  box-shadow: inset 0 0 0 1.5px var(--color-ink);
+}
+.btn.btn-danger {
+  background-color: transparent;
+  color: var(--color-bad);
+  box-shadow: inset 0 0 0 1.5px var(--color-bad);
+}
+.btn.btn-danger:hover {
+  background-color: var(--color-bad-soft);
+}
+.btn.btn-ghost {
+  background-color: transparent;
+  box-shadow: none;
+}
+.btn.btn-ghost:hover {
+  background-color: var(--color-paper-3);
+}
+
+/* Fields are pills (a textarea is a rounded surface): a muted border that stays 3:1 against the surface, ink on hover, a violet outline on focus. */
+.input,
+.select {
+  background-color: var(--color-paper);
+  border: 1.5px solid var(--color-muted);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  box-shadow: none;
+  padding-inline: var(--space-md);
+}
+.textarea {
+  background-color: var(--color-paper);
+  border: 1.5px solid var(--color-muted);
+  border-radius: var(--radius-card);
+  color: var(--color-ink);
+  box-shadow: none;
+}
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: var(--color-ink);
+}
+.input:focus,
+.select:focus,
+.textarea:focus,
+.input:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-color: var(--color-ink);
+}
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* A chip carries state only: a pill tinted by meaning. */
+.badge {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-paper-3);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+.badge-accent,
+.badge-primary {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-deep);
+}
+
+/* Masters use cheap phones with basic literacy: keep their buttons and fields big. */
+.master-ui .btn {
+  min-height: 3.5rem;
+}
+.master-ui .input,
+.master-ui .select {
+  min-height: 3.5rem;
+}
+
+/* Inline bold is the real medium weight, never a synthesized one. */
+b,
+strong {
+  font-weight: 500;
+}
+
+/* Colour pickers show a round swatch that fills the control. */
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: var(--radius-pill);
+}
