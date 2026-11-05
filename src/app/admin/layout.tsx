@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 /** Wordmark: the board's face in a square plate. */
 function Brand() {
   return (
-    <span className="font-display text-xl font-medium leading-none tracking-tight text-ink lowercase">
+    <span className="font-display text-xl font-medium leading-none tracking-tight text-white">
       Order Tracker
     </span>
   );
@@ -36,8 +36,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <input id="admin-nav" type="checkbox" className="drawer-toggle" />
 
       <div className="drawer-content flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 bg-paper-2 px-3 text-ink print:hidden lg:hidden">
-          <label htmlFor="admin-nav" className="btn btn-ghost btn-square min-h-11 min-w-11 text-ink" aria-label="Open the menu">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 bg-side px-3 text-white print:hidden lg:hidden">
+          <label htmlFor="admin-nav" className="btn btn-ghost btn-square nav-toggle min-h-11 min-w-11" aria-label="Open the menu">
             <Icon name="menu" className="h-6 w-6" />
           </label>
           <Brand />
@@ -50,7 +50,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <div className="drawer-side z-40 print:hidden">
         <label htmlFor="admin-nav" aria-label="Close the menu" className="drawer-overlay" />
-        <div className="flex min-h-full flex-col bg-paper-2">
+        {/* a rounded panel: curved on its open edge on a phone, a floating rounded card beside the page on a computer */}
+        <div className="flex min-h-full flex-col rounded-r-3xl bg-side lg:m-3 lg:min-h-[calc(100dvh-1.5rem)] lg:rounded-3xl lg:shadow-[var(--shadow-card)]">
           <div className="flex min-h-20 items-center px-6 pt-2">
             <Brand />
           </div>

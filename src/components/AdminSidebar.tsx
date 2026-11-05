@@ -36,7 +36,7 @@ export function AdminSidebar({
 
   const is = (...prefixes: string[]) => prefixes.some((p) => (p === "/admin" ? path === "/admin" : path.startsWith(p)));
   const tab = (active: boolean) =>
-    `${row} ${active ? "border-transparent bg-paper-3 text-ink" : "text-ink-2 hover:bg-paper-3 hover:text-ink"}`;
+    `${row} ${active ? "border-transparent bg-side-2 text-white" : "text-side-text hover:bg-side-2 hover:text-white"}`;
 
   const item = (href: string, icon: string, label: string, active: boolean, badge = 0) => (
     <Link href={href} onClick={closeDrawer} className={tab(active)} aria-current={active ? "page" : undefined}>
@@ -45,7 +45,7 @@ export function AdminSidebar({
       {badge > 0 && (
         <span
           className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-sm font-medium ${
-            active ? "bg-accent text-accent-ink" : "bg-bad text-accent-ink"
+            active ? "bg-white text-side" : "bg-bad text-accent-ink"
           }`}
         >
           {badge}
@@ -54,7 +54,7 @@ export function AdminSidebar({
     </Link>
   );
 
-  const divider = () => <hr className="stitch my-3" />;
+  const divider = () => <hr className="stitch my-3 border-white/15" />;
 
   return (
     <aside className="flex min-h-full w-72 flex-col px-3 pb-4 print:hidden">
@@ -74,17 +74,17 @@ export function AdminSidebar({
           <Icon name="chevron" className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         </button>
         {open && (
-          <div className="ml-4 space-y-0.5 border-l border-rule pb-2 pl-3">
+          <div className="ml-4 space-y-0.5 border-l border-white/15 pb-2 pl-3">
             <Link
               href="/admin/templates"
               onClick={closeDrawer}
-              className="flex min-h-10 items-center gap-2 px-3 text-sm font-medium text-accent hover:underline"
+              className="flex min-h-10 items-center gap-2 px-3 text-sm font-medium text-white hover:underline"
             >
               <Icon name="categories" className="h-4 w-4" /> All categories
             </Link>
             {groups.map((g) => (
               <div key={g.id}>
-                <p className="px-3 pt-2 text-sm text-muted">{g.name}</p>
+                <p className="px-3 pt-2 text-sm text-side-text/70">{g.name}</p>
                 {g.categories.map((c) => {
                   const active = path === `/admin/templates/${c.templateId}`;
                   return (
@@ -92,7 +92,7 @@ export function AdminSidebar({
                       key={c.templateId}
                       href={`/admin/templates/${c.templateId}`}
                       onClick={closeDrawer}
-                      className={`flex min-h-10 items-center gap-2.5 rounded-full border border-transparent px-4 text-base font-medium ${active ? "border-transparent bg-paper-3 text-ink" : "text-ink-2 hover:bg-paper-3 hover:text-ink"}`}
+                      className={`flex min-h-10 items-center gap-2.5 rounded-full border border-transparent px-4 text-base font-medium ${active ? "border-transparent bg-side-2 text-white" : "text-side-text hover:bg-side-2 hover:text-white"}`}
                     >
                       <span className="inline-block h-3 w-3 shrink-0" style={{ background: c.colour }} />
                       {c.name}
@@ -112,8 +112,8 @@ export function AdminSidebar({
         {item("/admin/archive", "finished", "Finished", is("/admin/archive"))}
       </nav>
 
-      <form action={logout} className="mt-4 border-t border-rule pt-3">
-        <button className={`${row} text-ink-2 hover:bg-paper-3 hover:text-ink`}>
+      <form action={logout} className="mt-4 border-t border-white/15 pt-3">
+        <button className={`${row} text-side-text hover:bg-side-2 hover:text-white`}>
           <Icon name="logout" className="h-5 w-5 shrink-0" />
           Log out
         </button>

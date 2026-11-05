@@ -1,5 +1,5 @@
-/* Hallmark · shape: app screen · genre: modern-minimal · theme: Ultraviolet (deal 3/3, seed modern-sleek-internal-operations-9b1c·829130f5·2026-11-04·r1), colours from Cobalt (by request) · redesign: full
- * nav: pill tabs on the paper step, the project's own destinations kept · signature: the round position tag and the readings strip, counts in light Outfit figures · states: loading, empty, error, full · ultraviolet: lavender with Cobalt colours
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: Ultraviolet (deal 3/3, seed modern-sleek-internal-operations-9b1c·829130f5·2026-11-04·r1), colours Indigo (by request) · redesign: full
+ * nav: pill tabs on the paper step, the project's own destinations kept · signature: the round position tag and the readings strip, counts in light Outfit figures · states: loading, empty, error, full · ultraviolet: lavender with Indigo colours
  * axes: light/geometric-sans/cool · posture: committed · contrast: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a pill-shaped light tool can look like any consumer app; answered with lowercase everywhere, round position tags and light-weight figures, and the owner's red, green and blue bands kept as the only extra colours */
 /* Hallmark · dropped onClick={() => setSteps((rows) => [...rows, { u… · the Add a step handler now also starts each step with an empty required-fields list (needs: []), a feature added after the redesign; behaviour otherwise unchanged */
@@ -19,26 +19,26 @@
   name: "tailor";
   default: true;
   color-scheme: light;
-  --color-base-100: oklch(96.2% 0.008 252);
-  --color-base-200: oklch(98.6% 0.005 250);
-  --color-base-300: oklch(90% 0.009 252);
-  --color-base-content: oklch(21% 0.028 262);
-  --color-primary: oklch(52% 0.19 258);
-  --color-primary-content: oklch(98.6% 0.005 250);
-  --color-secondary: oklch(43% 0.2 262);
-  --color-secondary-content: oklch(98.6% 0.005 250);
-  --color-accent: oklch(52% 0.19 258);
-  --color-accent-content: oklch(98.6% 0.005 250);
-  --color-neutral: oklch(21% 0.028 262);
-  --color-neutral-content: oklch(98.6% 0.005 250);
-  --color-info: oklch(52% 0.19 258);
-  --color-info-content: oklch(98.6% 0.005 250);
+  --color-base-100: #FFFFFF;
+  --color-base-200: #EEF1FB;
+  --color-base-300: #D8DCF0;
+  --color-base-content: #12122B;
+  --color-primary: #4F46E5;
+  --color-primary-content: #FFFFFF;
+  --color-secondary: #3730A3;
+  --color-secondary-content: #FFFFFF;
+  --color-accent: #4F46E5;
+  --color-accent-content: #FFFFFF;
+  --color-neutral: #12122B;
+  --color-neutral-content: #FFFFFF;
+  --color-info: #4F46E5;
+  --color-info-content: #FFFFFF;
   --color-success: oklch(46% 0.12 150);
-  --color-success-content: oklch(98.6% 0.005 250);
-  --color-warning: oklch(92% 0.04 256);
-  --color-warning-content: oklch(21% 0.028 262);
+  --color-success-content: #FFFFFF;
+  --color-warning: #F59E0B;
+  --color-warning-content: #12122B;
   --color-error: oklch(48% 0.19 27);
-  --color-error-content: oklch(98.6% 0.005 250);
+  --color-error-content: #FFFFFF;
   --radius-selector: 999px;
   --radius-field: 999px;
   --radius-box: 1rem;
@@ -52,27 +52,33 @@
 /* Tailwind names for the Ultraviolet tokens (tokens.css is the source; these expose them as utilities).
    Red, green and blue are the owner's bands (urgent, coming due, later) and appear only as small marks and status words. */
 @theme {
-  --color-paper: oklch(98.6% 0.005 250);
-  --color-paper-2: oklch(96.2% 0.008 252);
-  --color-paper-3: oklch(93% 0.011 252);
-  --color-ink: oklch(21% 0.028 262);
-  --color-ink-2: oklch(36% 0.022 260);
-  --color-muted: oklch(50% 0.018 258);
-  --color-rule: oklch(90% 0.009 252);
-  --color-rule-2: oklch(83% 0.012 252);
-  --color-accent: oklch(52% 0.19 258);
-  --color-accent-deep: oklch(43% 0.2 262);
-  --color-accent-soft: oklch(92% 0.04 256);
-  --color-accent-ink: oklch(98.6% 0.005 250);
+  --color-paper: #EEF1FB;
+  --color-paper-2: #FFFFFF;
+  --color-paper-3: #E3E7F8;
+  --color-ink: #12122B;
+  --color-ink-2: #34365C;
+  --color-muted: #5B5F86;
+  --color-rule: #D8DCF0;
+  --color-rule-2: #B5BCE0;
+  --color-accent: #4F46E5;
+  --color-accent-deep: #3730A3;
+  --color-accent-wash: #E0E1FF;
+  --color-accent-ink: #FFFFFF;
+  --color-accent-soft: #E0E1FF;
+  --color-key-face: #FFFFFF;
+  --color-key-edge: #B5BCE0;
+  --color-side: #1B1A4B;
+  --color-side-2: #312F86;
+  --color-side-text: #C7CAF2;
   --color-bad: oklch(48% 0.19 27);
-  --color-bad-soft: oklch(93% 0.04 27);
+  --color-bad-soft: oklch(95.5% 0.025 27);
   --color-ok: oklch(46% 0.12 150);
-  --color-ok-soft: oklch(93% 0.04 150);
-  --color-cool: oklch(52% 0.19 258);
-  --color-cool-soft: oklch(92% 0.04 256);
+  --color-ok-soft: oklch(95.5% 0.03 150);
+  --color-cool: oklch(50% 0.2 255);
+  --color-cool-soft: oklch(94% 0.035 255);
   --color-thread: oklch(48% 0.19 27);
   --color-leaf: oklch(46% 0.12 150);
-  --color-cloth: oklch(52% 0.19 258);
+  --color-cloth: oklch(50% 0.2 255);
   --font-sans: var(--font-body);
   --font-mono: var(--font-outlier);
 }
@@ -87,7 +93,7 @@
   }
 }
 
-/* Lowercase is the material: heads, nav, buttons, labels and chips carry no capitals. Data (a customer's name) keeps its case via .normal-case. */
+/* Text shows as written, with a capital first letter (owner's request). .normal-case stays for data such as a customer's name. */
 h1,
 h2,
 h3,
@@ -97,7 +103,7 @@ aside,
 aside button,
 header label,
 .sign span {
-  text-transform: lowercase;
+  text-transform: none;
 }
 .normal-case {
   text-transform: none;
@@ -110,7 +116,7 @@ header label,
   .panel {
     background: var(--color-paper-2);
     color: var(--color-ink);
-    border: 0 solid var(--color-rule);
+    border: 1px solid var(--color-rule);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
     padding: var(--space-lg);
@@ -150,7 +156,7 @@ header label,
     font-weight: 500;
     letter-spacing: var(--tracking-display);
     line-height: 1;
-    text-transform: lowercase;
+    text-transform: none;
   }
   .page-sub {
     color: var(--color-muted);
@@ -201,6 +207,7 @@ header label,
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--rule-hair);
+    border: 1px solid var(--color-rule);
     border-radius: var(--radius-card);
     background: var(--color-rule);
     box-shadow: var(--shadow-card);
@@ -310,7 +317,7 @@ header label,
 /* Fields are pills (a textarea is a rounded surface): a muted border that stays 3:1 against the surface, ink on hover, a violet outline on focus. */
 .input,
 .select {
-  background-color: var(--color-paper);
+  background-color: var(--color-paper-2);
   border: 1.5px solid var(--color-muted);
   border-radius: var(--radius-pill);
   color: var(--color-ink);
@@ -318,7 +325,7 @@ header label,
   padding-inline: var(--space-md);
 }
 .textarea {
-  background-color: var(--color-paper);
+  background-color: var(--color-paper-2);
   border: 1.5px solid var(--color-muted);
   border-radius: var(--radius-card);
   color: var(--color-ink);
@@ -390,4 +397,20 @@ input[type="color"]::-moz-color-swatch {
 /* A <fieldset> must be allowed to shrink with its container (the browser default stops it at its content width). */
 fieldset {
   min-width: 0;
+}
+
+/* The phone header's menu button sits on the dark indigo bar, so it stays white (an unlayered .btn colour would otherwise win). */
+.btn.btn-ghost.nav-toggle {
+  color: #fff;
+}
+.btn.btn-ghost.nav-toggle:hover {
+  background-color: var(--color-side-2);
+}
+
+/* The sidebar still scrolls when the categories list is open, but without a scrollbar strip beside it. */
+.drawer-side {
+  scrollbar-width: none;
+}
+.drawer-side::-webkit-scrollbar {
+  display: none;
 }

@@ -8,14 +8,15 @@
   --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
   --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-  --color-paper: oklch(98.6% 0.005 250); --color-paper-2: oklch(96.2% 0.008 252); --color-paper-3: oklch(93% 0.011 252);
-  --color-ink: oklch(21% 0.028 262); --color-ink-2: oklch(36% 0.022 260); --color-muted: oklch(50% 0.018 258);
-  --color-rule: oklch(90% 0.009 252); --color-rule-2: oklch(83% 0.012 252);
-  --color-accent: oklch(52% 0.19 258); --color-accent-deep: oklch(43% 0.2 262); --color-accent-soft: oklch(92% 0.04 256);
-  --color-accent-ink: oklch(98.6% 0.005 250); --color-focus: oklch(52% 0.19 258);
+  --color-paper: #EEF1FB; --color-paper-2: #FFFFFF; --color-paper-3: #E3E7F8;
+  --color-ink: #12122B; --color-ink-2: #34365C; --color-muted: #5B5F86;
+  --color-rule: #D8DCF0; --color-rule-2: #B5BCE0;
+  --color-accent: #4F46E5; --color-accent-deep: #3730A3; --color-accent-soft: #E0E1FF;
+  --color-accent-ink: #FFFFFF; --color-focus: #4F46E5;
+  --color-side: #1B1A4B; --color-side-2: #312F86; --color-side-text: #C7CAF2;
   --font-display: var(--font-outfit), "Outfit", ui-sans-serif, system-ui, sans-serif; --font-body: var(--font-onest), "Onest", ui-sans-serif, sans-serif;
   --font-outlier: "JetBrains Mono", ui-monospace, monospace;
   --radius-card: 16px; --radius-pill: 999px; --rule-hair: 1px;
-  --shadow-card: 0 1px 2px oklch(18% 0.02 300 / 0.06);
+  --shadow-card: 0 1px 2px rgb(27 26 75 / 0.08), 0 10px 28px -14px rgb(27 26 75 / 0.28);
   --tracking-display: -0.03em; --display-weight: 500;
 }

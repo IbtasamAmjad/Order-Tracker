@@ -43,7 +43,7 @@ export default async function EditOrder({
   return (
     <div className="space-y-6">
       <h1 className="page-title normal-case">
-        #{order.orderNumber} {order.customerName} <span className="ml-2 inline-block rounded-full bg-accent-soft px-3 py-0.5 align-middle text-sm font-medium text-accent-deep lowercase">{order.status}</span>
+        #{order.orderNumber} {order.customerName} <span className="ml-2 inline-block rounded-full bg-accent-soft px-3 py-0.5 align-middle text-sm font-medium text-accent-deep capitalize">{order.status}</span>
       </h1>
       {updated && <Notice tone="success">Updated from the category. The master will see it was changed.</Notice>}
       {e && REFRESH_ERRORS[e] && <Notice tone="error">{REFRESH_ERRORS[e]}</Notice>}
