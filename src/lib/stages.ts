@@ -172,9 +172,10 @@ export type CompleteStageResult =
  * - every field the admin made mandatory for this stage must be filled in
  * - photo-required stage: latest photo must be approved by Admin
  * - master: only while it is his turn on the order (Admin can override per order)
+ * - Admin with force: finishes a stuck step without the photo or fields check (the stage must still be open)
  */
 export function completeStage(
-  who: { by: "master"; masterId: number } | { by: "admin" },
+  who: { by: "master"; masterId: number } | { by: "admin"; force?: boolean },
   itemId: number,
   stageKey: string,
 ): CompleteStageResult {
@@ -186,10 +187,11 @@ export function completeStage(
     if (s.row.status !== "open") return { ok: false, reason: "not-open" } as const;
     if (who.by === "master" && !isMasterTurn(who.masterId, s.order.id)) return { ok: false, reason: "blocked" } as const;
 
+    const force = who.by === "admin" && who.force === true;
     const missing = stageRequirements(s.item, s.def, pictureKeysOf(tx, itemId)).filter((x) => !x.filled);
-    if (missing.length > 0) return { ok: false, reason: "needs-fields" } as const;
+    if (missing.length > 0 && !force) return { ok: false, reason: "needs-fields" } as const;
 
-    if ((s.def?.photo ?? "none") === "required") {
+    if ((s.def?.photo ?? "none") === "required" && !force) {
       const latest = tx
         .select()
         .from(photos)
@@ -264,8 +266,14 @@ export function reviewPhoto(id: number, decision: "approved" | "rejected", comme
   return { ok: true };
 }
 
+/** Photos waiting for a decision, on orders that are still active (a cancelled or finished order's photo needs no decision). */
 export function pendingPhotoCount(): number {
-  return db.select({ id: photos.id }).from(photos).where(and(eq(photos.type, "stage"), eq(photos.status, "pending"))).all().length;
+  return db
+    .select({ id: photos.id })
+    .from(photos)
+    .innerJoin(orders, eq(photos.orderId, orders.id))
+    .where(and(eq(photos.type, "stage"), eq(photos.status, "pending"), eq(orders.status, "active")))
+    .all().length;
 }
 
 /** Review queue: newest first, with order / item / stage context. */
@@ -276,7 +284,7 @@ export function pendingPhotos() {
     .innerJoin(orderItems, eq(photos.itemId, orderItems.id))
     .innerJoin(orders, eq(photos.orderId, orders.id))
     .innerJoin(masters, eq(orders.masterId, masters.id))
-    .where(and(eq(photos.type, "stage"), eq(photos.status, "pending")))
+    .where(and(eq(photos.type, "stage"), eq(photos.status, "pending"), eq(orders.status, "active")))
     .orderBy(desc(photos.id))
     .all();
   return rows.map((r) => ({
@@ -311,4 +319,33 @@ export function photoForMaster(masterId: number, photoId: number) {
   const o = db.select().from(orders).where(eq(orders.id, p.orderId)).get();
   if (!o || o.masterId !== masterId || o.status === "archived") return null;
   return p;
+}
+
+// --------------------------------------------------------------- what is waiting for the office
+
+export type OfficeTodo = { orderId: number; orderNumber: number; customerName: string; itemLabel: string; stageLabel: string; fields: string[] };
+
+/**
+ * Open steps on active orders that cannot move because a mandatory field is one only the office can fill in.
+ * Photos waiting for a decision are counted separately (pendingPhotoCount).
+ */
+export function officeTodo(): OfficeTodo[] {
+  const rows = db
+    .select({ item: orderItems, order: orders })
+    .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(eq(orders.status, "active"))
+    .orderBy(asc(orders.orderNumber), asc(orderItems.position))
+    .all();
+  const out: OfficeTodo[] = [];
+  for (const { item, order } of rows) {
+    for (const stage of itemStageViews(item.id)) {
+      if (stage.status !== "open") continue;
+      const fields = stage.requiredFields.filter((f) => !f.filled && !f.masterCanEdit).map((f) => f.label);
+      if (fields.length > 0) {
+        out.push({ orderId: order.id, orderNumber: order.orderNumber, customerName: order.customerName, itemLabel: item.label, stageLabel: stage.label, fields });
+      }
+    }
+  }
+  return out;
 }

@@ -9,12 +9,14 @@ import {
   moveOrder,
   setAllowOutOfSequence,
   setStatus,
+  unarchiveOrder,
   updateOrder,
   type OrderInput,
 } from "@/lib/orders";
 import { cleanValues, itemLabel, missingRequired, type NewItem } from "@/lib/items";
 import { templateForItem } from "@/lib/templates";
 import { completeStage, reviewPhoto } from "@/lib/stages";
+import { refreshItemFromCategory } from "@/lib/item-sync";
 import type { EditorState } from "@/lib/editor-state";
 import { createMaster, reissueLink, setActive, setPin } from "@/lib/masters";
 import { ORDER_STATUSES, type FieldDef, type OrderStatus } from "@/db/schema";
@@ -124,6 +126,13 @@ export async function setStatusAction(f: FormData) {
   redirect(status === "archived" ? "/admin/archive" : status === "cancelled" ? `/admin/customers?notify=cancelled:${num(f, "id")}` : "/admin/customers");
 }
 
+/** Bring an archived order back to the Finished list. */
+export async function unarchiveOrderAction(f: FormData) {
+  await requireAdmin();
+  unarchiveOrder(num(f, "id"));
+  redirect("/admin/archive?view=archived");
+}
+
 export async function allowOutOfSequenceAction(f: FormData) {
   await requireAdmin();
   setAllowOutOfSequence(num(f, "id"), str(f, "allow") === "1");
@@ -168,6 +177,15 @@ export async function reviewPhotoAction(f: FormData) {
 export async function completeStageAdminAction(f: FormData) {
   await requireAdmin();
   const orderId = num(f, "orderId");
-  const res = completeStage({ by: "admin" }, num(f, "itemId"), str(f, "stageKey"));
+  // force = "Mark done anyway": skips the photo and fields check when a step cannot be finished the normal way
+  const res = completeStage({ by: "admin", force: str(f, "force") === "1" }, num(f, "itemId"), str(f, "stageKey"));
   redirect(`/admin/orders/${orderId}${res.ok ? "" : `?e=${res.reason}`}`);
+}
+
+/** Copy the category's current form and steps into one item of an existing customer. */
+export async function refreshItemAction(f: FormData) {
+  await requireAdmin();
+  const orderId = num(f, "orderId");
+  const res = refreshItemFromCategory(num(f, "itemId"));
+  redirect(`/admin/orders/${orderId}${res === "ok" ? "?updated=1" : `?e=refresh-${res}`}`);
 }

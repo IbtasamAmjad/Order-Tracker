@@ -7,7 +7,7 @@ import { clearFailures, isLocked, recordFailure, verifyPin } from "@/lib/pin";
 import { masterComplete, masterSaveFields } from "@/lib/orders";
 import { requireMaster } from "@/lib/master-session";
 import { completeStage } from "@/lib/stages";
-import { saveShipmentItems, submitShipment } from "@/lib/shipping";
+import { saveShipmentItems, startShipment, submitShipment } from "@/lib/shipping";
 
 export async function submitPinAction(f: FormData) {
   const token = String(f.get("token") ?? "");
@@ -58,9 +58,11 @@ export async function completeStageAction(f: FormData) {
 export async function sendShipmentAction(f: FormData) {
   const token = String(f.get("token") ?? "");
   const orderId = Number(f.get("orderId"));
-  const sid = Number(f.get("shipmentId"));
   const master = await requireMaster(token);
   if (!master) redirect(`/m/${token}`);
+  // the shipment already exists once a photo was added; otherwise it starts now
+  const sid = Number(f.get("shipmentId")) || startShipment(master.id, orderId) || 0;
+  if (!sid) redirect(`/m/${token}/orders/${orderId}/ship?e=not-draft`);
   const ids = (name: string) => f.getAll(name).map(Number).filter(Boolean);
   saveShipmentItems(master.id, sid, ids("inc"), ids("chk"));
   const res = submitShipment(master.id, sid);

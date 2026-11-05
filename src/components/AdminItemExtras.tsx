@@ -1,7 +1,8 @@
 import { itemStageViews, referencePhotos } from "@/lib/stages";
 import { itemShipReadiness } from "@/lib/shipping";
+import { categoryDiffers } from "@/lib/item-sync";
 import type { ItemSnapshot } from "@/db/schema";
-import { completeStageAdminAction } from "@/app/admin/actions";
+import { completeStageAdminAction, refreshItemAction } from "@/app/admin/actions";
 import { PhotoUpload } from "./PhotoUpload";
 import { DownloadLink } from "@/components/DownloadLink";
 import { btnSecondary } from "./ui";
@@ -14,17 +15,29 @@ export function AdminItemExtras({
   item,
 }: {
   orderId: number;
-  item: { id: number; label: string; snapshot: ItemSnapshot };
+  item: { id: number; label: string; snapshot: ItemSnapshot; templateId: number | null };
 }) {
   const pictureFields = item.snapshot.fields.filter((f) => f.type === "picture");
   const refs = referencePhotos(item.id);
   const stages = itemStageViews(item.id);
   const shipping = itemShipReadiness(item.id);
-  if (pictureFields.length === 0 && stages.length === 0) return null;
+  const changed = categoryDiffers(item);
+  if (pictureFields.length === 0 && stages.length === 0 && !changed) return null;
 
   return (
     <section className="space-y-3 panel" style={{ borderColor: item.snapshot.colour }}>
       <h2 className="text-xl font-medium">{item.label}</h2>
+      {changed && (
+        <form action={refreshItemAction} className="space-y-2 rounded-2xl bg-accent-soft p-4">
+          <input type="hidden" name="orderId" value={orderId} />
+          <input type="hidden" name="itemId" value={item.id} />
+          <p className="text-base font-medium">The category has changed since this customer was added.</p>
+          <p className="text-base">
+            Update this customer to the category&apos;s current form and steps. What is already filled in stays, steps already done stay done, and the master is told it was updated.
+          </p>
+          <button className={btnSecondary}>Update from the category</button>
+        </form>
+      )}
       {stages.length > 0 && (
         <p className="text-base text-muted">
           {shipping.ready ? "Shipping: approved, the master can send it." : `Shipping: waiting. ${shipping.blockers.join("; ")}`}
@@ -89,14 +102,29 @@ export function AdminItemExtras({
                 )}
               </div>
               {s.status === "open" && (
-                <form action={completeStageAdminAction}>
-                  <input type="hidden" name="orderId" value={orderId} />
-                  <input type="hidden" name="itemId" value={item.id} />
-                  <input type="hidden" name="stageKey" value={s.key} />
-                  <button className={btnSecondary} disabled={!s.photoOk || !s.fieldsOk}>
-                    Mark done
-                  </button>
-                </form>
+                <div className="space-y-2">
+                  <form action={completeStageAdminAction}>
+                    <input type="hidden" name="orderId" value={orderId} />
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <input type="hidden" name="stageKey" value={s.key} />
+                    <button className={btnSecondary} disabled={!s.photoOk || !s.fieldsOk}>
+                      Mark done
+                    </button>
+                  </form>
+                  {(!s.photoOk || !s.fieldsOk) && (
+                    <details className="text-base">
+                      <summary className="inline-flex min-h-11 cursor-pointer items-center underline">Cannot finish it?</summary>
+                      <form action={completeStageAdminAction} className="mt-1 space-y-2">
+                        <p>This finishes the step without the photo or fields check and opens the next step.</p>
+                        <input type="hidden" name="orderId" value={orderId} />
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input type="hidden" name="stageKey" value={s.key} />
+                        <input type="hidden" name="force" value="1" />
+                        <button className={btnSecondary}>Mark done anyway</button>
+                      </form>
+                    </details>
+                  )}
+                </div>
               )}
             </li>
           ))}

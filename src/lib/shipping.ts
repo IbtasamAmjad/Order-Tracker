@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { masters, orderItems, orders, photos, shipmentItems, shipments } from "@/db/schema";
-import { isMasterTurn, itemStageViews } from "./stages";
+import { itemStageViews } from "./stages";
 
 // ---------------------------------------------------------------- items
 
@@ -66,6 +66,34 @@ export function shippableItems(orderId: number) {
 function ownShipment(masterId: number, shipmentId: number) {
   const s = db.select().from(shipments).where(eq(shipments.id, shipmentId)).get();
   return s && s.masterId === masterId ? s : null;
+}
+
+/**
+ * May this master send this order now? The order must be his own and active. It also needs to be his turn, but an
+ * earlier order that has nothing ready to send (it is waiting for Admin, say) does not hold the later ones back.
+ * Admin can always allow it with "Allow before earlier orders".
+ */
+export function canMasterShip(masterId: number, orderId: number): boolean {
+  const o = db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.masterId, masterId))).get();
+  if (!o || o.status !== "active") return false;
+  if (o.allowOutOfSequence) return true;
+  const earlier = db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.masterId, masterId), eq(orders.status, "active"), lt(orders.priorityPosition, o.priorityPosition)))
+    .all();
+  return !earlier.some((e) => shippableItems(e.id).some((i) => i.shippedIn === null && i.ready));
+}
+
+/** The open draft shipment for an order, if there is one. Looking never creates one. */
+export function findDraft(masterId: number, orderId: number): ShipmentView | null {
+  const d = db
+    .select({ id: shipments.id })
+    .from(shipments)
+    .where(and(eq(shipments.orderId, orderId), eq(shipments.masterId, masterId), eq(shipments.status, "draft")))
+    .orderBy(desc(shipments.id))
+    .get();
+  return d ? shipmentView(d.id) : null;
 }
 
 /** Start a shipment for an order, or reuse the open draft. Only for the master's own, still active orders. */
@@ -188,7 +216,7 @@ export function shipmentRequirements(v: ShipmentView) {
 /**
  * Submit = handed to the shipping company. Needs: at least one item, every chosen item approved for
  * shipping (steps finished, photos approved), every chosen item ticked as present, and the bill uploaded. An item can be in only one submitted shipment. The master can only
- * submit while it is his turn on the order (Admin can allow it). When every item of the order has
+ * submit while it is his turn on the order (Admin can allow it; see canMasterShip). When every item of the order has
  * shipped, the order becomes completed.
  */
 export function submitShipment(masterId: number, shipmentId: number): SubmitResult {
@@ -202,7 +230,7 @@ export function submitShipment(masterId: number, shipmentId: number): SubmitResu
     if (v.items.some((i) => !itemShipReadiness(i.itemId).ready)) return { ok: false, reason: "not-ready" } as const;
     if (!req.allChecked) return { ok: false, reason: "unchecked" } as const;
     if (!req.hasBill) return { ok: false, reason: "no-bill" } as const;
-    if (!isMasterTurn(masterId, s.orderId)) return { ok: false, reason: "blocked" } as const;
+    if (!canMasterShip(masterId, s.orderId)) return { ok: false, reason: "blocked" } as const;
 
     const sent = new Set(shippableItems(s.orderId).filter((i) => i.shippedIn !== null).map((i) => i.id));
     if (v.items.some((i) => sent.has(i.itemId))) return { ok: false, reason: "already-shipped" } as const;

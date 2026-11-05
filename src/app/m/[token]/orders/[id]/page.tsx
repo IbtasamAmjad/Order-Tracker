@@ -100,12 +100,18 @@ export default async function MasterOrder({
               : "That did not work. Please try again."}
         </p>
       )}
+      {e === "not-shipped" && (
+        <p role="alert" className="alert alert-error text-lg font-medium">Send the items first. The order closes when everything has been sent.</p>
+      )}
       {e === "blocked" && (
         <p role="alert" className="alert alert-error text-lg font-medium">Finish the orders above this one first.</p>
       )}
 
       {order.status === "active" &&
-        (order.canComplete ? (
+        (items.length > 0 ? (
+          // an order with items is closed by sending them, so "Mark complete" would only be a way round shipping
+          <p className="alert text-lg">This order closes by itself when every item has been sent. Use Shipping above.</p>
+        ) : order.canComplete ? (
           <form action={completeOrderAction}>
             <input type="hidden" name="token" value={token} />
             <input type="hidden" name="orderId" value={order.id} />

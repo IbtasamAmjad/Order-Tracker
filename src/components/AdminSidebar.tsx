@@ -76,11 +76,11 @@ export function AdminSidebar({
         {open && (
           <div className="ml-4 space-y-0.5 border-l border-rule pb-2 pl-3">
             <Link
-              href="/admin/templates/new"
+              href="/admin/templates"
               onClick={closeDrawer}
               className="flex min-h-10 items-center gap-2 px-3 text-sm font-medium text-accent hover:underline"
             >
-              <Icon name="plus" className="h-4 w-4" /> New category
+              <Icon name="categories" className="h-4 w-4" /> All categories
             </Link>
             {groups.map((g) => (
               <div key={g.id}>

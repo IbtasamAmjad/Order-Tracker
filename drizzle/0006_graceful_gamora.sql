@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `archived_from` text;

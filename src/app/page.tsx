@@ -10,19 +10,12 @@ export default function Home() {
         <hr className="stitch mx-auto my-3 w-24" />
         <p className="page-sub">Custom orders, from first measurement to shipment.</p>
       </div>
-      <div className="panel space-y-5 p-6">
-        <div>
-          <h2 className="text-xl">Admin</h2>
-          <Link href="/admin" className={`${btnPrimary} mt-2 w-full`}>
-            Open orders
-            <Icon name="arrow" className="h-4 w-4" />
-          </Link>
-        </div>
-        <hr className="stitch" />
-        <div>
-          <h2 className="text-xl">Masters</h2>
-          <p className="mt-1 text-base text-muted">Use the personal link Anas sent you.</p>
-        </div>
+      <div className="panel space-y-3 p-6">
+        <h2 className="text-xl">Admin</h2>
+        <Link href="/admin" className={`${btnPrimary} w-full`}>
+          Open orders
+          <Icon name="arrow" className="h-4 w-4" />
+        </Link>
       </div>
     </main>
   );

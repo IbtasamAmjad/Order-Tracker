@@ -41,6 +41,7 @@ export function ShipmentFlow({
   token,
   orderId,
   shipmentId,
+  turnOk,
   ready,
   locked,
   initialPicked,
@@ -50,7 +51,8 @@ export function ShipmentFlow({
 }: {
   token: string;
   orderId: number;
-  shipmentId: number;
+  shipmentId: number | null; // null until a photo is added or Send is pressed
+  turnOk: boolean;
   ready: Choice[];
   locked: LockedChoice[];
   initialPicked: number[];
@@ -63,13 +65,18 @@ export function ShipmentFlow({
 
   const hasItems = picked.length > 0;
   const hasBill = billPhotoId !== null;
-  const canSend = hasItems && hasBill;
+  const canSend = hasItems && hasBill && turnOk;
   const photoUrl = (id: number) => `/api/m/${token}/photos/${id}`;
-  const endpoint = `/api/m/${token}/shipments/${shipmentId}/photos`;
+  const endpoint = `/api/m/${token}/orders/${orderId}/ship-photos`;
   const mark = (ok: boolean) => <Icon name={ok ? "check" : "alert"} className={`h-5 w-5 shrink-0 ${ok ? "text-leaf" : "text-muted"}`} />;
 
   return (
     <div className="space-y-6">
+      {!turnOk && (
+        <p role="status" className="rounded-2xl bg-paper-3 p-4 text-lg font-medium">
+          You can send this order after the orders above it. You can still get the bill photo ready now.
+        </p>
+      )}
       {error && (
         <p role="alert" className="rounded-2xl bg-thread/10 p-4 text-lg font-medium text-thread">
           {error}
@@ -127,7 +134,7 @@ export function ShipmentFlow({
       <form action={sendShipmentAction} className="panel space-y-3">
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="orderId" value={orderId} />
-        <input type="hidden" name="shipmentId" value={shipmentId} />
+        <input type="hidden" name="shipmentId" value={shipmentId ?? ""} />
         {picked.map((id) => (
           <span key={id}>
             <input type="hidden" name="inc" value={id} />
@@ -142,6 +149,11 @@ export function ShipmentFlow({
           <li className="flex items-center gap-2">
             {mark(hasBill)} {hasBill ? "Bill photo added" : "Add the bill photo"}
           </li>
+          {!turnOk && (
+            <li className="flex items-center gap-2">
+              {mark(false)} Wait for the orders above this one
+            </li>
+          )}
         </ul>
         <button disabled={!canSend} className={`${btnPrimary} w-full`}>
           Send to shipping

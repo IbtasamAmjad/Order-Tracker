@@ -17,7 +17,7 @@ export function FieldRow({
   value: string;
   pictureNote?: string;
 }) {
-  const label = `${f.label}${f.unit && f.type === "number" ? ` (${f.unit})` : ""}${f.required ? " *" : ""}`;
+  const label = `${f.label}${f.unit && f.type === "number" ? ` (${f.unit})` : ""}${f.required ? " (please fill in)" : ""}`;
   const options = f.options ?? [];
 
   if (f.type === "heading") {

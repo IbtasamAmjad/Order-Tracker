@@ -8,6 +8,24 @@ const isEmpty = (v: string | undefined) => v === undefined || v.trim() === "";
 export const CHOICE_TYPES = ["select", "radio", "checkboxes"] as const;
 export const isChoice = (f: FieldDef) => (CHOICE_TYPES as readonly string[]).includes(f.type);
 
+/**
+ * Names used by more than one field in a form (ignoring capitals and spaces at the ends). Headings and notes are
+ * only text on the form, so they may repeat. Two answerable fields with one name cannot be told apart in a step's
+ * list, on the printed sheet or on the customer form.
+ */
+export function duplicateFieldNames(fields: { label: string; type: string }[]): string[] {
+  const seen = new Map<string, { name: string; n: number }>();
+  for (const f of fields) {
+    const name = f.label.trim();
+    if (!name || isDisplayOnly(f)) continue;
+    const key = name.toLowerCase();
+    const hit = seen.get(key);
+    if (hit) hit.n++;
+    else seen.set(key, { name, n: 1 });
+  }
+  return [...seen.values()].filter((x) => x.n > 1).map((x) => x.name);
+}
+
 /** Fields the master can type into (pictures are uploaded separately). */
 /** Blocks that only show text (a bold heading or a note): nothing to fill in. */
 export const isDisplayOnly = (f: { type: string }) => f.type === "heading" || f.type === "note";

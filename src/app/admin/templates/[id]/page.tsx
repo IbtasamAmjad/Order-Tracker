@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormBuilder } from "@/components/FormBuilder";
-import { btnDanger, btnSecondary, input } from "@/components/ui";
+import { Notice, btnDanger, btnSecondary, input } from "@/components/ui";
 import { getTemplate } from "@/lib/templates";
 import { deleteCategoryAction, saveCategoryAction, setPrintGroupAction, updateCategoryAction } from "../actions";
 import { Icon } from "@/components/Icon";
@@ -11,11 +11,11 @@ export default async function CategoryBuilder({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; e?: string }>;
 }) {
   const t = getTemplate(Number((await params).id));
   if (!t) notFound();
-  const { saved } = await searchParams;
+  const { saved, e } = await searchParams;
 
   return (
     <div className="space-y-8">
@@ -28,6 +28,9 @@ export default async function CategoryBuilder({
         </h1>
       </div>
 
+      {e === "duplicate" && (
+        <Notice tone="error">Two fields have the same name, so nothing was saved. Give each field its own name, then save again.</Notice>
+      )}
       {saved && (
         <p role="status" className="alert alert-success text-lg font-medium">
           Saved. New customers will use this form.

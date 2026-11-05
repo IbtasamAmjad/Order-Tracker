@@ -2,18 +2,29 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderEditor } from "@/components/OrderEditor";
 import { getOrder, listItems } from "@/lib/orders";
-import { orderNotice } from "@/lib/notify";
-import { WhatsAppNotice } from "@/components/WhatsAppNotice";
 import { orderShipments } from "@/lib/shipping";
 import { listMasters } from "@/lib/masters";
 import { pickerGroups } from "@/lib/templates";
 import type { EditorItem } from "@/lib/editor-state";
 import { displayValue } from "@/lib/items";
 import { AdminItemExtras } from "@/components/AdminItemExtras";
-import { btnDanger, btnPrimary, btnSecondary, fmtDate, input } from "@/components/ui";
+import { Notice, btnDanger, btnPrimary, btnSecondary, fmtDate, input } from "@/components/ui";
 import { addItemAction, allowOutOfSequenceAction, saveOrderAction, setStatusAction } from "../../actions";
 
-export default async function EditOrder({ params }: { params: Promise<{ id: string }> }) {
+const REFRESH_ERRORS: Record<string, string> = {
+  "refresh-no-category": "This customer's category was deleted, so it cannot be updated from it.",
+  "refresh-closed": "A finished or cancelled customer cannot be updated.",
+  "refresh-not-found": "That item was not found.",
+};
+
+export default async function EditOrder({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ updated?: string; e?: string }>;
+}) {
+  const { updated, e } = await searchParams;
   const order = getOrder(Number((await params).id));
   if (!order) notFound();
   const masters = listMasters().filter((m) => m.active || m.id === order.masterId);
@@ -34,11 +45,8 @@ export default async function EditOrder({ params }: { params: Promise<{ id: stri
       <h1 className="page-title normal-case">
         #{order.orderNumber} {order.customerName} <span className="ml-2 inline-block rounded-full bg-accent-soft px-3 py-0.5 align-middle text-sm font-medium text-accent-deep lowercase">{order.status}</span>
       </h1>
-      {(["new", "movedUp", "updated", "cancelled"] as const)
-        .filter((k) => (k === "cancelled" ? order.status === "cancelled" : order.status === "active"))
-        .map((k) => (
-          <WhatsAppNotice key={k} notice={orderNotice(k, order.id)} />
-        ))}
+      {updated && <Notice tone="success">Updated from the category. The master will see it was changed.</Notice>}
+      {e && REFRESH_ERRORS[e] && <Notice tone="error">{REFRESH_ERRORS[e]}</Notice>}
       <Link href={`/admin/orders/${order.id}/print`} className={btnSecondary}>
         Print / PDF
       </Link>

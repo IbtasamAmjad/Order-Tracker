@@ -5,6 +5,7 @@
 /* Hallmark · dropped onClick={() => setSteps((rows) => [...rows, { u… · the Add a step handler now also starts each step with an empty required-fields list (needs: []), a feature added after the redesign; behaviour otherwise unchanged */
 /* Hallmark · dropped {`/api/m/${token}/photos/${shipment.billPhotoId}`}, {`/m/${token}/orders/${order.id}/ship/${d.id}`}, {saveShipmentAction}, {startShipmentAction}, {submitShipmentAction} · the shipment is one page now: choose items, add the bill photo, press Send. The "continue the shipment" link, the second page and the three separate actions became one sendShipmentAction; the bill photo link still exists inside ShipmentFlow, and the old /ship/[sid] address redirects to the shipping page */
 /* Hallmark · dropped go · New customer opens the form straight away, with the category numbers inside it (leave them at 0 to save without categories), so the separate "what do they need?" page and its "Continue without categories" button are gone; the q-number fields stay */
+/* Hallmark · dropped /admin/templates/new, {createCategoryAction}, newGroup · Groups and categories are made in one place, the Categories page: Add a group, then Add a category inside the group. The separate New category page, its action and its new-group field did the same job a second way; the old address redirects to the Categories page and the sidebar link now reads All categories */
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./base.css" layer(base);

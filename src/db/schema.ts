@@ -43,6 +43,8 @@ export const orders = sqliteTable("orders", {
   changedForMasterAt: ts("changed_for_master_at"),
   movedUpAt: ts("moved_up_at"),
   closedAt: ts("closed_at"), // when completed / cancelled
+  // what the order was before it was archived, so it can come back out of the archive as the same thing
+  archivedFrom: text("archived_from", { enum: ["completed", "cancelled"] }),
   masterEditedAt: ts("master_edited_at"), // last time the master changed a field he is allowed to edit
   createdAt: ts("created_at")
     .notNull()

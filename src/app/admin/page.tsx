@@ -4,7 +4,7 @@ import { listMasters } from "@/lib/masters";
 import { listAdminOrders } from "@/lib/orders";
 import { remindersList } from "@/lib/reminders";
 import { unseenShipmentCount } from "@/lib/shipping";
-import { orderProgress, pendingPhotoCount } from "@/lib/stages";
+import { officeTodo, orderProgress, pendingPhotoCount } from "@/lib/stages";
 import { Ruler, btnPrimary } from "@/components/ui";
 
 function Figure({ href, label, value, note }: { href: string; label: string; value: number; note: string }) {
@@ -26,6 +26,7 @@ export default function Home() {
   const photos = pendingPhotoCount();
   const shipments = unseenShipmentCount();
   const reminders = remindersList();
+  const waiting = officeTodo();
   const masters = listMasters()
     .filter((m) => m.active)
     .map((m) => {
@@ -65,6 +66,27 @@ export default function Home() {
         <Figure href="/admin/shipments" label="New shipments" value={shipments} note={shipments === 0 ? "None new" : "Sent with the bill"} />
         <Figure href="/admin/reminders" label="To chase" value={reminders.length} note={reminders.length === 0 ? "All caught up" : "Late or quiet orders"} />
       </div>
+
+      {waiting.length > 0 && (
+        <section className="panel space-y-2">
+          <h2 className="text-xl font-medium">Waiting for you</h2>
+          <p className="page-sub">These steps cannot move on until you fill something in.</p>
+          <ul className="divide-y divide-rule">
+            {waiting.map((w) => (
+              <li key={`${w.orderId}-${w.itemLabel}-${w.stageLabel}`}>
+                <Link href={`/admin/orders/${w.orderId}`} className="-mx-2 block px-2 py-3 hover:bg-paper-3">
+                  <span className="block text-base font-medium">
+                    #{w.orderNumber} {w.customerName}
+                  </span>
+                  <span className="block text-base text-accent-deep">
+                    {w.itemLabel}, {w.stageLabel}: fill in {w.fields.join(", ")}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className="panel space-y-5">

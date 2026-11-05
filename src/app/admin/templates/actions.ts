@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin-auth";
+import { duplicateFieldNames } from "@/lib/items";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -59,7 +60,9 @@ export async function saveCategoryAction(f: FormData) {
   await requireAdmin();
   revalidatePath("/admin", "layout");
   const id = Number(f.get("id"));
-  saveTemplate(id, fieldsFromBuilder(String(f.get("fields") ?? "[]")), stagesFromBuilder(String(f.get("stages") ?? "[]")));
+  const fields = fieldsFromBuilder(String(f.get("fields") ?? "[]"));
+  if (duplicateFieldNames(fields).length > 0) redirect(`/admin/templates/${id}?e=duplicate`);
+  saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")));
   redirect(`/admin/templates/${id}?saved=1`);
 }
 
@@ -68,18 +71,4 @@ export async function setPrintGroupAction(f: FormData) {
   const id = Number(f.get("id"));
   setPrintGroup(id, str(f, "printGroup"));
   redirect(`/admin/templates/${id}`);
-}
-
-/** The "New category" page: pick an existing group or type a new one, name the category, then go build its form. */
-export async function createCategoryAction(f: FormData) {
-  await requireAdmin();
-  revalidatePath("/admin", "layout");
-  const name = str(f, "name");
-  const colour = colourOf(f);
-  const newGroup = str(f, "newGroup");
-  let parentId = Number(f.get("parentId")) || 0;
-  if (newGroup) parentId = createMainCategory(newGroup, colour);
-  if (!name || !parentId) redirect("/admin/templates/new?e=missing");
-  const templateId = templateIdOf(createSubCategory(parentId, name, colour));
-  redirect(templateId ? `/admin/templates/${templateId}` : "/admin/templates");
 }

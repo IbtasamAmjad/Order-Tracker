@@ -7,7 +7,7 @@ import { LockedItems, ShipmentFlow } from "@/components/ShipmentFlow";
 import { fmtDate } from "@/components/ui";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterOrder } from "@/lib/orders";
-import { masterShipment, orderShipments, shippableItems, startShipment } from "@/lib/shipping";
+import { canMasterShip, findDraft, orderShipments, shippableItems } from "@/lib/shipping";
 
 const ERRORS: Record<string, string> = {
   "no-items": "Tick the items you are sending.",
@@ -42,9 +42,9 @@ export default async function ShipHome({
   const lockedItems = left.filter((i) => !i.ready);
   const submitted = orderShipments(order.id, "submitted");
 
-  // The shipment is one page now: the open draft (made once, only when something can be sent) is shown right here.
-  const sid = order.status === "active" && readyItems.length > 0 ? startShipment(master.id, order.id) : null;
-  const draft = sid ? masterShipment(master.id, sid) : null;
+  // The shipment is one page. An open draft is shown if there is one; looking at this page never makes one.
+  const draft = order.status === "active" && readyItems.length > 0 ? findDraft(master.id, order.id) : null;
+  const turnOk = canMasterShip(master.id, order.id);
 
   return (
     <div className="space-y-5">
@@ -58,16 +58,17 @@ export default async function ShipHome({
       {items.length === 0 && <p className="text-lg">This order has no items to ship.</p>}
 
       {order.status === "active" && left.length > 0 && (
-        draft ? (
+        readyItems.length > 0 ? (
           <ShipmentFlow
             token={token}
             orderId={order.id}
-            shipmentId={draft.id}
+            shipmentId={draft?.id ?? null}
+            turnOk={turnOk}
             ready={readyItems.map((i) => ({ id: i.id, label: i.label }))}
             locked={lockedItems.map((i) => ({ id: i.id, label: i.label, blockers: i.blockers }))}
-            initialPicked={draft.items.map((i) => i.itemId)}
-            billPhotoId={draft.billPhotoId}
-            packagePhotoId={draft.packagePhotoId}
+            initialPicked={draft?.items.map((i) => i.itemId) ?? []}
+            billPhotoId={draft?.billPhotoId ?? null}
+            packagePhotoId={draft?.packagePhotoId ?? null}
             error={e ? (ERRORS[e] ?? "That did not work. Please try again.") : null}
           />
         ) : (

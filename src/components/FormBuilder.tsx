@@ -18,6 +18,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { duplicateFieldNames } from "@/lib/items";
 import { Icon } from "./Icon";
 import { btnDanger, btnPrimary, btnSecondary, input, select, textarea } from "./ui";
 
@@ -60,7 +61,7 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
   },
   {
     group: "Pictures",
-    items: [{ type: "picture", name: "Image uploader", hint: "Add photos or pictures", label: "Picture" }],
+    items: [{ type: "picture", name: "Reference picture", hint: "A design or sample photo on the order (not the step photo)", label: "Reference picture" }],
   },
   {
     group: "Text on the form",
@@ -126,8 +127,10 @@ function FieldCard({
   onChange,
   onRemove,
   onMove,
+  duplicate,
 }: {
   f: BField;
+  duplicate: boolean;
   index: number;
   count: number;
   selected: boolean;
@@ -165,7 +168,8 @@ function FieldCard({
             </span>
             <span className="flex flex-wrap gap-1 pt-0.5 text-xs font-medium">
               <span className="opacity-60">{NAME[f.type]}</span>
-              {f.required && <span className="rounded bg-error/15 px-1.5 text-error">Required</span>}
+              {duplicate && <span className="rounded bg-error/15 px-1.5 text-error">Same name as another field</span>}
+              {f.required && f.type !== "picture" && <span className="rounded bg-error/15 px-1.5 text-error">Warns if empty</span>}
               {f.masterCanEdit && <span className="rounded bg-secondary/15 px-1.5 text-secondary">Master can fill</span>}
             </span>
           </span>
@@ -182,12 +186,21 @@ function FieldCard({
             ) : (
               <input value={f.label} onChange={(e) => onChange({ label: e.target.value })} className={input} autoFocus />
             )}
+            {duplicate && <span className="mt-1 block text-sm font-medium text-error">Another field already has this name. Give each field its own name.</span>}
           </label>
 
           {!displayOnly && (
             <>
-              <Toggle label="Must be filled in" checked={f.required} onChange={(v) => onChange({ required: v })} />
-              <p className="-mt-2 text-sm opacity-70">If it is empty you get a warning, but you can still save.</p>
+              {f.type === "picture" ? (
+                <p className="text-sm opacity-70">
+                  To make a picture compulsory, tick it under Steps, in &quot;Must be filled in before this step can be finished&quot;.
+                </p>
+              ) : (
+                <>
+                  <Toggle label="Warn me if this is left empty" checked={f.required} onChange={(v) => onChange({ required: v })} />
+                  <p className="-mt-2 text-sm opacity-70">Only a reminder: you can still save. To make a step wait for it, tick it under Steps.</p>
+                </>
+              )}
               <Toggle label="The master can fill this in" checked={f.masterCanEdit} onChange={(v) => onChange({ masterCanEdit: v })} />
             </>
           )}
@@ -238,16 +251,23 @@ function Canvas({ children }: { children: React.ReactNode }) {
 
 // ------------------------------------------------------------------- save
 
-function SaveButton({ dirty }: { dirty: boolean }) {
+function SaveButton({ dirty, duplicates }: { dirty: boolean; duplicates: string[] }) {
   const { pending } = useFormStatus();
+  const blocked = duplicates.length > 0;
   return (
     <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-base-300 bg-base-100/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      <button disabled={pending} className={`${btnPrimary} flex-1 sm:flex-none sm:px-10`}>
+      <button disabled={pending || blocked} className={`${btnPrimary} flex-1 sm:flex-none sm:px-10`}>
         {pending ? "Saving..." : "Save category"}
       </button>
-      <span className={`text-base font-medium ${dirty ? "text-warning-content" : "opacity-60"}`}>
-        {dirty ? "You have changes that are not saved yet" : "All changes saved"}
-      </span>
+      {blocked ? (
+        <span role="alert" className="text-base font-medium text-error">
+          Give each field its own name before saving. Used twice: {duplicates.map((d) => `"${d}"`).join(", ")}
+        </span>
+      ) : (
+        <span className={`text-base font-medium ${dirty ? "text-warning-content" : "opacity-60"}`}>
+          {dirty ? "You have changes that are not saved yet" : "All changes saved"}
+        </span>
+      )}
     </div>
   );
 }
@@ -286,6 +306,8 @@ export function FormBuilder({
     void uid;
     return rest;
   });
+  const dupes = duplicateFieldNames(fields);
+  const dupeNames = new Set(dupes.map((d) => d.toLowerCase()));
   const fieldsJson = JSON.stringify(strip(fields));
   const stepsJson = JSON.stringify(strip(steps));
   const dirty = JSON.stringify([strip(fields), strip(steps)]) !== start;
@@ -375,6 +397,7 @@ export function FormBuilder({
                     onChange={(p) => patch(f.uid, p)}
                     onRemove={() => remove(f.uid)}
                     onMove={(d) => move(f.uid, d)}
+                    duplicate={dupeNames.has(f.label.trim().toLowerCase()) && !DISPLAY_ONLY.includes(f.type)}
                   />
                 ))}
               </SortableContext>
@@ -420,16 +443,18 @@ export function FormBuilder({
       <section aria-label="Steps" className="space-y-3">
         <div>
           <h2 className="text-2xl font-medium">Steps</h2>
-          <p className="text-base opacity-80">The steps this category goes through, in order. Choose what must be done before a step can be finished: a photo you approve, and any fields that must be filled in.</p>
+          <p className="text-base opacity-80">
+            The steps this category goes through, in order. A step can wait for two different things. The <b>photo of the work</b> is sent by the master from the phone and you approve it. A <b>field</b> is something on the form above that must be filled in first.
+          </p>
         </div>
         {steps.map((s, i) => (
           <div key={s.uid} className="panel space-y-3">
-            <div className="grid gap-3 sm:grid-cols-[1fr_16rem]">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
               <input value={s.label} onChange={(e) => patchStep(s.uid, { label: e.target.value })} placeholder="Step name (e.g. Embroidery)" className={input} aria-label={`Step ${i + 1} name`} />
-              <select value={s.photo} onChange={(e) => patchStep(s.uid, { photo: e.target.value })} className={select} aria-label="Photo">
-                <option value="none">No photo needed</option>
-                <option value="optional">Photo optional</option>
-                <option value="required">Photo required (you approve it)</option>
+              <select value={s.photo} onChange={(e) => patchStep(s.uid, { photo: e.target.value })} className={select} aria-label="Work photo (the master sends it, you approve it)">
+                <option value="none">No work photo</option>
+                <option value="optional">Work photo: optional</option>
+                <option value="required">Work photo: required</option>
               </select>
             </div>
             <fieldset className="space-y-2">
@@ -444,22 +469,26 @@ export function FormBuilder({
                       return (
                         <label
                           key={f.key}
-                          className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-4 py-1 text-base ${on ? "bg-accent-soft text-accent-deep" : "bg-paper-3 text-ink"}`}
+                          className={`inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-3xl px-4 py-1 text-base ${on ? "bg-accent-soft text-accent-deep" : "bg-paper-3 text-ink"}`}
                         >
                           <input
                             type="checkbox"
-                            className="checkbox checkbox-sm checkbox-primary"
+                            className="checkbox checkbox-sm checkbox-primary shrink-0"
                             checked={on}
                             onChange={() => patchStep(s.uid, { needs: on ? s.needs.filter((k) => k !== f.key) : [...s.needs, f.key] })}
                           />
                           {f.label || "Field with no name"}
-                          {!f.masterCanEdit && <span className="text-sm text-muted">(you fill this in)</span>}
+                          {f.type === "picture" && <span className="text-sm text-muted">(picture on the form)</span>}
+                          {!f.masterCanEdit && <span className="text-sm text-muted">(only you can fill it: the step waits for you)</span>}
                         </label>
                       );
                     })}
                   </div>
                 );
               })()}
+              {fields.some((f) => !f.key && f.label.trim() && f.type !== "heading" && f.type !== "note") && (
+                <p className="text-sm text-muted">Fields you have just added appear here after you save the form.</p>
+              )}
             </fieldset>
             <div className="flex gap-2">
               <button type="button" onClick={() => moveStep(i, -1)} disabled={i === 0} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move step up">
@@ -483,8 +512,10 @@ export function FormBuilder({
         </button>
       </section>
 
-      <SaveButton dirty={dirty} />
-      <p className="text-sm opacity-60">Version {version}. Changing a category never changes customers that already exist.</p>
+      <SaveButton dirty={dirty} duplicates={dupes} />
+      <p className="text-sm opacity-60">
+        Saved version {version}. Changing a category does not change customers who are already on it. To bring one of them up to date, open the customer and press &quot;Update from the category&quot;.
+      </p>
     </form>
   );
 }

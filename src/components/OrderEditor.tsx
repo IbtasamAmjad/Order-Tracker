@@ -119,23 +119,27 @@ export function OrderEditor({
               {picker.groups.map((g) => (
                 <div key={g.id} className="space-y-2">
                   <h3 className="text-lg font-medium">{g.name}</h3>
-                  {g.items.map((it) => (
-                    <label
-                      key={it.templateId}
-                      className="panel flex min-h-14 cursor-pointer items-center gap-4 !py-3 has-[:checked]:bg-accent-soft"
-                    >
-                      <input
-                        type="checkbox"
-                        name={`q${it.templateId}`}
-                        value="1"
-                        checked={(counts[it.templateId] ?? 0) > 0}
-                        onChange={() => toggle(it.templateId)}
-                        className="checkbox checkbox-primary h-7 w-7 shrink-0"
-                      />
-                      <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: it.colour }} />
-                      <span className="min-w-0 flex-1 break-words text-xl">{it.name}</span>
-                    </label>
-                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    {g.items.map((it) => {
+                      const on = (counts[it.templateId] ?? 0) > 0;
+                      return (
+                        <label
+                          key={it.templateId}
+                          className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-4 py-1 text-base ${on ? "bg-accent-soft text-accent-deep" : "bg-paper-3 text-ink"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            name={`q${it.templateId}`}
+                            value="1"
+                            checked={on}
+                            onChange={() => toggle(it.templateId)}
+                            className="checkbox checkbox-sm checkbox-primary"
+                          />
+                          {it.name}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </>

@@ -202,3 +202,18 @@ describe("drag-and-drop builder save format", () => {
     expect(it_.isDisplayOnly(fields[2])).toBe(false);
   });
 });
+
+describe("duplicate field names", () => {
+  it("finds names used by more than one answerable field, ignoring case and spaces", async () => {
+    const { duplicateFieldNames } = await import("./items");
+    const f = (label: string, type = "text") => ({ label, type });
+    expect(duplicateFieldNames([f("Chest"), f("Waist"), f("Sleeve")])).toEqual([]);
+    expect(duplicateFieldNames([f("Choose one", "radio"), f("Chest"), f("choose one ", "radio")])).toEqual(["Choose one"]);
+    expect(duplicateFieldNames([f("A"), f("a"), f("B"), f("b"), f("b")])).toEqual(["A", "B"]);
+    // headings and notes are only text on the form, so they may repeat; empty names are ignored
+    expect(duplicateFieldNames([f("Heading", "heading"), f("Heading", "heading"), f("Note", "note"), f("Note", "note")])).toEqual([]);
+    expect(duplicateFieldNames([f(""), f("  ")])).toEqual([]);
+    // a heading and a field may share a name; two fields may not
+    expect(duplicateFieldNames([f("Neck", "heading"), f("Neck", "number")])).toEqual([]);
+  });
+});

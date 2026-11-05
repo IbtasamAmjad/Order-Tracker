@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, lt, max } from "drizzle-orm";
 import { db } from "@/db";
-import { masters, orderItems, orders, type OrderStatus } from "@/db/schema";
+import { masters, orderItems, orders, shipmentItems, shipments, type OrderStatus } from "@/db/schema";
 import { cleanValues, isTextEditable, type ItemValues, type NewItem } from "./items";
 import { createStageRows, orderProgress } from "./stages";
 import { lastActivityAt, orderFlags } from "./reminders";
@@ -127,7 +127,9 @@ export function setStatus(id: number, status: OrderStatus): boolean {
     .set({
       status,
       updatedAt: now,
-      ...(status === "archived" ? {} : { closedAt: now, changedForMasterAt: now }),
+      ...(status === "archived"
+        ? { archivedFrom: o.status === "cancelled" ? ("cancelled" as const) : ("completed" as const) }
+        : { closedAt: now, changedForMasterAt: now }),
     })
     .where(eq(orders.id, id))
     .run();
@@ -158,7 +160,11 @@ function firstActiveByMaster(): Map<number, number> {
   return first;
 }
 
-export function listAdminOrders(opts: { masterId?: number; view: "active" | "closed" }) {
+/**
+ * The admin's lists: the live orders; the finished ones (completed or cancelled, not yet put away);
+ * and the archive (put away, like WhatsApp's Archived chats: out of the main list but kept).
+ */
+export function listAdminOrders(opts: { masterId?: number; view: "active" | "finished" | "archived" }) {
   const first = firstActiveByMaster();
   const rows = db
     .select({ order: orders, masterName: masters.name })
@@ -168,7 +174,9 @@ export function listAdminOrders(opts: { masterId?: number; view: "active" | "clo
       and(
         opts.view === "active"
           ? eq(orders.status, "active")
-          : inArray(orders.status, ["completed", "cancelled", "archived"]),
+          : opts.view === "archived"
+            ? eq(orders.status, "archived")
+            : inArray(orders.status, ["completed", "cancelled"]),
         opts.masterId ? eq(orders.masterId, opts.masterId) : undefined,
       ),
     )
@@ -278,9 +286,13 @@ export function markSeen(masterId: number, orderId: number): void {
     .run();
 }
 
-export type CompleteResult = { ok: true } | { ok: false; reason: "not-found" | "not-active" | "blocked" };
+export type CompleteResult = { ok: true } | { ok: false; reason: "not-found" | "not-active" | "not-shipped" | "blocked" };
 
-/** Master marks an order complete. Blocked while an earlier order is unfinished, unless Admin allowed it. */
+/**
+ * Master marks an order complete. An order that has items is completed by shipping them, so this only works once
+ * every item has been sent (an order with no items has nothing to ship). It never skips approval or shipping.
+ * Blocked while an earlier order is unfinished, unless Admin allowed it.
+ */
 export function masterComplete(masterId: number, orderId: number): CompleteResult {
   return db.transaction((tx) => {
     const o = tx
@@ -290,6 +302,21 @@ export function masterComplete(masterId: number, orderId: number): CompleteResul
       .get();
     if (!o) return { ok: false, reason: "not-found" } as const;
     if (o.status !== "active") return { ok: false, reason: "not-active" } as const;
+
+    const items = tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, o.id)).all();
+    if (items.length > 0) {
+      const sent = new Set(
+        tx
+          .select({ itemId: shipmentItems.itemId })
+          .from(shipmentItems)
+          .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
+          .where(and(eq(shipments.orderId, o.id), eq(shipments.status, "submitted")))
+          .all()
+          .map((r) => r.itemId),
+      );
+      if (items.some((i) => !sent.has(i.id))) return { ok: false, reason: "not-shipped" } as const;
+    }
+
     const first = tx
       .select({ id: orders.id })
       .from(orders)
@@ -352,4 +379,37 @@ export function masterSaveFields(masterId: number, orderId: number, itemId: numb
     tx.update(orders).set({ masterEditedAt: new Date() }).where(eq(orders.id, orderId)).run();
     return true;
   });
+}
+
+/** How many orders are in each of the two closed lists (for the tabs). */
+export function closedCounts(): { finished: number; archived: number } {
+  const count = (statuses: OrderStatus[]) =>
+    db.select({ id: orders.id }).from(orders).where(inArray(orders.status, statuses)).all().length;
+  return { finished: count(["completed", "cancelled"]), archived: count(["archived"]) };
+}
+
+/**
+ * Take an order out of the archive, back to the list it came from (completed or cancelled).
+ * An order archived before that was written down is worked out: if something was never sent it was cancelled.
+ */
+export function unarchiveOrder(id: number): "completed" | "cancelled" | null {
+  const o = db.select().from(orders).where(eq(orders.id, id)).get();
+  if (!o || o.status !== "archived") return null;
+  let back = o.archivedFrom;
+  if (!back) {
+    const items = db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, id)).all();
+    const sent = new Set(
+      db
+        .select({ itemId: shipmentItems.itemId })
+        .from(shipmentItems)
+        .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
+        .where(and(eq(shipments.orderId, id), eq(shipments.status, "submitted")))
+        .all()
+        .map((r) => r.itemId),
+    );
+    back = items.some((i) => !sent.has(i.id)) ? "cancelled" : "completed";
+  }
+  const now = new Date();
+  db.update(orders).set({ status: back, archivedFrom: null, updatedAt: now, changedForMasterAt: now }).where(eq(orders.id, id)).run();
+  return back;
 }

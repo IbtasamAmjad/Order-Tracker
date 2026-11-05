@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listCategoryTree } from "@/lib/templates";
-import { Field, btnDanger, btnPrimary, btnSecondary, input } from "@/components/ui";
+import { EmptyState, Field, PageHeader, btnDanger, btnPrimary, btnSecondary, input } from "@/components/ui";
 import { createMainAction, createSubAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 import { Icon } from "@/components/Icon";
 
@@ -10,47 +10,56 @@ export default function Templates() {
   const tree = listCategoryTree();
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="page-title">Categories</h1>
-        <Link href="/admin/templates/new" className={btnPrimary}>
-          + New category
-        </Link>
-      </div>
-      <p className="text-lg">
-        A category is something you make, like Kurta or Sherwani. Open one to build its form: drag in the fields you want to fill for every
-        customer.
-      </p>
+      <PageHeader
+        title="Categories"
+        sub="A group holds categories. For example the group Men holds Kurta and Pagri. Open a category to build its form."
+      />
+
+      {tree.length === 0 && (
+        <EmptyState title="No groups yet">Start by adding a group below, such as Men or Ladies. Then add its categories.</EmptyState>
+      )}
 
       <ul className="space-y-6">
         {tree.map((main) => (
-          <li key={main.id} className="space-y-3 panel">
+          <li key={main.id} className="space-y-4 panel">
             <form action={updateCategoryAction} className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="id" value={main.id} />
               <input name="name" defaultValue={main.name} required className={`${input} min-w-0 flex-1 basis-40`} aria-label="Group name" />
               <input type="color" name="colour" defaultValue={main.colour} className={colourInput} aria-label="Colour" />
-              <button className={btnSecondary}>Save</button>
+              <button className={btnSecondary}>Save name</button>
             </form>
 
-            <ul className="space-y-2">
-              {main.subs.map((sub) => (
-                <li key={sub.id}>
-                  <Link
-                    href={`/admin/templates/${sub.template.id}`}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 panel text-xl font-medium"
-                  >
-                    <span className="inline-block h-5 w-5 rounded-full" style={{ background: sub.colour }} />
-                    <span className="min-w-0 flex-1 basis-24 break-words">{sub.name}</span>
-                    <span className="flex items-center gap-2 text-base font-normal">{sub.template.fields.length} fields<Icon name="arrow" className="h-4 w-4" /></span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {main.subs.length === 0 ? (
+              <p className="text-base text-muted">No categories in {main.name} yet. Add the first one below.</p>
+            ) : (
+              <ul className="space-y-2">
+                {main.subs.map((sub) => (
+                  <li key={sub.id}>
+                    <Link
+                      href={`/admin/templates/${sub.template.id}`}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 panel text-xl font-medium"
+                    >
+                      <span className="inline-block h-5 w-5 rounded-full" style={{ background: sub.colour }} />
+                      <span className="min-w-0 flex-1 basis-24 break-words">{sub.name}</span>
+                      <span className="flex items-center gap-2 text-base font-normal">
+                        {sub.template.fields.length} fields
+                        <Icon name="arrow" className="h-4 w-4" />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-            <form action={createSubAction} className="flex flex-wrap items-center gap-2">
-              <input type="hidden" name="parentId" value={main.id} />
-              <input name="name" required placeholder="New category (e.g. Kurta)" className={`${input} min-w-0 flex-1 basis-40`} />
-              <input type="color" name="colour" defaultValue="#64748b" className={colourInput} aria-label="Colour" />
-              <button className={btnPrimary}>Add</button>
+            <form action={createSubAction} className="space-y-2">
+              <p className="text-base font-medium">Add a category to {main.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="parentId" value={main.id} />
+                <input name="name" required placeholder="Name (e.g. Kurta)" aria-label={`New category in ${main.name}`} className={`${input} min-w-0 flex-1 basis-40`} />
+                <input type="color" name="colour" defaultValue="#64748b" className={colourInput} aria-label="Colour" />
+                <button className={btnPrimary}>Add category</button>
+              </div>
+              <p className="text-sm text-muted">Next you will build its form.</p>
             </form>
 
             <details>
@@ -67,7 +76,7 @@ export default function Templates() {
 
       <form action={createMainAction} className="space-y-3 panel">
         <h2 className="text-xl font-medium">Add a group</h2>
-        <Field label="Name (e.g. Men, Ladies, Shoes)">
+        <Field label="Group name" hint="For example: Men, Ladies, Shoes">
           <input name="name" required className={input} />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
