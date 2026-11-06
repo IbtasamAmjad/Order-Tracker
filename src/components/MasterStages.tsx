@@ -24,24 +24,52 @@ export function MasterStages({
   const refs = referencePhotos(itemId);
   const labelOf = (key: string | null) => fields.find((f) => f.key === key)?.label ?? "Picture";
   const img = (id: number, thumb = false) => `/api/m/${token}/photos/${id}${thumb ? "?thumb=1" : ""}`;
+  // the pictures grouped by the field they belong to, in the order of the form
+  const groups = [...new Set(refs.map((r) => r.fieldKey ?? ""))].map((key) => ({
+    label: labelOf(key || null),
+    photos: refs.filter((r) => (r.fieldKey ?? "") === key),
+  }));
 
   return (
     <>
-      {refs.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-lg font-medium">Pictures</p>
-          <div className="flex flex-wrap gap-2">
-            {refs.map((r) => (
-              <div key={r.id} className="space-y-1 text-center text-sm">
-                <a href={img(r.id)} target="_blank" rel="noreferrer" className="block">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img(r.id, true)} alt={labelOf(r.fieldKey)} className="h-28 w-28 border object-cover" />
-                  {labelOf(r.fieldKey)}
-                </a>
-                <DownloadLink href={img(r.id)} label="Download" className="w-28 !px-2" />
-              </div>
-            ))}
+      {groups.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xl font-medium">Pictures</p>
+            {refs.length > 1 && (
+              <a href={`/api/m/${token}/items/${itemId}/pictures`} download className="btn btn-quiet h-auto min-h-11 gap-2 px-4 py-2 text-base">
+                <Icon name="download" className="h-5 w-5 shrink-0" />
+                Download all ({refs.length})
+              </a>
+            )}
           </div>
+          {groups.map((g) => (
+            <div key={g.label} className="space-y-2">
+              <p className="flex items-center gap-2 text-base font-medium text-muted">
+                {g.label}
+                <span className="rounded-full bg-paper-3 px-2 text-sm text-ink">{g.photos.length}</span>
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {g.photos.map((r) => (
+                  <div key={r.id} className="relative aspect-square overflow-hidden rounded-2xl border border-rule bg-paper-3">
+                    <a href={img(r.id)} target="_blank" rel="noreferrer" className="block h-full w-full" aria-label={`Open picture, ${g.label}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img(r.id, true)} alt={g.label} className="h-full w-full object-cover" />
+                    </a>
+                    <a
+                      href={`${img(r.id)}?download=1`}
+                      download
+                      aria-label="Download this picture"
+                      title="Download"
+                      className="absolute bottom-1.5 right-1.5 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-ink shadow"
+                    >
+                      <Icon name="download" className="h-5 w-5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
