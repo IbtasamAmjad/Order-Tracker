@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { OrderEditor } from "@/components/OrderEditor";
 import { getOrder, listItems } from "@/lib/orders";
 import { assignedMasterIds } from "@/lib/assign";
+import { referencePhotos } from "@/lib/stages";
 import { orderShipments, shippableItems } from "@/lib/shipping";
 import { listMasters } from "@/lib/masters";
 import { pickerGroups } from "@/lib/templates";
@@ -45,6 +46,7 @@ export default async function EditOrder({
     fields: i.snapshot.fields,
     values: i.values,
     removable: !sentItems.has(i.id),
+    photos: referencePhotos(i.id).map((r) => ({ id: r.id, fieldKey: r.fieldKey ?? "" })),
   }));
   const templates = pickerGroups().flatMap((g) => g.items.map((t) => ({ ...t, group: g.name })));
 
@@ -99,7 +101,7 @@ export default async function EditOrder({
           />
 
           {items.map((i) => (
-            <AdminItemExtras key={i.id} orderId={order.id} item={i} removable={!sentItems.has(i.id)} />
+            <AdminItemExtras key={i.id} orderId={order.id} item={i} />
           ))}
 
           {/* last on the page, but part of the customer form above (form="order-form"), so Save changes saves it */}

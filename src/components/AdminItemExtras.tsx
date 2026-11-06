@@ -1,47 +1,36 @@
-import { itemStageViews, referencePhotos } from "@/lib/stages";
+import { itemStageViews } from "@/lib/stages";
 import { itemShipReadiness } from "@/lib/shipping";
 import { categoryDiffers } from "@/lib/item-sync";
 import type { ItemSnapshot } from "@/db/schema";
 import { completeStageAdminAction, refreshItemAction } from "@/app/admin/actions";
 import { Icon } from "./Icon";
-import { RemoveItemButton } from "./RemoveItemButton";
-import { PhotoUpload } from "./PhotoUpload";
-import { PastePictures } from "./PastePictures";
-import { FieldProgress } from "./FieldProgress";
 import { DownloadLink } from "@/components/DownloadLink";
 import { btnSecondary } from "./ui";
 
 const STATUS: Record<string, string> = { done: "Done ✓", open: "In progress", locked: "Locked" };
 
-/** Under an order's form: reference pictures for picture fields, and the steps of each item. */
+/** Under an order's form: the steps of each item, shipping state, and "update from the item". Pictures live in the form itself. */
 export function AdminItemExtras({
   orderId,
   item,
-  removable = false,
 }: {
-  removable?: boolean; // show the cross that removes this item (not for one that was already sent)
   orderId: number;
   item: { id: number; label: string; snapshot: ItemSnapshot; templateId: number | null; values: Record<string, string> };
 }) {
-  // pictures can go on a picture field, or on a comment box (paste or add them under the box)
-  const pictureFields = item.snapshot.fields.filter((f) => f.type === "picture" || f.type === "longtext");
-  const refs = referencePhotos(item.id);
   const stages = itemStageViews(item.id);
   const shipping = itemShipReadiness(item.id);
   const changed = categoryDiffers(item);
-  const pictureKeys = new Set(refs.map((r) => r.fieldKey ?? ""));
+  if (stages.length === 0 && !changed) return null;
 
   return (
     <section className="panel" style={{ borderColor: item.snapshot.colour }}>
       <details open className="group">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden" title="Tap to minimize or open">
           <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.snapshot.colour }} />
-          <h2 className="text-xl font-medium">{item.label}</h2>
-          {removable && <RemoveItemButton itemId={String(item.id)} label={item.label} />}
-          <Icon name="chevron" className={`${removable ? "" : "ml-auto "}h-5 w-5 shrink-0 transition-transform group-open:rotate-180`} />
+          <h2 className="text-xl font-medium">{item.label} - steps</h2>
+          <Icon name="chevron" className="ml-auto h-5 w-5 shrink-0 transition-transform group-open:rotate-180" />
         </summary>
         <div className="mt-3 space-y-3">
-      <FieldProgress fields={item.snapshot.fields} values={item.values} pictureKeys={pictureKeys} />
       {changed && (
         <form action={refreshItemAction} className="space-y-2 rounded-2xl bg-accent-soft p-4">
           <input type="hidden" name="orderId" value={orderId} />
@@ -58,27 +47,6 @@ export function AdminItemExtras({
           {shipping.ready ? "Shipping: approved, the master can send it." : `Shipping: waiting. ${shipping.blockers.join("; ")}`}
         </p>
       )}
-
-      {pictureFields.map((f) => (
-        <div key={f.key} className="space-y-2">
-          <p className="text-lg font-medium">{f.type === "longtext" ? `Pictures for “${f.label}”` : f.label}</p>
-          <div className="flex flex-wrap gap-2">
-            {refs
-              .filter((r) => r.fieldKey === f.key)
-              .map((r) => (
-                <div key={r.id} className="space-y-1">
-                  <a href={`/api/admin/photos/${r.id}`} target="_blank" rel="noreferrer" className="block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/admin/photos/${r.id}?thumb=1`} alt={f.label} className="h-24 w-24 border object-cover" />
-                  </a>
-                  <DownloadLink href={`/api/admin/photos/${r.id}`} label="Download" className="w-24 !px-2" />
-                </div>
-              ))}
-          </div>
-          <PhotoUpload endpoint="/api/admin/photos" fields={{ itemId: String(item.id), fieldKey: f.key }} label="Add pictures" multiple />
-          {f.type === "longtext" && <PastePictures itemId={item.id} fieldKey={f.key} />}
-        </div>
-      ))}
 
       {stages.length > 0 && (
         <ol className="space-y-2">

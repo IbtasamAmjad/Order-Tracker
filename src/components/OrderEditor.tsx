@@ -9,6 +9,7 @@ import { FieldRow } from "./FieldRow";
 import { MasterPicker } from "./MasterPicker";
 import { PictureStore } from "./PictureInput";
 import { RemoveItemButton } from "./RemoveItemButton";
+import { FieldProgress } from "./FieldProgress";
 import { Icon } from "./Icon";
 import { Field, btnPrimary, btnSecondary, input, textarea, card } from "./ui";
 
@@ -168,10 +169,22 @@ export function OrderEditor({
               <input type="hidden" name="itemKey" value={item.key} />
               {item.templateId ? <input type="hidden" name={`t:${item.key}`} value={item.templateId} /> : null}
               <input type="hidden" name={`l:${item.key}`} value={item.label} />
+              {orderId && item.photos && (
+                <FieldProgress fields={item.fields} values={item.values} pictureKeys={item.photos.map((p) => p.fieldKey)} />
+              )}
               {item.fields.length === 0 && <p>This item has no fields yet.</p>}
               {item.fields.map((f) => {
                 const name = `v:${item.key}:${f.key}`;
-                return <FieldRow key={f.key} f={f} name={name} value={pick(name, item.values[f.key])} />;
+                return (
+                  <FieldRow
+                    key={f.key}
+                    f={f}
+                    name={name}
+                    value={pick(name, item.values[f.key])}
+                    pictures
+                    saved={orderId && item.photos ? { itemId: Number(item.key), photos: item.photos.filter((p) => p.fieldKey === f.key) } : undefined}
+                  />
+                );
               })}
             </div>
           </details>

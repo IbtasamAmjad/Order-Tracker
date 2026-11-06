@@ -47,7 +47,7 @@ function parseOrder(f: FormData): OrderInput {
 /** Stores the pictures chosen in the form for each picture field of one item, as reference pictures. A bad file is skipped. */
 async function savePictures(f: FormData, orderId: number, itemId: number, key: string, fields: FieldDef[]) {
   for (const fd of fields) {
-    if (fd.type !== "picture") continue;
+    if (fd.type !== "picture" && fd.type !== "longtext") continue;
     for (const file of f.getAll(`pic:${key}:${fd.key}`)) {
       if (!(file instanceof File) || file.size === 0) continue;
       const saved = await storeUpload(orderId, file);

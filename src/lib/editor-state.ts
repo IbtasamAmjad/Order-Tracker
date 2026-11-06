@@ -21,4 +21,6 @@ export type EditorItem = {
   values: Record<string, string>;
   /** existing items only: may Admin remove it? false when it was already sent in a shipment */
   removable?: boolean;
+  /** existing items only: the pictures already saved on the item, by field */
+  photos?: { id: number; fieldKey: string }[];
 };

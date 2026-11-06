@@ -14,11 +14,16 @@ export const PictureStore = createContext<Map<string, File[]> | null>(null);
 /**
  * A picture field on the customer form: choose several pictures (or take them), see them, remove the wrong ones.
  * They are shrunk on this computer or phone first and are saved together with the customer when Save is pressed.
+ * With pasteInto (the name of a text box), a picture pasted into that box (Ctrl+V) is added here too, and also waits for Save.
  */
-export function PictureInput({ name }: { name: string }) {
+export function PictureInput({ name, pasteInto }: { name: string; pasteInto?: string }) {
   const store = useContext(PictureStore);
   const box = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>(() => store?.get(name) ?? []);
+  const latest = useRef<File[]>(files); // the newest list, for work that finishes after the render it started in
+  useEffect(() => {
+    latest.current = files;
+  }, [files]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,10 +45,9 @@ export function PictureInput({ name }: { name: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/"));
+  async function add(picked: File[]) {
     if (picked.length === 0) {
-      keep(files);
+      keep(latest.current);
       return;
     }
     setBusy(true);
@@ -54,14 +58,34 @@ export function PictureInput({ name }: { name: string }) {
         const out = await imageCompression(file, { maxSizeMB: 0.4, maxWidthOrHeight: 1600, useWebWorker: true });
         small.push(new File([out], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: out.type || "image/jpeg" }));
       }
-      keep([...files, ...small]);
+      keep([...latest.current, ...small]);
     } catch {
       setError("Could not prepare one of the pictures. Please try again.");
-      keep(files);
+      keep(latest.current);
     } finally {
       setBusy(false);
     }
   }
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    return add(Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/")));
+  }
+
+  // a picture pasted into the text box: keep it here until Save (text pasted as usual still goes into the box)
+  useEffect(() => {
+    if (!pasteInto) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target;
+      if (!(t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) || t.name !== pasteInto) return;
+      const images = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (images.length === 0) return;
+      e.preventDefault();
+      void add(images);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pasteInto]);
 
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
@@ -91,6 +115,7 @@ export function PictureInput({ name }: { name: string }) {
         <Icon name="plus" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add more pictures" : "Add pictures"}
       </button>
       {files.length > 0 && <p className="text-base text-muted">{files.length} ready. They are saved when you press Save.</p>}
+      {pasteInto && files.length === 0 && <p className="text-base text-muted">You can also paste a picture (Ctrl+V) while the cursor is in the box above.</p>}
       {error && <p className="text-base font-medium text-thread">{error}</p>}
     </div>
   );

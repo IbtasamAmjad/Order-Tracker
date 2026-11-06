@@ -2,6 +2,7 @@ import type { FieldDef } from "@/db/schema";
 import { splitMulti } from "@/lib/items";
 import { ColorInput } from "./ColorInput";
 import { PictureInput } from "./PictureInput";
+import { DownloadLink } from "./DownloadLink";
 import { input, select, textarea } from "./ui";
 
 /**
@@ -13,11 +14,17 @@ export function FieldRow({
   name,
   value,
   pictureNote,
+  saved,
+  pictures = false,
 }: {
   f: FieldDef;
   name: string;
   value: string;
   pictureNote?: string;
+  /** on an existing customer: the pictures already saved for this field, shown right here */
+  saved?: { itemId: number; photos: { id: number }[] };
+  /** Admin's customer form: a comment box can also hold pictures (pasted or added), saved with the form */
+  pictures?: boolean;
 }) {
   const label = `${f.label}${f.unit && f.type === "number" ? ` (${f.unit})` : ""}${f.required ? " (please fill in)" : ""}`;
   const options = f.options ?? [];
@@ -33,6 +40,7 @@ export function FieldRow({
     return (
       <div>
         <span className="mb-1 block text-lg font-medium">{label}</span>
+        {saved && <SavedPictures photos={saved.photos} label={f.label} />}
         {pictureNote ? <p className="bg-base-200 p-3 text-base">{pictureNote}</p> : <PictureInput name={name.replace(/^v:/, "pic:")} />}
       </div>
     );
@@ -70,6 +78,7 @@ export function FieldRow({
   }
 
   return (
+    <div>
     <label className="block">
       <span className="mb-1 block text-lg font-medium">{label}</span>
       {f.type === "longtext" ? (
@@ -100,5 +109,30 @@ export function FieldRow({
         />
       )}
     </label>
+    {pictures && f.type === "longtext" && (
+      <div className="mt-2 space-y-2">
+        {saved && <SavedPictures photos={saved.photos} label={f.label} />}
+        <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={name} />
+      </div>
+    )}
+    </div>
+  );
+}
+
+/** The pictures already saved on a field: small pictures you can open or download. */
+function SavedPictures({ photos, label }: { photos: { id: number }[]; label: string }) {
+  if (photos.length === 0) return null;
+  return (
+    <div className="mb-2 flex flex-wrap gap-2">
+      {photos.map((p) => (
+        <div key={p.id} className="space-y-1">
+          <a href={`/api/admin/photos/${p.id}`} target="_blank" rel="noreferrer" className="block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={label} className="h-24 w-24 rounded-xl border object-cover" />
+          </a>
+          <DownloadLink href={`/api/admin/photos/${p.id}`} label="Download" className="!px-3" />
+        </div>
+      ))}
+    </div>
   );
 }
