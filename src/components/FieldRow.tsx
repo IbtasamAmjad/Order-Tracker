@@ -3,11 +3,17 @@ import { splitMulti } from "@/lib/items";
 import { ColorInput } from "./ColorInput";
 import { PictureInput } from "./PictureInput";
 import { DownloadLink } from "./DownloadLink";
-import { input, select, textarea } from "./ui";
+import { RequiredMark, input, select, textarea } from "./ui";
+
+/** Fields that need the whole row (long writing, pictures, choices, headings); the rest can sit two to a row. */
+export function isWideField(f: FieldDef): boolean {
+  return ["longtext", "picture", "radio", "checkboxes", "heading", "note"].includes(f.type);
+}
 
 /**
  * One form field of any type, with its label. Used for Admin's customer form and the master's form.
  * `value` is the saved answer (checkboxes: one choice per line). Pictures are handled by the caller.
+ * `compact` is Admin's tight version: smaller labels, choices in a row, a red * for a required field.
  */
 export function FieldRow({
   f,
@@ -16,6 +22,7 @@ export function FieldRow({
   pictureNote,
   saved,
   pictures = false,
+  compact = false,
 }: {
   f: FieldDef;
   name: string;
@@ -25,21 +32,33 @@ export function FieldRow({
   saved?: { itemId: number; photos: { id: number }[] };
   /** Admin's customer form: a comment box can also hold pictures (pasted or added), saved with the form */
   pictures?: boolean;
+  compact?: boolean;
 }) {
-  const label = `${f.label}${f.unit && f.type === "number" ? ` (${f.unit})` : ""}${f.required ? " (please fill in)" : ""}`;
+  const unit = f.unit && f.type === "number" ? ` (${f.unit})` : "";
+  // the master reads "(please fill in)"; Admin gets a clear red * instead, and the form says once what it means
+  const label = compact ? (
+    <>
+      {f.label}
+      {unit}
+      {f.required && <RequiredMark />}
+    </>
+  ) : (
+    `${f.label}${unit}${f.required ? " (please fill in)" : ""}`
+  );
+  const labelClass = compact ? "mb-1 block text-base font-medium" : "mb-1 block text-lg font-medium";
   const options = f.options ?? [];
 
   if (f.type === "heading") {
-    return <h3 className="border-b-2 border-base-300 pb-1 pt-2 text-xl font-medium">{f.label}</h3>;
+    return <h3 className={compact ? "border-b border-rule pb-1 pt-1 text-lg font-medium" : "border-b-2 border-base-300 pb-1 pt-2 text-xl font-medium"}>{f.label}</h3>;
   }
   if (f.type === "note") {
-    return <p className="whitespace-pre-wrap text-base opacity-80">{f.label}</p>;
+    return <p className={`whitespace-pre-wrap opacity-80 ${compact ? "text-sm" : "text-base"}`}>{f.label}</p>;
   }
 
   if (f.type === "picture") {
     return (
       <div>
-        <span className="mb-1 block text-lg font-medium">{label}</span>
+        <span className={labelClass}>{label}</span>
         {saved && <SavedPictures photos={saved.photos} label={f.label} />}
         {pictureNote ? <p className="bg-base-200 p-3 text-base">{pictureNote}</p> : <PictureInput name={name.replace(/^v:/, "pic:")} />}
       </div>
@@ -49,7 +68,7 @@ export function FieldRow({
   if (f.type === "color") {
     return (
       <div>
-        <span className="mb-1 block text-lg font-medium">{label}</span>
+        <span className={labelClass}>{label}</span>
         <ColorInput name={name} value={value} />
       </div>
     );
@@ -57,64 +76,69 @@ export function FieldRow({
 
   if (f.type === "radio" || f.type === "checkboxes") {
     const picked = new Set(f.type === "checkboxes" ? splitMulti(value) : [value]);
+    const choice = compact
+      ? "inline-flex min-h-9 items-center gap-2 rounded-full bg-paper-3 px-3 py-1 text-base shadow-[inset_0_0_0_1.5px_var(--color-muted)]"
+      : "flex min-h-12 items-center gap-3 rounded-full bg-paper-3 shadow-[inset_0_0_0_1.5px_var(--color-muted)] px-3 py-2 text-lg";
     return (
-      <fieldset className="space-y-2">
-        <legend className="mb-1 text-lg font-medium">{label}</legend>
+      <fieldset className={compact ? "" : "space-y-2"}>
+        <legend className={compact ? "mb-1 text-base font-medium" : "mb-1 text-lg font-medium"}>{label}</legend>
         {options.length === 0 && <p className="text-base">No choices set for this field yet.</p>}
-        {options.map((o) => (
-          <label key={o} className="flex min-h-12 items-center gap-3 rounded-full bg-paper-3 shadow-[inset_0_0_0_1.5px_var(--color-muted)] px-3 py-2 text-lg">
-            <input
-              type={f.type === "radio" ? "radio" : "checkbox"}
-              name={name}
-              value={o}
-              defaultChecked={picked.has(o)}
-              className={f.type === "radio" ? "radio radio-primary" : "checkbox checkbox-primary"}
-            />
-            {o}
-          </label>
-        ))}
+        <div className={compact ? "flex flex-wrap gap-2" : "contents"}>
+          {options.map((o) => (
+            <label key={o} className={choice}>
+              <input
+                type={f.type === "radio" ? "radio" : "checkbox"}
+                name={name}
+                value={o}
+                defaultChecked={picked.has(o)}
+                className={f.type === "radio" ? "radio radio-primary" : "checkbox checkbox-primary"}
+              />
+              {o}
+            </label>
+          ))}
+        </div>
       </fieldset>
     );
   }
 
   return (
     <div>
-    <label className="block">
-      <span className="mb-1 block text-lg font-medium">{label}</span>
-      {f.type === "longtext" ? (
-        <textarea name={name} rows={4} defaultValue={value} className={textarea} />
-      ) : f.type === "select" ? (
-        <select name={name} defaultValue={value} className={select}>
-          <option value="">-</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      ) : f.type === "yesno" ? (
-        <select name={name} defaultValue={value} className={select}>
-          <option value="">-</option>
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-        </select>
-      ) : (
-        <input
-          name={name}
-          type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : f.type === "phone" ? "tel" : "text"}
-          step={f.type === "number" ? "any" : undefined}
-          inputMode={f.type === "number" ? "decimal" : f.type === "phone" ? "tel" : undefined}
-          defaultValue={value}
-          className={input}
-        />
+      <label className="block">
+        <span className={labelClass}>{label}</span>
+        {f.type === "longtext" ? (
+          <textarea name={name} rows={compact ? 3 : 4} defaultValue={value} className={textarea} />
+        ) : f.type === "select" ? (
+          <select name={name} defaultValue={value} className={select}>
+            <option value="">-</option>
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        ) : f.type === "yesno" ? (
+          <select name={name} defaultValue={value} className={select}>
+            <option value="">-</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        ) : (
+          <input
+            name={name}
+            type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : f.type === "phone" ? "tel" : "text"}
+            step={f.type === "number" ? "any" : undefined}
+            inputMode={f.type === "number" ? "decimal" : f.type === "phone" ? "tel" : undefined}
+            defaultValue={value}
+            className={input}
+          />
+        )}
+      </label>
+      {pictures && f.type === "longtext" && (
+        <div className="mt-1 space-y-2">
+          {saved && <SavedPictures photos={saved.photos} label={f.label} />}
+          <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={name} compact />
+        </div>
       )}
-    </label>
-    {pictures && f.type === "longtext" && (
-      <div className="mt-2 space-y-2">
-        {saved && <SavedPictures photos={saved.photos} label={f.label} />}
-        <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={name} />
-      </div>
-    )}
     </div>
   );
 }
@@ -128,7 +152,7 @@ function SavedPictures({ photos, label }: { photos: { id: number }[]; label: str
         <div key={p.id} className="space-y-1">
           <a href={`/api/admin/photos/${p.id}`} target="_blank" rel="noreferrer" className="block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={label} className="h-24 w-24 rounded-xl border object-cover" />
+            <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={label} className="h-20 w-20 rounded-xl border object-cover" />
           </a>
           <DownloadLink href={`/api/admin/photos/${p.id}`} label="Download" className="!px-3" />
         </div>

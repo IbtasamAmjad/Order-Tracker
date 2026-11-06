@@ -21,9 +21,10 @@ describe("colour", () => {
   const now = new Date(2026, 10, 4);
   it("computes bands", () => {
     expect(daysUntil("2026-11-09", now)).toBe(5);
-    expect(colourBand("2026-11-02", false, now)).toBe("red"); // overdue
-    expect(colourBand("2026-12-30", true, now)).toBe("red"); // first in list
-    expect(colourBand("2026-11-15", false, now)).toBe("green");
-    expect(colourBand("2027-01-01", false, now)).toBe("blue");
+    expect(colourBand("2026-11-02", now)).toBe("red"); // overdue
+    expect(colourBand("2026-11-06", now)).toBe("red"); // due within 3 days
+    expect(colourBand("2026-11-15", now)).toBe("green");
+    expect(colourBand("2026-12-30", now)).toBe("blue"); // far away: On Time, even if it is first in the list
+    expect(colourBand("2027-01-01", now)).toBe("blue");
   });
 });

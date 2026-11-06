@@ -86,6 +86,11 @@ export function fieldProgress(fields: FieldDef[], values: ItemValues, pictureKey
   return { filled, total: asked.length };
 }
 
+/** Keys of the picture fields that hold the design the customer chose (named Reference picture, Design picture...). */
+export function designFieldKeys(fields: FieldDef[]): string[] {
+  return fields.filter((f) => f.type === "picture" && /reference|design/i.test(f.label)).map((f) => f.key);
+}
+
 /** "Sherwani", or "Sherwani 1", "Sherwani 2" when the same item appears more than once. */
 export function itemLabel(name: string, index: number, total: number): string {
   return total > 1 ? `${name} ${index + 1}` : name;

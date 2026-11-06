@@ -43,7 +43,6 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
     group: "Write",
     items: [
       { type: "text", name: "Text box", hint: "One line, like a design number", label: "Text box" },
-      { type: "longtext", name: "Comment box", hint: "Several lines of writing", label: "Comments" },
       { type: "color", name: "Color code", hint: "A HEX color, like #1F69D1", label: "Color code" },
       { type: "number", name: "Number", hint: "A measurement or a number", label: "Number" },
     ],

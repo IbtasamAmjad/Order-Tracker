@@ -170,7 +170,7 @@ describe("shipping waits for photo approval", () => {
     expect(sh.submitShipment(master, sid)).toEqual({ ok: true, orderCompleted: true });
   });
 
-  it("submit refuses an item that stopped being ready, and a finished step with a pending photo still waits", async () => {
+  it("submit refuses an item that stopped being ready, and a finished step with an optional image is ready", async () => {
     const { master, orderId, itemId, who } = await stagedOrder();
     const { db } = await import("@/db");
     const { shipmentItems } = await import("@/db/schema");
@@ -179,7 +179,7 @@ describe("shipping waits for photo approval", () => {
     sh.attachShipmentPhoto({ id: sid, orderId }, "bill", file);
     expect(sh.submitShipment(master, sid)).toEqual({ ok: false, reason: "not-ready" });
 
-    // optional-photo step: finishing it with a photo still pending keeps the item waiting for Admin
+    // optional-photo step: an image the master added does not hold the item back once the step is finished
     const main = t.createMainCategory("Q" + Math.random(), "#000000");
     t.createSubCategory(main, "Kurta", "#111111");
     const tplId = t.listCategoryTree().find((c) => c.id === main)!.subs[0].template.id;
@@ -193,8 +193,9 @@ describe("shipping waits for photo approval", () => {
     const pid = s.addStagePhoto({ orderId: order2, itemId: item2, stageKey: "finishing", uploadedBy: "master", fileKey: "k", thumbKey: "t", bytes: 1 });
     o.setAllowOutOfSequence(order2, true);
     expect(s.completeStage(who, item2, "finishing")).toEqual({ ok: true });
-    expect(sh.itemShipReadiness(item2).blockers).toEqual(["Finishing: the photo is waiting for approval"]);
-    s.reviewPhoto(pid, "approved", "");
+    // an image on an optional step does not wait for Admin: the finished step is enough
+    expect(sh.itemShipReadiness(item2).ready).toBe(true);
+    s.reviewPhoto(pid, "approved", ""); // and if Admin does decide, nothing changes
     expect(sh.itemShipReadiness(item2).ready).toBe(true);
   });
 });

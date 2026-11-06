@@ -8,11 +8,14 @@ import { orderShipments, shippableItems } from "@/lib/shipping";
 import { listMasters } from "@/lib/masters";
 import { pickerGroups } from "@/lib/templates";
 import type { EditorItem } from "@/lib/editor-state";
-import { displayValue } from "@/lib/items";
-import { AdminItemExtras } from "@/components/AdminItemExtras";
+import { displayValue, fieldProgress, isDisplayOnly, missingRequired } from "@/lib/items";
+import { itemTrack } from "@/lib/track";
+import type { FieldDef } from "@/db/schema";
+import { AdminItemExtras, REFRESH_FORM, STEP_FORM } from "@/components/AdminItemExtras";
 import { ADD_ITEM_FORM, AddItemBox } from "@/components/AddItemBox";
+import { Icon } from "@/components/Icon";
 import { Notice, btnDanger, btnPrimary, btnSecondary, fmtDate, Field, textarea } from "@/components/ui";
-import { addItemAction, removeItemAction, saveOrderAction, setStatusAction } from "../../actions";
+import { addItemAction, refreshItemAction, removeItemAction, saveOrderAction, setStatusAction, stepAdminAction } from "../../actions";
 
 const REFRESH_ERRORS: Record<string, string> = {
   "remove-shipped": "That item was already sent, so it cannot be removed.",
@@ -22,6 +25,35 @@ const REFRESH_ERRORS: Record<string, string> = {
   "refresh-closed": "A finished or cancelled customer cannot be updated.",
   "refresh-not-found": "That item was not found.",
 };
+
+/** "3 of 11 fields filled. Now: Stitching" for the closed card of an item. */
+function itemSummary(i: { id: number; snapshot: { fields: FieldDef[] }; values: Record<string, string> }): string {
+  const p = fieldProgress(i.snapshot.fields, i.values, referencePhotos(i.id).map((r) => r.fieldKey ?? ""));
+  const now = itemTrack(i.id).find((s) => s.state === "current");
+  const required = missingRequired(i.snapshot.fields, i.values).length;
+  return `${p.filled} of ${p.total} fields filled${required > 0 ? `. ${required} required still empty` : ""}${now ? `. Now: ${now.label}` : ". All done"}`;
+}
+
+/** Fields filled out of all fields, for the little chip on an item's card. */
+function itemProgress(i: { id: number; snapshot: { fields: FieldDef[] }; values: Record<string, string> }) {
+  return fieldProgress(i.snapshot.fields, i.values, referencePhotos(i.id).map((r) => r.fieldKey ?? ""));
+}
+
+/** A few key answers for the strip on an item's card: the measurements (numbers, or anything under a Measurements heading). */
+function itemFacts(i: { snapshot: { fields: FieldDef[] }; values: Record<string, string> }): { label: string; value: string }[] {
+  const out: { label: string; value: string }[] = [];
+  let measure = false;
+  for (const f of i.snapshot.fields) {
+    if (f.type === "heading") {
+      measure = /measure/i.test(f.label);
+      continue;
+    }
+    if (isDisplayOnly(f) || ["picture", "longtext", "color"].includes(f.type)) continue;
+    const v = (i.values[f.key] ?? "").trim();
+    if (v && (measure || f.type === "number")) out.push({ label: f.label, value: v });
+  }
+  return out.slice(0, 6);
+}
 
 export default async function EditOrder({
   params,
@@ -46,21 +78,37 @@ export default async function EditOrder({
     fields: i.snapshot.fields,
     values: i.values,
     removable: !sentItems.has(i.id),
+    extra: <AdminItemExtras item={i} />,
+    summary: itemSummary(i),
+    progress: itemProgress(i),
+    facts: itemFacts(i),
     photos: referencePhotos(i.id).map((r) => ({ id: r.id, fieldKey: r.fieldKey ?? "" })),
   }));
   const templates = pickerGroups().flatMap((g) => g.items.map((t) => ({ ...t, group: g.name })));
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title normal-case">
-        #{order.orderNumber} {order.customerName} <span className="ml-2 inline-block rounded-full bg-accent-soft px-3 py-0.5 align-middle text-sm font-medium text-accent-deep capitalize">{order.status}</span>
-      </h1>
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-rule bg-paper-2 px-5 py-4 shadow-[var(--shadow-card)]">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="page-title normal-case">
+            #{order.orderNumber} {order.customerName}
+          </h1>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium capitalize ${
+              order.status === "active" ? "bg-ok-soft text-ok" : order.status === "completed" ? "bg-accent-soft text-accent-deep" : "bg-bad-soft text-bad"
+            }`}
+          >
+            <span aria-hidden className="h-2 w-2 rounded-full bg-current" />
+            {order.status}
+          </span>
+        </div>
+        <Link href={`/admin/orders/${order.id}/print`} className={btnSecondary}>
+          <Icon name="note" className="h-4 w-4" /> Print / PDF
+        </Link>
+      </header>
       {updated && <Notice tone="success">Updated from the item. The master will see it was changed.</Notice>}
       {removed && <Notice tone="success">The item was removed.</Notice>}
       {e && REFRESH_ERRORS[e] && <Notice tone="error">{REFRESH_ERRORS[e]}</Notice>}
-      <Link href={`/admin/orders/${order.id}/print`} className={btnSecondary}>
-        Print / PDF
-      </Link>
       {shipments.length > 0 && (
         <div className="space-y-1 panel text-base">
           <b>Shipments</b>
@@ -77,11 +125,18 @@ export default async function EditOrder({
         </div>
       )}
       {order.masterEditedAt && (
-        <p role="status" className="alert alert-info text-lg font-medium">
-          The master added information on {fmtDate(order.masterEditedAt)}. See it in the fields below.
-        </p>
+        <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-accent to-[#7C3AED] px-5 py-4 text-white shadow-[var(--shadow-card)]">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/20">
+            <Icon name="info" className="h-5 w-5" />
+          </span>
+          <p className="text-base">
+            <b className="font-medium">The master added information on {fmtDate(order.masterEditedAt)}.</b>
+            <span className="block text-white/85">See it in the fields below.</span>
+          </p>
+        </div>
       )}
-      <p className="text-base text-muted">
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <Icon name="clock" className="h-4 w-4 shrink-0" />
         {order.masterSeenAt
           ? `Master first opened it ${fmtDate(order.masterSeenAt)}; last ${fmtDate(order.masterLastSeenAt)}.`
           : "Master has not opened it yet."}
@@ -100,9 +155,6 @@ export default async function EditOrder({
             afterMasters={<AddItemBox orderId={order.id} options={templates.map((t) => ({ templateId: t.templateId, label: `${t.group} > ${t.name}` }))} />}
           />
 
-          {items.map((i) => (
-            <AdminItemExtras key={i.id} orderId={order.id} item={i} />
-          ))}
 
           {/* last on the page, but part of the customer form above (form="order-form"), so Save changes saves it */}
           <Field label="Extra notes for this customer">
@@ -112,6 +164,13 @@ export default async function EditOrder({
           {/* the controls of "Add another item" sit in the form above, under the masters, and send to this empty form */}
           <form id={ADD_ITEM_FORM} action={addItemAction} />
           {/* the Remove buttons sit inside each item above and send to this form */}
+          {/* the step and update buttons inside each item send to these two */}
+          <form id={STEP_FORM} action={stepAdminAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+          </form>
+          <form id={REFRESH_FORM} action={refreshItemAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+          </form>
           <form id="remove-item-form" action={removeItemAction}>
             <input type="hidden" name="orderId" value={order.id} />
           </form>

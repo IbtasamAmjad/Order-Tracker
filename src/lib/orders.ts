@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments, type OrderStatus } from "@/db/schema";
 import { cleanValues, fieldProgress, isTextEditable, type ItemValues, type NewItem } from "./items";
 import { createStageRows, orderProgress, referencePhotos } from "./stages";
+import { orderStage, orderTrack } from "./track";
 import { assignedMasterIds, cleanMasterIds, masterNames, mine, setAssignedMasters } from "./assign";
 import { lastActivityAt, orderFlags } from "./reminders";
 import { colourBand, type Band } from "./colour";
@@ -161,25 +162,11 @@ export function getOrder(id: number) {
   return db.select().from(orders).where(eq(orders.id, id)).get();
 }
 
-/** id of each master's first (most urgent) active order. */
-function firstActiveByMaster(): Map<number, number> {
-  const rows = db
-    .select({ id: orders.id, masterId: orders.masterId })
-    .from(orders)
-    .where(eq(orders.status, "active"))
-    .orderBy(asc(orders.priorityPosition))
-    .all();
-  const first = new Map<number, number>();
-  for (const r of rows) if (!first.has(r.masterId)) first.set(r.masterId, r.id);
-  return first;
-}
-
 /**
  * The admin's lists: the live orders; the finished ones (completed or cancelled, not yet put away);
  * and the archive (put away, like WhatsApp's Archived chats: out of the main list but kept).
  */
 export function listAdminOrders(opts: { masterId?: number; view: "active" | "finished" | "archived" }) {
-  const first = firstActiveByMaster();
   const rows = db
     .select({ order: orders, masterName: masters.name })
     .from(orders)
@@ -199,11 +186,12 @@ export function listAdminOrders(opts: { masterId?: number; view: "active" | "fin
   return rows.map(({ order, masterName }) => ({
     ...order,
     masterIds: assignedMasterIds(order.id),
+    stage: order.status === "active" ? orderStage(order.id) : null,
     ...(order.status === "active" ? { progress: orderProgress(order.id), ...cardInfo(order.id) } : { progress: { done: 0, total: 0 }, itemLabels: [] as string[], fields: { filled: 0, total: 0 } }),
     masterName: masterNames(order.id).join(", ") || masterName,
     flags: order.status === "active" ? orderFlags(order.karigarDueDate, lastActivityAt(order.id)) : null,
     band: (order.status === "active"
-      ? colourBand(order.karigarDueDate, first.get(order.masterId) === order.id)
+      ? colourBand(order.karigarDueDate)
       : null) as Band | null,
   }));
 }
@@ -267,13 +255,14 @@ export function masterDashboard(masterId: number, now = new Date()) {
     .all();
   const active = rows
     .filter((r) => r.status === "active")
-    .map((r, i) => ({
+    .map((r) => ({
       ...r,
       badge: badgeFor(r),
-      band: colourBand(r.karigarDueDate, i === 0, now),
+      band: colourBand(r.karigarDueDate, now),
       progress: orderProgress(r.id),
       flags: orderFlags(r.karigarDueDate, lastActivityAt(r.id), now),
       ...cardInfo(r.id),
+      track: orderTrack(r.id),
     }));
   const cutoff = closedCutoff(now).getTime();
   const closed = rows

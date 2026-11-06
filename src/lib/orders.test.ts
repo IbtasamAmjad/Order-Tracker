@@ -78,6 +78,20 @@ describe("orders", () => {
     expect(o.masterComplete(c, id)).toEqual({ ok: true });
   });
 
+  it("the Urgent / Coming due / On Time tag follows the deadline, not the place in the list", () => {
+    const a = m.createMaster({ name: "Band", pin: "1" });
+    const far = o.createOrder(input(a, "Far", "2099-01-01")); // first in the list, but a long way off
+    const near = o.createOrder(input(a, "Near", "2000-01-01")); // overdue, second in the list
+    const band = (id: number) => o.listAdminOrders({ masterId: a, view: "active" }).find((r) => r.id === id)!.band;
+    expect([band(far), band(near)]).toEqual(["blue", "red"]);
+    o.moveOrder(near, "up");
+    expect([band(far), band(near)]).toEqual(["blue", "red"]); // moving changes nothing
+    o.moveOrder(far, "up");
+    expect([band(far), band(near)]).toEqual(["blue", "red"]);
+    const mine = o.masterDashboard(a).active;
+    expect(mine.find((r) => r.id === far)!.band).toBe("blue");
+  });
+
   it("shows Seen / New / Updated badges", () => {
     const a = m.createMaster({ name: "D", pin: "1" });
     const id = o.createOrder(input(a, "Badge"));

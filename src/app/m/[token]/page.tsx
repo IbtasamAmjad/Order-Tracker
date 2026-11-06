@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PinForm } from "@/components/PinForm";
+import { StageTrack } from "@/components/StageTrack";
 import { PositionTile, btnPrimary, card, chipAttention, fmtDay } from "@/components/ui";
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
@@ -38,14 +39,14 @@ export default async function MasterHome({
             <li key={o.id} className={`${card} space-y-3 border-l-4 ${late ? "border-l-thread" : BAND_CLASS[o.band]}`}>
               <div className="flex items-start gap-3">
                 <PositionTile n={i + 1} />
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-xl font-medium leading-snug">
+                <Link href={`/m/${token}/orders/${o.id}`} className="group min-w-0 flex-1" aria-label={`Open order ${o.orderNumber}, ${o.customerName}`}>
+                  <p className="break-words text-xl font-medium leading-snug group-hover:underline">
                     #{o.orderNumber} - {o.customerName}
                   </p>
                   <p className="text-base text-muted">
                     {o.itemLabels.length > 0 ? o.itemLabels.join(", ") : "No items yet"}
                   </p>
-                </div>
+                </Link>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className={`rounded-full px-3 py-1 text-sm font-medium text-white ${pill}`}>{status}</span>
                   {o.badge && <span className={chipAttention}>{o.badge}</span>}
@@ -59,12 +60,8 @@ export default async function MasterHome({
                     Steps {o.progress.done} of {o.progress.total}
                   </span>
                 )}
-                {o.fields.total > 0 && (
-                  <span className="rounded-full bg-paper-3 px-3 py-1">
-                    Fields {o.fields.filled} of {o.fields.total}
-                  </span>
-                )}
               </div>
+              <StageTrack steps={o.track} />
               {o.flags.stale && <p className="text-base font-medium text-thread">Please send an update</p>}
 
               <Link href={`/m/${token}/orders/${o.id}`} className={`${btnPrimary} w-full`}>

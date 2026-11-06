@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { remindersList } from "@/lib/reminders";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, btnPrimary } from "@/components/ui";
 
 export default function Reminders() {
   const rows = remindersList();
@@ -8,7 +8,8 @@ export default function Reminders() {
     <div className="space-y-4">
       <h1 className="page-title">Reminders</h1>
       <p className="text-lg">
-        Orders that are late, due within a week, or have had no update for a week.
+        Orders that are late, due within a week, or have had no update for a week. Tap the button to open WhatsApp with the
+        message ready, then press send.
       </p>
       {rows.length === 0 && <EmptyState title="Nothing to chase">Every order is on track.</EmptyState>}
       <ul className="space-y-3">
@@ -23,6 +24,10 @@ export default function Reminders() {
                 <li key={x}>{x}</li>
               ))}
             </ul>
+            <a href={r.link} target="_blank" rel="noreferrer" className={`${btnPrimary} w-full`}>
+              Remind {r.masterName} on WhatsApp
+            </a>
+            {!r.hasNumber && <p className="text-base">No WhatsApp number saved for this master. You can pick the chat yourself.</p>}
           </li>
         ))}
       </ul>

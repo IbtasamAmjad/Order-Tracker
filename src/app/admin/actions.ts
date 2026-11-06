@@ -112,9 +112,9 @@ ${v}` : v; // checkboxes send several
     const newId = createOrder(input, items);
     const saved = listItems(newId); // in the same order as the items given
     for (const [n, key] of keys.entries()) await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
-    redirect("/admin/customers");
+    redirect(`/admin/customers?notify=new:${newId}`);
   }
-  redirect("/admin/customers");
+  redirect(orderId ? `/admin/customers?notify=updated:${orderId}` : "/admin/customers");
 }
 
 export async function addItemAction(f: FormData) {
@@ -152,7 +152,7 @@ export async function setStatusAction(f: FormData) {
   await requireAdmin();
   const status = str(f, "status") as OrderStatus;
   if (ORDER_STATUSES.includes(status)) setStatus(num(f, "id"), status);
-  redirect(status === "archived" ? "/admin/archive" : "/admin/customers");
+  redirect(status === "archived" ? "/admin/archive" : status === "cancelled" ? `/admin/customers?notify=cancelled:${num(f, "id")}` : "/admin/customers");
 }
 
 /** Bring an archived order back to the Finished list. */
@@ -173,7 +173,7 @@ export async function createMasterAction(f: FormData) {
   const name = str(f, "name");
   const pin = str(f, "pin");
   if (!name || !pin) throw new Error("Name and PIN are required.");
-  createMaster({ name, pin });
+  createMaster({ name, pin, whatsappNumber: str(f, "whatsapp").replace(/\D/g, "") });
   redirect("/admin/masters");
 }
 
@@ -200,7 +200,7 @@ export async function reviewPhotoAction(f: FormData) {
   await requireAdmin();
   const decision = str(f, "decision") === "approved" ? "approved" : "rejected";
   const res = reviewPhoto(num(f, "id"), decision, str(f, "comment"));
-  redirect(res.ok ? "/admin/review" : `/admin/review?e=${res.reason}`);
+  redirect(res.ok ? `/admin/review?told=${num(f, "id")}` : `/admin/review?e=${res.reason}`);
 }
 
 export async function completeStageAdminAction(f: FormData) {
@@ -208,6 +208,15 @@ export async function completeStageAdminAction(f: FormData) {
   const orderId = num(f, "orderId");
   // force = "Mark done anyway": skips the photo and fields check when a step cannot be finished the normal way
   const res = completeStage({ by: "admin", force: str(f, "force") === "1" }, num(f, "itemId"), str(f, "stageKey"));
+  redirect(`/admin/orders/${orderId}${res.ok ? "" : `?e=${res.reason}`}`);
+}
+
+/** The step buttons inside the customer form: step = "itemId:stageKey" or "itemId:stageKey:force". */
+export async function stepAdminAction(f: FormData) {
+  await requireAdmin();
+  const orderId = num(f, "orderId");
+  const [itemId, stageKey, mode] = str(f, "step").split(":");
+  const res = completeStage({ by: "admin", force: mode === "force" }, Number(itemId), stageKey ?? "");
   redirect(`/admin/orders/${orderId}${res.ok ? "" : `?e=${res.reason}`}`);
 }
 

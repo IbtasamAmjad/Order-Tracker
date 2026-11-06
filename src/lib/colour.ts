@@ -11,12 +11,13 @@ export function daysUntil(dateStr: string, now: Date = new Date()): number {
 }
 
 /**
- * Red: master's first order in the list, or overdue / due very soon.
- * Green: coming due. Blue: everything else.
+ * Only the deadline (the Karigar due date) decides this, never the place in the list: moving an order up or down
+ * does not change its tag.
+ * Red (Urgent): overdue or due very soon. Green (Coming due): due in the next weeks. Blue (On Time): everything else.
  */
-export function colourBand(karigarDueDate: string, isFirst: boolean, now: Date = new Date()): Band {
+export function colourBand(karigarDueDate: string, now: Date = new Date()): Band {
   const days = daysUntil(karigarDueDate, now);
-  if (isFirst || days <= COLOUR_RULES.redWithinDays) return "red";
+  if (days <= COLOUR_RULES.redWithinDays) return "red";
   if (days <= COLOUR_RULES.greenWithinDays) return "green";
   return "blue";
 }

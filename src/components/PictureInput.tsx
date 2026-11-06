@@ -15,8 +15,9 @@ export const PictureStore = createContext<Map<string, File[]> | null>(null);
  * A picture field on the customer form: choose several pictures (or take them), see them, remove the wrong ones.
  * They are shrunk on this computer or phone first and are saved together with the customer when Save is pressed.
  * With pasteInto (the name of a text box), a picture pasted into that box (Ctrl+V) is added here too, and also waits for Save.
+ * compact is the quiet version under a comment box: a small "Add picture" link instead of a full button.
  */
-export function PictureInput({ name, pasteInto }: { name: string; pasteInto?: string }) {
+export function PictureInput({ name, pasteInto, compact = false }: { name: string; pasteInto?: string; compact?: boolean }) {
   const store = useContext(PictureStore);
   const box = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>(() => store?.get(name) ?? []);
@@ -111,11 +112,22 @@ export function PictureInput({ name, pasteInto }: { name: string; pasteInto?: st
           ))}
         </div>
       )}
-      <button type="button" disabled={busy} onClick={() => box.current?.click()} className={btnSecondary}>
-        <Icon name="plus" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add more pictures" : "Add pictures"}
-      </button>
+      {compact ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => box.current?.click()}
+          title="Add a picture, or paste one with Ctrl+V while the cursor is in the box"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm text-muted hover:bg-paper-3 hover:text-ink"
+        >
+          <Icon name="picture" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add another picture" : "Add picture"}
+        </button>
+      ) : (
+        <button type="button" disabled={busy} onClick={() => box.current?.click()} className={btnSecondary}>
+          <Icon name="plus" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add more pictures" : "Add pictures"}
+        </button>
+      )}
       {files.length > 0 && <p className="text-base text-muted">{files.length} ready. They are saved when you press Save.</p>}
-      {pasteInto && files.length === 0 && <p className="text-base text-muted">You can also paste a picture (Ctrl+V) while the cursor is in the box above.</p>}
       {error && <p className="text-base font-medium text-thread">{error}</p>}
     </div>
   );

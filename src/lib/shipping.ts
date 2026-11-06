@@ -10,7 +10,8 @@ export type ShipReadiness = { ready: boolean; blockers: string[] };
 
 /**
  * An item may leave only after its work has been checked. For every step of the item:
- *  - a photo the master sent that is still waiting for Admin blocks it, until Admin decides;
+ *  - a photo the master sent for a step that needs a photo, still waiting for Admin, blocks it until Admin decides
+ *    (an image on an optional step is never waiting for anyone);
  *  - a step with a required photo is satisfied the moment Admin approves that photo (the master does not
  *    have to press "Mark complete" as well), as long as every field Admin made mandatory is filled in;
  *  - any other step must be finished;
@@ -23,7 +24,8 @@ export function itemShipReadiness(itemId: number): ShipReadiness {
   const blockers: string[] = [];
   for (const st of itemStageViews(itemId)) {
     const photo = st.latestPhoto?.status;
-    if (photo === "pending") {
+    // only a step that needs a photo waits for Admin; an image added to an optional step is just for the office to see
+    if (photo === "pending" && st.photo === "required") {
       blockers.push(`${st.label}: the photo is waiting for approval`);
       continue;
     }

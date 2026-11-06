@@ -12,16 +12,18 @@ export function MasterStages({
   orderId,
   itemId,
   fields,
+  skipKeys = [],
   turn,
 }: {
   token: string;
   orderId: number;
   itemId: number;
   fields: FieldDef[];
+  skipKeys?: string[]; // picture fields shown elsewhere (the design the customer chose)
   turn: boolean; // is it this master's turn on the order (can he finish steps)?
 }) {
   const stages = itemStageViews(itemId);
-  const refs = referencePhotos(itemId);
+  const refs = referencePhotos(itemId).filter((r) => !skipKeys.includes(r.fieldKey ?? ""));
   const labelOf = (key: string | null) => fields.find((f) => f.key === key)?.label ?? "Picture";
   const img = (id: number, thumb = false) => `/api/m/${token}/photos/${id}${thumb ? "?thumb=1" : ""}`;
   // the pictures grouped by the field they belong to, in the order of the form
@@ -56,15 +58,18 @@ export function MasterStages({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={img(r.id, true)} alt={g.label} className="h-full w-full object-cover" />
                     </a>
-                    <a
-                      href={`${img(r.id)}?download=1`}
-                      download
-                      aria-label="Download this picture"
-                      title="Download"
-                      className="absolute bottom-1.5 right-1.5 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-ink shadow"
-                    >
-                      <Icon name="download" className="h-5 w-5" />
-                    </a>
+                    {/* with "Download all" above there is no icon on each picture; a lone picture keeps its own */}
+                    {refs.length === 1 && (
+                      <a
+                        href={`${img(r.id)}?download=1`}
+                        download
+                        aria-label="Download this picture"
+                        title="Download"
+                        className="absolute bottom-1.5 right-1.5 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-ink shadow"
+                      >
+                        <Icon name="download" className="h-5 w-5" />
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
@@ -91,7 +96,7 @@ export function MasterStages({
 
                   {s.status === "open" && s.photo !== "none" && (
                     <div className="space-y-2">
-                      <p className="text-lg">{s.photo === "required" ? "Photo needed" : "Photo (optional)"}</p>
+                      <p className="text-lg">{s.photo === "required" ? "Photo needed" : "You can add an image so the office can see your work (optional)"}</p>
                       {photo && (
                         <div className="space-y-2">
                         <div className="flex flex-wrap items-start gap-3">
@@ -102,7 +107,7 @@ export function MasterStages({
                               photo.status === "approved" ? "text-leaf" : photo.status === "rejected" ? "text-thread" : "text-ink"
                             }`}
                           >
-                            {photo.status === "pending" && "Waiting for approval"}
+                            {photo.status === "pending" && (s.photo === "required" ? "Waiting for approval" : "Sent. The office can see it.")}
                             {photo.status === "approved" && "Approved ✓"}
                             {photo.status === "rejected" && `Rejected: ${photo.comment ?? "please send a new photo"}`}
                           </p>
@@ -114,8 +119,8 @@ export function MasterStages({
                         <PhotoUpload
                           endpoint={`/api/m/${token}/photos`}
                           fields={{ itemId: String(itemId), stageKey: s.key }}
-                          label={photo ? "Send a new photo" : "Take photo"}
-                          camera
+                          label={photo ? "Send a new image" : "Add image"}
+                          camera={s.photo === "required"}
                         />
                       )}
                     </div>

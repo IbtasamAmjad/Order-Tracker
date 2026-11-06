@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { FieldDef } from "@/db/schema";
 import { itemLabel } from "@/lib/items";
+import { daysUntil } from "@/lib/colour";
 import { emptyEditorState, type EditorItem, type EditorState } from "@/lib/editor-state";
-import { FieldRow } from "./FieldRow";
+import { FieldRow, isWideField } from "./FieldRow";
 import { MasterPicker } from "./MasterPicker";
 import { PictureStore } from "./PictureInput";
 import { RemoveItemButton } from "./RemoveItemButton";
 import { FieldProgress } from "./FieldProgress";
 import { Icon } from "./Icon";
-import { Field, btnPrimary, btnSecondary, input, textarea, card } from "./ui";
+import { Field, RequiredMark, btnPrimary, btnSecondary, input, textarea, card } from "./ui";
 
 type Master = { id: number; name: string };
 
@@ -74,39 +75,59 @@ export function OrderEditor({
     }
   }
   const allItems = [...items, ...chosen];
+  // an existing customer whose saved Karigar due date has passed: the date box turns red and says by how much
+  const late = orderId && base.karigarDueDate ? -daysUntil(base.karigarDueDate) : 0;
 
   return (
     <PictureStore.Provider value={pictures}>
-    <form id={formId} action={formAction} key={state.nonce} className="space-y-4">
+    <form id={formId} action={formAction} key={state.nonce} className="space-y-3">
       {orderId ? <input type="hidden" name="orderId" value={orderId} /> : null}
 
       {state.error && <p role="alert" className="alert alert-error text-lg font-medium">{state.error}</p>}
 
-      <Field label="Customer name">
-        <input name="customerName" required defaultValue={pick("customerName", base.customerName)} className={input} />
-      </Field>
-      <Field label="My due date (only you can see this)">
-        <input type="date" name="myDueDate" required defaultValue={pick("myDueDate", base.myDueDate)} className={input} />
-      </Field>
-      <Field label="Karigar due date (master sees this)">
-        <input
-          type="date"
-          name="karigarDueDate"
-          required
-          defaultValue={pick("karigarDueDate", base.karigarDueDate)}
-          className={input}
-        />
-      </Field>
-      <div>
-        <span className="mb-1 block text-lg font-medium">Masters (choose one or more)</span>
-        <MasterPicker
-          masters={masters}
-          initial={
-            "masterIds" in state.values
-              ? state.values.masterIds.split("\n").map(Number)
-              : (base.masterIds ?? (base.masterId ? [base.masterId] : []))
-          }
-        />
+      <div className="rounded-3xl border border-rule bg-paper-2 p-5 shadow-[var(--shadow-card)]">
+        <p className="mb-4 border-b border-rule pb-3 text-sm text-muted">
+          <RequiredMark /> means it must be filled in. The rest is optional.
+        </p>
+        <div className="grid gap-x-4 gap-y-4 md:grid-cols-2">
+          <Field label="Customer name" required upper>
+            <input name="customerName" required defaultValue={pick("customerName", base.customerName)} className={input} />
+          </Field>
+          <div>
+            <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+              Masters
+              <RequiredMark />
+            </span>
+            <MasterPicker
+              masters={masters}
+              initial={
+                "masterIds" in state.values
+                  ? state.values.masterIds.split("\n").map(Number)
+                  : (base.masterIds ?? (base.masterId ? [base.masterId] : []))
+              }
+            />
+          </div>
+          <Field label="My due date (only you see this)" required upper>
+            <input type="date" name="myDueDate" required defaultValue={pick("myDueDate", base.myDueDate)} className={input} />
+          </Field>
+          <div>
+            <Field label="Karigar due date (master sees this)" required upper>
+              <input
+                type="date"
+                name="karigarDueDate"
+                required
+                defaultValue={pick("karigarDueDate", base.karigarDueDate)}
+                className={`${input} ${late > 0 ? "!border-bad !bg-bad-soft" : ""}`}
+              />
+            </Field>
+            {late > 0 && (
+              <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-bad">
+                <Icon name="alert" className="h-4 w-4" />
+                Overdue by {late} {late === 1 ? "day" : "days"}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {afterMasters}
@@ -157,33 +178,64 @@ export function OrderEditor({
       )}
 
       {allItems.map((item) => (
-        <section key={item.key} className={`${card} border-2`} style={{ borderColor: item.colour }}>
-          <details open className="group">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden" title="Tap to minimize or open">
-              <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.colour }} />
-              <h2 className="text-xl font-medium">{item.label}</h2>
-              {orderId && item.removable && <RemoveItemButton itemId={item.key} label={item.label} />}
-              <Icon name="chevron" className={`${orderId && item.removable ? "" : "ml-auto "}h-5 w-5 shrink-0 transition-transform group-open:rotate-180`} />
+        <section key={item.key} className={`${card} border-2 !p-4`} style={{ borderColor: item.colour }}>
+          {/* with more than two items the cards start closed, so the page stays short; the line under each name says where it is */}
+          <details open={allItems.length <= 2} className="group">
+            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden" title="Tap to minimize or open">
+              <div className="flex min-h-11 items-center gap-2">
+                <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.colour }} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-medium">{item.label}</h2>
+                    {item.progress && item.progress.total > 0 && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${
+                          item.progress.filled >= item.progress.total ? "bg-ok-soft text-ok" : "bg-[#FEF3C7] text-[#92400E]"
+                        }`}
+                      >
+                        {item.progress.filled}/{item.progress.total}
+                      </span>
+                    )}
+                  </span>
+                  {item.summary && <span className="block text-base text-muted">{item.summary}</span>}
+                </span>
+                {orderId && item.removable && <RemoveItemButton itemId={item.key} label={item.label} />}
+                <Icon name="chevron" className={`${orderId && item.removable ? "" : "ml-auto "}h-5 w-5 shrink-0 transition-transform group-open:rotate-180`} />
+              </div>
+              {item.facts && item.facts.length > 0 && (
+                <div className="-mx-4 mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-b-2xl group-open:hidden border-t border-rule bg-paper-3/60 px-4 py-2 text-sm text-ink-2">
+                  {item.facts.map((f) => (
+                    <span key={f.label}>
+                      {f.label}: <b className="font-medium text-ink">{f.value}</b>
+                    </span>
+                  ))}
+                </div>
+              )}
             </summary>
-            <div className="mt-4 space-y-4">
+            <div className="mt-3 grid gap-x-4 gap-y-3 sm:grid-cols-2">
               <input type="hidden" name="itemKey" value={item.key} />
               {item.templateId ? <input type="hidden" name={`t:${item.key}`} value={item.templateId} /> : null}
               <input type="hidden" name={`l:${item.key}`} value={item.label} />
               {orderId && item.photos && (
-                <FieldProgress fields={item.fields} values={item.values} pictureKeys={item.photos.map((p) => p.fieldKey)} />
+                <div className="sm:col-span-2">
+                  <FieldProgress fields={item.fields} values={item.values} pictureKeys={item.photos.map((p) => p.fieldKey)} />
+                </div>
               )}
-              {item.fields.length === 0 && <p>This item has no fields yet.</p>}
+              {orderId && item.extra && <div className="sm:col-span-2">{item.extra}</div>}
+              {item.fields.length === 0 && <p className="sm:col-span-2">This item has no fields yet.</p>}
               {item.fields.map((f) => {
                 const name = `v:${item.key}:${f.key}`;
                 return (
-                  <FieldRow
-                    key={f.key}
-                    f={f}
-                    name={name}
-                    value={pick(name, item.values[f.key])}
-                    pictures
-                    saved={orderId && item.photos ? { itemId: Number(item.key), photos: item.photos.filter((p) => p.fieldKey === f.key) } : undefined}
-                  />
+                  <div key={f.key} className={isWideField(f) ? "sm:col-span-2" : ""}>
+                    <FieldRow
+                      f={f}
+                      name={name}
+                      value={pick(name, item.values[f.key])}
+                      pictures
+                      compact
+                      saved={orderId && item.photos ? { itemId: Number(item.key), photos: item.photos.filter((p) => p.fieldKey === f.key) } : undefined}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -193,7 +245,7 @@ export function OrderEditor({
 
       {!formId && (
         <Field label="Extra notes for this customer">
-          <textarea name="details" rows={5} defaultValue={pick("details", base.details)} className={textarea} />
+          <textarea name="details" rows={3} defaultValue={pick("details", base.details)} className={textarea} />
         </Field>
       )}
 

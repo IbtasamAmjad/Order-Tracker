@@ -11,9 +11,9 @@ export const ADD_ITEM_FORM = "add-item-form";
 export function AddItemBox({ orderId, options }: { orderId: number; options: { templateId: number; label: string }[] }) {
   if (options.length === 0) return null;
   return (
-    <div className="space-y-3 rounded-3xl border border-rule bg-paper-2 p-4 shadow-[var(--shadow-card)]">
+    <div className="space-y-3 rounded-3xl border border-accent/20 bg-accent-soft/60 p-4">
       <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-deep">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
           <Icon name="plus" className="h-5 w-5" />
         </span>
         <div className="min-w-0">

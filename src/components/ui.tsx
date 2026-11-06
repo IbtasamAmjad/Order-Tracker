@@ -10,8 +10,8 @@ export const btnPrimary = `${btn} btn-primary`;
 export const btnSecondary = `${btn} btn-quiet`;
 export const btnDanger = `${btn} btn-danger`;
 
-export const input = "input w-full min-h-11 text-base";
-export const select = "select w-full min-h-11 text-base";
+export const input = "input w-full min-h-10 text-base";
+export const select = "select w-full min-h-10 text-base";
 export const textarea = "textarea w-full text-base leading-snug";
 
 /** A white card with a quiet border and soft shadow. */
@@ -22,10 +22,25 @@ export const chip = "badge badge-lg";
 export const chipAttention = `${chip} badge-accent`;
 export const chipDark = `${chip} badge-primary`;
 
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+/** A red * after a label: this must be filled in. */
+export function RequiredMark() {
+  return (
+    <>
+      <span aria-hidden className="ml-1 font-medium text-bad">
+        *
+      </span>
+      <span className="sr-only"> (required)</span>
+    </>
+  );
+}
+
+export function Field({ label, children, hint, required = false, upper = false }: { label: string; children: ReactNode; hint?: string; required?: boolean; upper?: boolean }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-base font-medium text-ink">{label}</span>
+      <span className={upper ? "mb-1 block text-xs font-medium uppercase tracking-wide text-muted" : "mb-1 block text-base font-medium text-ink"}>
+        {label}
+        {required && <RequiredMark />}
+      </span>
       {hint && <span className="mb-1.5 block text-sm text-muted">{hint}</span>}
       {children}
     </label>

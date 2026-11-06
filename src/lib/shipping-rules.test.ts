@@ -150,3 +150,102 @@ describe("removing an item from a customer", () => {
     expect(o.removeItem(orderId, a)).toEqual({ ok: false, reason: "order-closed" });
   });
 });
+
+describe("the progress bar of an order", () => {
+  it("runs Order received, the steps, Shipped, and moves on as work is done and sent", async () => {
+    const { orderTrack, itemTrack } = await import("./track");
+    const staged = category("Sherwani", [
+      { label: "Embroidery", photo: "none" },
+      { label: "Stitching", photo: "none" },
+    ]);
+    const master = m.createMaster({ name: "M", pin: "1" });
+    const orderId = o.createOrder(base(master), [
+      { templateId: staged.tplId, label: "Sherwani 1", snapshot: staged.snapshot, values: {} },
+      { templateId: staged.tplId, label: "Sherwani 2", snapshot: staged.snapshot, values: {} },
+    ]);
+    const [a, b] = o.listItems(orderId).map((i) => i.id);
+    const states = () => orderTrack(orderId).map((x) => `${x.label}:${x.state}`).join(" | ");
+
+    // the same step on two items is one step on the bar
+    expect(states()).toBe("Order received:done | Embroidery:current | Stitching:todo | Shipped:todo");
+
+    // done only when every item has finished it
+    s.completeStage({ by: "admin" }, a, "embroidery");
+    expect(states()).toBe("Order received:done | Embroidery:current | Stitching:todo | Shipped:todo");
+    s.completeStage({ by: "admin" }, b, "embroidery");
+    expect(states()).toBe("Order received:done | Embroidery:done | Stitching:current | Shipped:todo");
+    expect(itemTrack(a).map((x) => x.state)).toEqual(["done", "done", "current", "todo"]);
+
+    // finish and send everything
+    for (const id of [a, b]) s.completeStage({ by: "admin" }, id, "stitching");
+    expect(states()).toBe("Order received:done | Embroidery:done | Stitching:done | Shipped:current");
+    const sid = sh.startShipment(master, orderId)!;
+    sh.saveShipmentItems(master, sid, [a, b], [a, b]);
+    sh.attachShipmentPhoto({ id: sid, orderId }, "bill", file);
+    expect(sh.submitShipment(master, sid)).toEqual({ ok: true, orderCompleted: true });
+    expect(states()).toBe("Order received:done | Embroidery:done | Stitching:done | Shipped:done");
+  });
+
+  it("an order with no steps is just Order received and Shipped", async () => {
+    const { orderTrack } = await import("./track");
+    const plain = category("Pagri");
+    const master = m.createMaster({ name: "M", pin: "1" });
+    const orderId = o.createOrder(base(master), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
+    expect(orderTrack(orderId).map((x) => x.label)).toEqual(["Order received", "Shipped"]);
+  });
+});
+
+describe("finishing one step on every item at once", () => {
+  it("finishes the open step on all items that are at it, and skips an item that is not ready", async () => {
+    const { openStepGroups, completeStepForAll } = await import("./track");
+    const plain = category("Sherwani", [{ label: "Embroidery", photo: "none" }, { label: "Stitching", photo: "none" }]);
+    const needsPhoto = category("Pants", [{ label: "Embroidery", photo: "required" }, { label: "Stitching", photo: "none" }]);
+    const master = m.createMaster({ name: "M", pin: "1" });
+    const orderId = o.createOrder(base(master), [
+      { templateId: plain.tplId, label: "Sherwani", snapshot: plain.snapshot, values: {} },
+      { templateId: needsPhoto.tplId, label: "Pants", snapshot: needsPhoto.snapshot, values: {} },
+      { templateId: plain.tplId, label: "Sherwani 2", snapshot: plain.snapshot, values: {} },
+    ]);
+    const [a, p, c] = o.listItems(orderId).map((i) => i.id);
+
+    const groups = openStepGroups(orderId);
+    expect(groups.map((g) => g.label)).toEqual(["Embroidery"]);
+    expect(groups[0].items.map((i) => [i.itemLabel, i.ready])).toEqual([["Sherwani", true], ["Pants", false], ["Sherwani 2", true]]);
+
+    // the Pants needs an approved photo first, so it is skipped, not forced
+    expect(completeStepForAll(master, orderId, "embroidery")).toEqual({ done: ["Sherwani", "Sherwani 2"], skipped: ["Pants"] });
+    expect(s.itemStageViews(a)[0].status).toBe("done");
+    expect(s.itemStageViews(c)[0].status).toBe("done");
+    expect(s.itemStageViews(p)[0].status).toBe("open");
+
+    // Stitching is open on two items now, and Embroidery only on one: only Stitching is a group
+    expect(openStepGroups(orderId).map((g) => g.label)).toEqual(["Stitching"]);
+    // another master cannot do it
+    const other = m.createMaster({ name: "Other", pin: "2" });
+    expect(completeStepForAll(other, orderId, "stitching")).toEqual({ done: [], skipped: ["Sherwani", "Sherwani 2"] });
+  });
+});
+
+describe("an image on an optional step does not wait for approval", () => {
+  it("is not a blocker, while a required photo still is", () => {
+    const optional = category("Sherwani", [{ label: "Embroidery", photo: "optional" }]);
+    const required = category("Pants", [{ label: "Embroidery", photo: "required" }]);
+    const master = m.createMaster({ name: "M", pin: "1" });
+    const orderId = o.createOrder(base(master), [
+      { templateId: optional.tplId, label: "Sherwani", snapshot: optional.snapshot, values: {} },
+      { templateId: required.tplId, label: "Pants", snapshot: required.snapshot, values: {} },
+    ]);
+    const [a, p] = o.listItems(orderId).map((i) => i.id);
+    s.addStagePhoto({ orderId, itemId: a, stageKey: "embroidery", uploadedBy: "master", ...file });
+    s.addStagePhoto({ orderId, itemId: p, stageKey: "embroidery", uploadedBy: "master", ...file });
+
+    // optional: it only says the step is not finished (the master can finish it himself)
+    expect(sh.itemShipReadiness(a).blockers).toEqual(["Embroidery: not finished yet"]);
+    // required: it waits for Admin
+    expect(sh.itemShipReadiness(p).blockers).toEqual(["Embroidery: the photo is waiting for approval"]);
+
+    // the master finishes the optional step and the Sherwani is ready, with the image still "pending"
+    expect(s.completeStage({ by: "master", masterId: master }, a, "embroidery")).toEqual({ ok: true });
+    expect(sh.itemShipReadiness(a).ready).toBe(true);
+  });
+});
