@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { masters } from "@/db/schema";
 import { hashPin, newToken } from "./pin";
 
-export function createMaster(input: { name: string; pin: string; whatsappNumber?: string }) {
+export function createMaster(input: { name: string; pin: string }) {
   return db
     .insert(masters)
     .values({
@@ -11,7 +11,6 @@ export function createMaster(input: { name: string; pin: string; whatsappNumber?
       token: newToken(),
       pinHash: hashPin(input.pin),
       sessionSecret: newToken(),
-      whatsappNumber: input.whatsappNumber || null,
     })
     .returning({ id: masters.id })
     .get().id;

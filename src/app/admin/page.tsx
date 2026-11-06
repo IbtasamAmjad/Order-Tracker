@@ -4,7 +4,7 @@ import { listMasters } from "@/lib/masters";
 import { listAdminOrders } from "@/lib/orders";
 import { remindersList } from "@/lib/reminders";
 import { unseenShipmentCount } from "@/lib/shipping";
-import { officeTodo, orderProgress, pendingPhotoCount } from "@/lib/stages";
+import { officeTodo, orderProgress } from "@/lib/stages";
 import { Ruler, btnPrimary } from "@/components/ui";
 
 function Figure({ href, label, value, note }: { href: string; label: string; value: number; note: string }) {
@@ -23,14 +23,13 @@ function Figure({ href, label, value, note }: { href: string; label: string; val
 export default function Home() {
   const rows = listAdminOrders({ view: "active" });
   const overdue = rows.filter((r) => r.flags?.overdue).length;
-  const photos = pendingPhotoCount();
   const shipments = unseenShipmentCount();
   const reminders = remindersList();
   const waiting = officeTodo();
   const masters = listMasters()
     .filter((m) => m.active)
     .map((m) => {
-      const mine = rows.filter((r) => r.masterId === m.id);
+      const mine = rows.filter((r) => r.masterIds.includes(m.id));
       const steps = mine.map((r) => orderProgress(r.id));
       return {
         id: m.id,
@@ -62,7 +61,6 @@ export default function Home() {
       </header>
 
       <div className="ledger">
-        <Figure href="/admin/review" label="Photos to check" value={photos} note={photos === 0 ? "Nothing waiting" : "Waiting for you"} />
         <Figure href="/admin/shipments" label="New shipments" value={shipments} note={shipments === 0 ? "None new" : "Sent with the bill"} />
         <Figure href="/admin/reminders" label="To chase" value={reminders.length} note={reminders.length === 0 ? "All caught up" : "Late or quiet orders"} />
       </div>

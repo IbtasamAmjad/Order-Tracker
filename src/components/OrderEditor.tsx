@@ -6,7 +6,11 @@ import type { FieldDef } from "@/db/schema";
 import { itemLabel } from "@/lib/items";
 import { emptyEditorState, type EditorItem, type EditorState } from "@/lib/editor-state";
 import { FieldRow } from "./FieldRow";
-import { Field, btnPrimary, btnSecondary, input, select, textarea, card } from "./ui";
+import { MasterPicker } from "./MasterPicker";
+import { PictureStore } from "./PictureInput";
+import { RemoveItemButton } from "./RemoveItemButton";
+import { Icon } from "./Icon";
+import { Field, btnPrimary, btnSecondary, input, textarea, card } from "./ui";
 
 type Master = { id: number; name: string };
 
@@ -21,6 +25,7 @@ type Base = {
   myDueDate?: string;
   karigarDueDate?: string;
   masterId?: number;
+  masterIds?: number[]; // every master of the order
   details?: string;
 };
 
@@ -32,6 +37,8 @@ export function OrderEditor({
   orderId,
   submitLabel,
   picker,
+  formId,
+  afterMasters,
 }: {
   action: (prev: EditorState, f: FormData) => Promise<EditorState>;
   masters: Master[];
@@ -40,8 +47,12 @@ export function OrderEditor({
   orderId?: number;
   submitLabel: string;
   picker?: CategoryPicker;
+  afterMasters?: React.ReactNode; // shown right under the masters (the page puts "Add another item" here)
+  formId?: string; // when set, the page puts the Save button itself (with form="<formId>") and this form shows none
 }) {
   const [state, formAction, pending] = useActionState(action, emptyEditorState);
+  // pictures chosen but not saved yet; kept here while the form is shown again after a warning
+  const [pictures] = useState(() => new Map<string, File[]>());
   // After a warning, show what the user typed instead of the saved values.
   const pick = (name: string, initial: string | undefined) => state.values[name] ?? initial ?? "";
 
@@ -64,7 +75,8 @@ export function OrderEditor({
   const allItems = [...items, ...chosen];
 
   return (
-    <form action={formAction} key={state.nonce} className="space-y-4">
+    <PictureStore.Provider value={pictures}>
+    <form id={formId} action={formAction} key={state.nonce} className="space-y-4">
       {orderId ? <input type="hidden" name="orderId" value={orderId} /> : null}
 
       {state.error && <p role="alert" className="alert alert-error text-lg font-medium">{state.error}</p>}
@@ -84,30 +96,26 @@ export function OrderEditor({
           className={input}
         />
       </Field>
-      <Field label="Master">
-        <select
-          name="masterId"
-          required
-          defaultValue={pick("masterId", base.masterId ? String(base.masterId) : "")}
-          className={select}
-        >
-          <option value="" disabled>
-            Choose a master
-          </option>
-          {masters.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <div>
+        <span className="mb-1 block text-lg font-medium">Masters (choose one or more)</span>
+        <MasterPicker
+          masters={masters}
+          initial={
+            "masterIds" in state.values
+              ? state.values.masterIds.split("\n").map(Number)
+              : (base.masterIds ?? (base.masterId ? [base.masterId] : []))
+          }
+        />
+      </div>
+
+      {afterMasters}
 
       {picker && (
         <section className="space-y-3">
           <h2 className="text-xl font-medium">What does this customer need?</h2>
           {picker.groups.length === 0 ? (
             <p className="text-lg">
-              No categories yet.{" "}
+              No items yet.{" "}
               <Link href="/admin/templates" className="link font-medium">
                 Set them up
               </Link>
@@ -115,7 +123,7 @@ export function OrderEditor({
             </p>
           ) : (
             <>
-              <p className="text-lg">Tick each category this customer needs. Its fields open below.</p>
+              <p className="text-lg">Tick each item this customer needs. Its fields open below.</p>
               {picker.groups.map((g) => (
                 <div key={g.id} className="space-y-2">
                   <h3 className="text-lg font-medium">{g.name}</h3>
@@ -148,25 +156,33 @@ export function OrderEditor({
       )}
 
       {allItems.map((item) => (
-        <section key={item.key} className={`${card} space-y-4 border-2`} style={{ borderColor: item.colour }}>
-          <input type="hidden" name="itemKey" value={item.key} />
-          {item.templateId ? <input type="hidden" name={`t:${item.key}`} value={item.templateId} /> : null}
-          <input type="hidden" name={`l:${item.key}`} value={item.label} />
-          <h2 className="flex items-center gap-2 text-xl font-medium">
-            <span className="inline-block h-5 w-5 rounded-full" style={{ background: item.colour }} />
-            {item.label}
-          </h2>
-          {item.fields.length === 0 && <p>This category has no fields yet.</p>}
-          {item.fields.map((f) => {
-            const name = `v:${item.key}:${f.key}`;
-            return <FieldRow key={f.key} f={f} name={name} value={pick(name, item.values[f.key])} />;
-          })}
+        <section key={item.key} className={`${card} border-2`} style={{ borderColor: item.colour }}>
+          <details open className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden" title="Tap to minimize or open">
+              <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.colour }} />
+              <h2 className="text-xl font-medium">{item.label}</h2>
+              {orderId && item.removable && <RemoveItemButton itemId={item.key} label={item.label} />}
+              <Icon name="chevron" className={`${orderId && item.removable ? "" : "ml-auto "}h-5 w-5 shrink-0 transition-transform group-open:rotate-180`} />
+            </summary>
+            <div className="mt-4 space-y-4">
+              <input type="hidden" name="itemKey" value={item.key} />
+              {item.templateId ? <input type="hidden" name={`t:${item.key}`} value={item.templateId} /> : null}
+              <input type="hidden" name={`l:${item.key}`} value={item.label} />
+              {item.fields.length === 0 && <p>This item has no fields yet.</p>}
+              {item.fields.map((f) => {
+                const name = `v:${item.key}:${f.key}`;
+                return <FieldRow key={f.key} f={f} name={name} value={pick(name, item.values[f.key])} />;
+              })}
+            </div>
+          </details>
         </section>
       ))}
 
-      <Field label="Extra notes for this customer">
-        <textarea name="details" rows={5} defaultValue={pick("details", base.details)} className={textarea} />
-      </Field>
+      {!formId && (
+        <Field label="Extra notes for this customer">
+          <textarea name="details" rows={5} defaultValue={pick("details", base.details)} className={textarea} />
+        </Field>
+      )}
 
       {state.missing.length > 0 && (
         <div role="alert" className="alert alert-warning block space-y-3 border-2">
@@ -185,9 +201,12 @@ export function OrderEditor({
         </div>
       )}
 
-      <button type="submit" disabled={pending} className={`${btnPrimary} w-full`}>
-        {pending ? "Saving..." : submitLabel}
-      </button>
+      {!formId && (
+        <button type="submit" disabled={pending} className={`${btnPrimary} w-full`}>
+          {pending ? "Saving..." : submitLabel}
+        </button>
+      )}
     </form>
+    </PictureStore.Provider>
   );
 }

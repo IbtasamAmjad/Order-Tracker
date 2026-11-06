@@ -73,7 +73,7 @@ describe("stages and the photo gate", () => {
     expect(s.orderProgress(orderId)).toEqual({ done: 3, total: 3 });
   });
 
-  it("lets a master upload on any order but complete only on his turn (unless Admin allows)", () => {
+  it("lets a master upload and complete on any of his orders, not only the first", () => {
     const a = setup();
     const second = o.createOrder(base(a.master, "Second"), [
       { templateId: 0, label: "X", snapshot: o.listItems(a.orderId)[0].snapshot, values: {} },
@@ -81,11 +81,8 @@ describe("stages and the photo gate", () => {
     const itemB = o.listItems(second)[0].id;
     const who = { by: "master", masterId: a.master } as const;
     expect(s.canMasterUpload(a.master, itemB, "cutting")).toEqual({ ok: false, reason: "no-photo-needed" });
-    expect(s.completeStage(who, itemB, "cutting")).toEqual({ ok: false, reason: "blocked" });
-    expect(s.completeStage({ by: "admin" }, itemB, "cutting")).toEqual({ ok: true }); // Admin can
-    expect(s.canMasterUpload(a.master, itemB, "embroidery")).toEqual({ ok: true, orderId: second }); // upload allowed out of turn
-    expect(s.completeStage(who, itemB, "embroidery")).toEqual({ ok: false, reason: "blocked" });
-    o.setAllowOutOfSequence(second, true);
+    expect(s.completeStage(who, itemB, "cutting")).toEqual({ ok: true }); // no waiting for the first order
+    expect(s.canMasterUpload(a.master, itemB, "embroidery")).toEqual({ ok: true, orderId: second });
     const p = photo(second, itemB, "embroidery");
     s.reviewPhoto(p, "approved", "");
     expect(s.completeStage(who, itemB, "embroidery")).toEqual({ ok: true });

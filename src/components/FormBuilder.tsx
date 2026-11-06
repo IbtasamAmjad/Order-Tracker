@@ -44,15 +44,13 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
     items: [
       { type: "text", name: "Text box", hint: "One line, like a design number", label: "Text box" },
       { type: "longtext", name: "Comment box", hint: "Several lines of writing", label: "Comments" },
-      { type: "number", name: "Number", hint: "A measurement, with a unit", label: "Number" },
-      { type: "phone", name: "Phone number", hint: "A phone number", label: "Phone number" },
+      { type: "color", name: "Color code", hint: "A HEX color, like #1F69D1", label: "Color code" },
+      { type: "number", name: "Number", hint: "A measurement or a number", label: "Number" },
     ],
   },
   {
     group: "Pick",
     items: [
-      { type: "date", name: "Date", hint: "Choose a day", label: "Date" },
-      { type: "time", name: "Time", hint: "Choose a time", label: "Time" },
       { type: "select", name: "Dropdown list", hint: "Pick one from a list", label: "Dropdown list" },
       { type: "radio", name: "Choose one", hint: "Buttons, pick one", label: "Choose one" },
       { type: "checkboxes", name: "Choose many", hint: "Tick boxes, pick several", label: "Choose many" },
@@ -212,13 +210,6 @@ function FieldCard({
             </label>
           )}
 
-          {f.type === "number" && (
-            <label className="block">
-              <span className="mb-1 block text-base font-medium">Unit (optional)</span>
-              <input value={f.unit} onChange={(e) => onChange({ unit: e.target.value })} className={input} placeholder="inch" />
-            </label>
-          )}
-
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => onMove(-1)} disabled={index === 0} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move up">
               <Icon name="up" /> Up
@@ -257,7 +248,7 @@ function SaveButton({ dirty, duplicates }: { dirty: boolean; duplicates: string[
   return (
     <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-base-300 bg-base-100/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       <button disabled={pending || blocked} className={`${btnPrimary} flex-1 sm:flex-none sm:px-10`}>
-        {pending ? "Saving..." : "Save category"}
+        {pending ? "Saving..." : "Save item"}
       </button>
       {blocked ? (
         <span role="alert" className="text-base font-medium text-error">
@@ -444,7 +435,7 @@ export function FormBuilder({
         <div>
           <h2 className="text-2xl font-medium">Steps</h2>
           <p className="text-base opacity-80">
-            The steps this category goes through, in order. A step can wait for two different things. The <b>photo of the work</b> is sent by the master from the phone and you approve it. A <b>field</b> is something on the form above that must be filled in first.
+            The steps this item goes through, in order. A step can wait for two different things. The <b>photo of the work</b> is sent by the master from the phone and you approve it. A <b>field</b> is something on the form above that must be filled in first.
           </p>
         </div>
         {steps.map((s, i) => (
@@ -514,7 +505,7 @@ export function FormBuilder({
 
       <SaveButton dirty={dirty} duplicates={dupes} />
       <p className="text-sm opacity-60">
-        Saved version {version}. Changing a category does not change customers who are already on it. To bring one of them up to date, open the customer and press &quot;Update from the category&quot;.
+        Saved version {version}. Changing an item does not change customers who are already on it. To bring one of them up to date, open the customer and press &quot;Update from the item&quot;.
       </p>
     </form>
   );

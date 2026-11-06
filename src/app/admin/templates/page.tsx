@@ -11,8 +11,8 @@ export default function Templates() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Categories"
-        sub="A group holds categories. For example the group Men holds Kurta and Pagri. Open a category to build its form."
+        title="Items"
+        sub="A group holds items. For example the group Men holds Kurta and Pagri. Open an item to build its form."
       />
 
       {tree.length === 0 && (
@@ -30,7 +30,7 @@ export default function Templates() {
             </form>
 
             {main.subs.length === 0 ? (
-              <p className="text-base text-muted">No categories in {main.name} yet. Add the first one below.</p>
+              <p className="text-base text-muted">No items in {main.name} yet. Add the first one below.</p>
             ) : (
               <ul className="space-y-2">
                 {main.subs.map((sub) => (
@@ -52,12 +52,12 @@ export default function Templates() {
             )}
 
             <form action={createSubAction} className="space-y-2">
-              <p className="text-base font-medium">Add a category to {main.name}</p>
+              <p className="text-base font-medium">Add an item to {main.name}</p>
               <div className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="parentId" value={main.id} />
-                <input name="name" required placeholder="Name (e.g. Kurta)" aria-label={`New category in ${main.name}`} className={`${input} min-w-0 flex-1 basis-40`} />
+                <input name="name" required placeholder="Name (e.g. Kurta)" aria-label={`New item in ${main.name}`} className={`${input} min-w-0 flex-1 basis-40`} />
                 <input type="color" name="colour" defaultValue="#64748b" className={colourInput} aria-label="Colour" />
-                <button className={btnPrimary}>Add category</button>
+                <button className={btnPrimary}>Add item</button>
               </div>
               <p className="text-sm text-muted">Next you will build its form.</p>
             </form>
@@ -65,7 +65,7 @@ export default function Templates() {
             <details>
               <summary className="inline-flex min-h-11 cursor-pointer items-center text-base underline">Delete this group</summary>
               <form action={deleteCategoryAction} className="mt-2 space-y-2">
-                <p>This also deletes its categories and forms. Existing orders are not changed.</p>
+                <p>This also deletes its items and forms. Existing orders are not changed.</p>
                 <input type="hidden" name="id" value={main.id} />
                 <button className={btnDanger}>Yes, delete {main.name}</button>
               </form>

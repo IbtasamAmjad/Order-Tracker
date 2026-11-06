@@ -48,6 +48,14 @@ export function missingRequired(fields: FieldDef[], values: ItemValues): FieldDe
   return fields.filter((f) => f.required && f.type !== "picture" && !isDisplayOnly(f) && isEmpty(values[f.key]));
 }
 
+/** "#1f69d1", "1F69D1" or "#abc" -> "#1F69D1"; anything that is not a HEX color -> "". */
+export function normalizeHex(v: string): string {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v.trim());
+  if (!m) return "";
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  return `#${h.toUpperCase()}`;
+}
+
 /** Keep only values for known input fields, trimmed; choices must be one of the options. */
 export function cleanValues(fields: FieldDef[], raw: ItemValues): ItemValues {
   const out: ItemValues = {};
@@ -57,12 +65,25 @@ export function cleanValues(fields: FieldDef[], raw: ItemValues): ItemValues {
     if (f.type === "checkboxes") {
       const picked = splitMulti(v).filter((x) => !f.options?.length || f.options.includes(x));
       v = picked.join("\n");
+    } else if (f.type === "color") {
+      v = normalizeHex(v);
     } else if ((f.type === "select" || f.type === "radio") && f.options?.length && !f.options.includes(v)) {
       v = "";
     }
     if (v) out[f.key] = v;
   }
   return out;
+}
+
+/**
+ * How many of a form's fields are filled in. Headings and notes are not counted. A picture field counts once a
+ * picture is attached to it (pass the keys of the picture fields that have one).
+ */
+export function fieldProgress(fields: FieldDef[], values: ItemValues, pictureKeys: Iterable<string> = []): { filled: number; total: number } {
+  const withPicture = new Set(pictureKeys);
+  const asked = fields.filter((f) => !isDisplayOnly(f));
+  const filled = asked.filter((f) => (f.type === "picture" ? withPicture.has(f.key) : !isEmpty(values[f.key]))).length;
+  return { filled, total: asked.length };
 }
 
 /** "Sherwani", or "Sherwani 1", "Sherwani 2" when the same item appears more than once. */

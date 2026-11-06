@@ -21,7 +21,7 @@ export default async function CategoryBuilder({
     <div className="space-y-8">
       <div className="space-y-2">
         <Link href="/admin/templates" className="link inline-flex min-h-12 items-center gap-2 text-base font-medium">
-          <Icon name="arrow" className="h-4 w-4 rotate-180" /> All categories
+          <Icon name="arrow" className="h-4 w-4 rotate-180" /> All items
         </Link>
         <h1 className="page-title normal-case">
           {t.main?.name} &gt; {t.sub.name}
@@ -40,7 +40,7 @@ export default async function CategoryBuilder({
       <form action={updateCategoryAction} className="panel flex flex-wrap items-center gap-2">
         <input type="hidden" name="id" value={t.sub.id} />
         <input type="hidden" name="back" value={`/admin/templates/${t.id}`} />
-        <input name="name" defaultValue={t.sub.name} required className={`${input} min-w-0 flex-1 basis-40`} aria-label="Category name" />
+        <input name="name" defaultValue={t.sub.name} required className={`${input} min-w-0 flex-1 basis-40`} aria-label="Item name" />
         <input type="color" name="colour" defaultValue={t.sub.colour} className="h-12 w-14 shrink-0 cursor-pointer rounded-full border border-muted bg-paper p-1" aria-label="Colour" />
         <button className={btnSecondary}>Rename</button>
       </form>
@@ -66,7 +66,7 @@ export default async function CategoryBuilder({
         <input type="hidden" name="id" value={t.id} />
         <h2 className="text-xl font-medium">Printing</h2>
         <p className="text-base">
-          Each category prints on its own page. To save paper, give two categories the same name here and they share a page, for example
+          Each item prints on its own page. To save paper, give two items the same name here and they share a page, for example
           &quot;Pagri and Shoes&quot;. Leave empty for a page of its own.
         </p>
         <input name="printGroup" defaultValue={t.printGroup ?? ""} placeholder="Shared page name (optional)" className={input} />
@@ -74,7 +74,7 @@ export default async function CategoryBuilder({
       </form>
 
       <details className="collapse collapse-arrow border border-base-300 bg-base-100">
-        <summary className="collapse-title text-base font-medium">Delete this category</summary>
+        <summary className="collapse-title text-base font-medium">Delete this item</summary>
         <form action={deleteCategoryAction} className="collapse-content space-y-3">
           <p>Existing customers are not changed.</p>
           <input type="hidden" name="id" value={t.sub.id} />

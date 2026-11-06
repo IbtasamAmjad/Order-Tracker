@@ -51,15 +51,31 @@ describe("orders", () => {
     expect(o.masterDashboard(b).active).toHaveLength(1);
   });
 
-  it("blocks completing out of sequence unless Admin allows it", () => {
+  it("lets a master complete any of his orders, in any order", () => {
     const a = m.createMaster({ name: "C", pin: "1" });
     const first = o.createOrder(input(a, "First"));
     const second = o.createOrder(input(a, "Second"));
-    expect(o.masterComplete(a, second)).toEqual({ ok: false, reason: "blocked" });
-    expect(o.masterOrder(a, second)!.canComplete).toBe(false);
-    o.setAllowOutOfSequence(second, true);
+    expect(o.masterOrder(a, second)!.canComplete).toBe(true);
     expect(o.masterComplete(a, second)).toEqual({ ok: true });
     expect(o.masterComplete(a, first)).toEqual({ ok: true });
+  });
+
+  it("can give an order to several masters, who all see it and can work on it", () => {
+    const a = m.createMaster({ name: "Two A", pin: "1" });
+    const b = m.createMaster({ name: "Two B", pin: "2" });
+    const c = m.createMaster({ name: "Not on it", pin: "3" });
+    const id = o.createOrder({ ...input(a, "Shared"), masterIds: [a, b] });
+    expect(o.masterOrder(a, id)).not.toBeNull();
+    expect(o.masterOrder(b, id)).not.toBeNull();
+    expect(o.masterOrder(c, id)).toBeNull(); // another master still never sees it
+    expect(o.masterDashboard(b).active.map((r) => r.id)).toContain(id);
+    expect(o.listAdminOrders({ masterId: b, view: "active" }).map((r) => r.id)).toContain(id);
+    expect(o.listAdminOrders({ view: "active" }).find((r) => r.id === id)!.masterName).toBe("Two A, Two B");
+    // Admin changes the list: b leaves, c joins
+    o.updateOrder(id, { ...input(a, "Shared"), masterIds: [a, c] });
+    expect(o.masterOrder(b, id)).toBeNull();
+    expect(o.masterOrder(c, id)).not.toBeNull();
+    expect(o.masterComplete(c, id)).toEqual({ ok: true });
   });
 
   it("shows Seen / New / Updated badges", () => {

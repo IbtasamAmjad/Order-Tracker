@@ -12,17 +12,12 @@ export default function Masters() {
       <ul className="space-y-4">
         {masters.map((m) => {
           const link = `${APP_URL}/m/${m.token}`;
-          const text = `Hello ${m.name}, this is your order link: ${link} . Ask me for your code. Please check it every day.`;
-          const wa = `https://wa.me/${m.whatsappNumber ?? ""}?text=${encodeURIComponent(text)}`;
           return (
             <li key={m.id} className="space-y-3 panel">
               <div className="text-xl font-medium">
                 {m.name} {!m.active && <span className="text-thread">(inactive)</span>}
               </div>
               <input readOnly value={link} className={input} aria-label="Personal link" />
-              <a href={wa} target="_blank" rel="noreferrer" className={`${btnPrimary} w-full`}>
-                Send link on WhatsApp
-              </a>
 
               <form action={setPinAction} className="flex flex-wrap gap-2">
                 <input type="hidden" name="id" value={m.id} />
@@ -53,9 +48,6 @@ export default function Masters() {
         </Field>
         <Field label="PIN (numbers and letters)">
           <input name="pin" required className={input} />
-        </Field>
-        <Field label="WhatsApp number (optional, with country code)">
-          <input name="whatsapp" inputMode="tel" className={input} />
         </Field>
         <button className={`${btnPrimary} w-full`}>Add master</button>
       </form>

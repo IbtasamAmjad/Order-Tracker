@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, gt, inArray, lt, max } from "drizzle-orm";
 import { db } from "@/db";
-import { masters, orderItems, orders, shipmentItems, shipments, type OrderStatus } from "@/db/schema";
-import { cleanValues, isTextEditable, type ItemValues, type NewItem } from "./items";
-import { createStageRows, orderProgress } from "./stages";
+import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments, type OrderStatus } from "@/db/schema";
+import { cleanValues, fieldProgress, isTextEditable, type ItemValues, type NewItem } from "./items";
+import { createStageRows, orderProgress, referencePhotos } from "./stages";
+import { assignedMasterIds, cleanMasterIds, masterNames, mine, setAssignedMasters } from "./assign";
 import { lastActivityAt, orderFlags } from "./reminders";
 import { colourBand, type Band } from "./colour";
 import { CLOSED_VISIBLE_DAYS } from "./config";
@@ -11,13 +12,22 @@ export type OrderInput = {
   customerName: string;
   myDueDate: string;
   karigarDueDate: string;
-  masterId: number;
+  masterId: number; // the main master (the first one)
+  masterIds?: number[]; // every master of the order, main one first; leave out for just masterId
   details: string;
 };
+
+/** Split the input into the columns of the order and the full list of masters. */
+function splitMasters(input: OrderInput) {
+  const { masterIds: given, ...rest } = input;
+  const ids = cleanMasterIds(given?.length ? given : [input.masterId]);
+  return { cols: { ...rest, masterId: ids[0] ?? input.masterId }, ids: ids.length ? ids : [input.masterId] };
+}
 
 // ---------------------------------------------------------------- admin
 
 export function createOrder(input: OrderInput, items: NewItem[] = []): number {
+  const { cols, ids } = splitMasters(input);
   return db.transaction((tx) => {
     const row = tx
       .select({ n: max(orders.orderNumber), p: max(orders.priorityPosition) })
@@ -26,12 +36,13 @@ export function createOrder(input: OrderInput, items: NewItem[] = []): number {
     const res = tx
       .insert(orders)
       .values({
-        ...input,
+        ...cols,
         orderNumber: (row?.n ?? 0) + 1,
         priorityPosition: (row?.p ?? 0) + 1, // joins the end of the sequence
       })
       .returning({ id: orders.id })
       .get();
+    setAssignedMasters(tx, res.id, ids);
     items.forEach((it, i) => {
       const itemId = tx
         .insert(orderItems)
@@ -46,11 +57,13 @@ export function createOrder(input: OrderInput, items: NewItem[] = []): number {
 
 /** itemValues: new values per existing item id. */
 export function updateOrder(id: number, input: OrderInput, itemValues: Map<number, ItemValues> = new Map()): void {
+  const { cols, ids } = splitMasters(input);
   db.transaction((tx) => {
     const old = tx.select().from(orders).where(eq(orders.id, id)).get();
     if (!old) return;
     const now = new Date();
-    const masterChanged = old.masterId !== input.masterId;
+    const before = assignedMasterIds(id, tx);
+    const masterChanged = before.length !== ids.length || ids.some((m) => !before.includes(m));
     let itemsChanged = false;
     for (const [itemId, values] of itemValues) {
       const item = tx.select().from(orderItems).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, id))).get();
@@ -63,12 +76,12 @@ export function updateOrder(id: number, input: OrderInput, itemValues: Map<numbe
     const visibleChange =
       masterChanged ||
       itemsChanged ||
-      old.customerName !== input.customerName ||
-      old.karigarDueDate !== input.karigarDueDate ||
-      old.details !== input.details;
+      old.customerName !== cols.customerName ||
+      old.karigarDueDate !== cols.karigarDueDate ||
+      old.details !== cols.details;
     tx.update(orders)
       .set({
-        ...input,
+        ...cols,
         updatedAt: now,
         ...(visibleChange ? { changedForMasterAt: now } : {}),
         // a newly assigned master sees it as New
@@ -76,6 +89,7 @@ export function updateOrder(id: number, input: OrderInput, itemValues: Map<numbe
       })
       .where(eq(orders.id, id))
       .run();
+    setAssignedMasters(tx, id, ids);
   });
 }
 
@@ -177,14 +191,16 @@ export function listAdminOrders(opts: { masterId?: number; view: "active" | "fin
           : opts.view === "archived"
             ? eq(orders.status, "archived")
             : inArray(orders.status, ["completed", "cancelled"]),
-        opts.masterId ? eq(orders.masterId, opts.masterId) : undefined,
+        opts.masterId ? mine(opts.masterId) : undefined,
       ),
     )
     .orderBy(opts.view === "active" ? asc(orders.priorityPosition) : desc(orders.closedAt))
     .all();
   return rows.map(({ order, masterName }) => ({
     ...order,
-    masterName,
+    masterIds: assignedMasterIds(order.id),
+    ...(order.status === "active" ? { progress: orderProgress(order.id), ...cardInfo(order.id) } : { progress: { done: 0, total: 0 }, itemLabels: [] as string[], fields: { filled: 0, total: 0 } }),
+    masterName: masterNames(order.id).join(", ") || masterName,
     flags: order.status === "active" ? orderFlags(order.karigarDueDate, lastActivityAt(order.id)) : null,
     band: (order.status === "active"
       ? colourBand(order.karigarDueDate, first.get(order.masterId) === order.id)
@@ -229,11 +245,24 @@ function closedCutoff(now: Date) {
   return new Date(now.getTime() - CLOSED_VISIBLE_DAYS * 86_400_000);
 }
 
+/** What a master's order card shows besides the title: the items on the order and how many fields are filled in. */
+function cardInfo(orderId: number) {
+  const items = listItems(orderId);
+  let filled = 0;
+  let total = 0;
+  for (const it of items) {
+    const p = fieldProgress(it.snapshot.fields, it.values, referencePhotos(it.id).map((r) => r.fieldKey ?? ""));
+    filled += p.filled;
+    total += p.total;
+  }
+  return { itemLabels: items.map((i) => i.label), fields: { filled, total } };
+}
+
 export function masterDashboard(masterId: number, now = new Date()) {
   const rows = db
     .select(masterColumns)
     .from(orders)
-    .where(and(eq(orders.masterId, masterId), inArray(orders.status, ["active", "completed", "cancelled"])))
+    .where(and(mine(masterId), inArray(orders.status, ["active", "completed", "cancelled"])))
     .orderBy(asc(orders.priorityPosition))
     .all();
   const active = rows
@@ -244,6 +273,7 @@ export function masterDashboard(masterId: number, now = new Date()) {
       band: colourBand(r.karigarDueDate, i === 0, now),
       progress: orderProgress(r.id),
       flags: orderFlags(r.karigarDueDate, lastActivityAt(r.id), now),
+      ...cardInfo(r.id),
     }));
   const cutoff = closedCutoff(now).getTime();
   const closed = rows
@@ -257,18 +287,11 @@ export function masterOrder(masterId: number, orderId: number, now = new Date())
   const o = db
     .select(masterColumns)
     .from(orders)
-    .where(and(eq(orders.id, orderId), eq(orders.masterId, masterId)))
+    .where(and(eq(orders.id, orderId), mine(masterId)))
     .get();
   if (!o || o.status === "archived") return null;
   if (o.status !== "active" && (o.closedAt?.getTime() ?? 0) < closedCutoff(now).getTime()) return null;
-  const firstId = db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(and(eq(orders.masterId, masterId), eq(orders.status, "active")))
-    .orderBy(asc(orders.priorityPosition))
-    .limit(1)
-    .get()?.id;
-  const canComplete = o.status === "active" && (o.id === firstId || o.allowOutOfSequence);
+  const canComplete = o.status === "active"; // no waiting for earlier orders: a master can work on any of his orders
   return { ...o, canComplete, badge: badgeFor(o) };
 }
 
@@ -277,28 +300,27 @@ export function markSeen(masterId: number, orderId: number): void {
   const o = db
     .select({ seen: orders.masterSeenAt })
     .from(orders)
-    .where(and(eq(orders.id, orderId), eq(orders.masterId, masterId)))
+    .where(and(eq(orders.id, orderId), mine(masterId)))
     .get();
   if (!o) return;
   db.update(orders)
     .set({ masterSeenAt: o.seen ?? now, masterLastSeenAt: now })
-    .where(and(eq(orders.id, orderId), eq(orders.masterId, masterId)))
+    .where(and(eq(orders.id, orderId), mine(masterId)))
     .run();
 }
 
-export type CompleteResult = { ok: true } | { ok: false; reason: "not-found" | "not-active" | "not-shipped" | "blocked" };
+export type CompleteResult = { ok: true } | { ok: false; reason: "not-found" | "not-active" | "not-shipped" };
 
 /**
  * Master marks an order complete. An order that has items is completed by shipping them, so this only works once
  * every item has been sent (an order with no items has nothing to ship). It never skips approval or shipping.
- * Blocked while an earlier order is unfinished, unless Admin allowed it.
  */
 export function masterComplete(masterId: number, orderId: number): CompleteResult {
   return db.transaction((tx) => {
     const o = tx
       .select()
       .from(orders)
-      .where(and(eq(orders.id, orderId), eq(orders.masterId, masterId)))
+      .where(and(eq(orders.id, orderId), mine(masterId)))
       .get();
     if (!o) return { ok: false, reason: "not-found" } as const;
     if (o.status !== "active") return { ok: false, reason: "not-active" } as const;
@@ -317,14 +339,6 @@ export function masterComplete(masterId: number, orderId: number): CompleteResul
       if (items.some((i) => !sent.has(i.id))) return { ok: false, reason: "not-shipped" } as const;
     }
 
-    const first = tx
-      .select({ id: orders.id })
-      .from(orders)
-      .where(and(eq(orders.masterId, masterId), eq(orders.status, "active")))
-      .orderBy(asc(orders.priorityPosition))
-      .limit(1)
-      .get();
-    if (first?.id !== o.id && !o.allowOutOfSequence) return { ok: false, reason: "blocked" } as const;
     const now = new Date();
     tx.update(orders).set({ status: "completed", closedAt: now, updatedAt: now }).where(eq(orders.id, o.id)).run();
     return { ok: true } as const;
@@ -351,6 +365,53 @@ export function addItem(orderId: number, item: NewItem): void {
   });
 }
 
+export type RemoveItemResult = { ok: true } | { ok: false; reason: "not-found" | "order-closed" | "shipped" };
+
+/**
+ * Admin takes one item off a live customer. Its steps and pictures go with it. An item that is already in a sent
+ * shipment cannot be removed. If what is left has all been sent, the customer is complete.
+ */
+export function removeItem(orderId: number, itemId: number): RemoveItemResult {
+  return db.transaction((tx) => {
+    const order = tx.select().from(orders).where(eq(orders.id, orderId)).get();
+    const item = tx.select().from(orderItems).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId))).get();
+    if (!order || !item) return { ok: false, reason: "not-found" } as const;
+    if (order.status !== "active") return { ok: false, reason: "order-closed" } as const;
+    const sent = tx
+      .select({ id: shipmentItems.itemId })
+      .from(shipmentItems)
+      .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
+      .where(and(eq(shipmentItems.itemId, itemId), eq(shipments.status, "submitted")))
+      .get();
+    if (sent) return { ok: false, reason: "shipped" } as const;
+
+    tx.delete(shipmentItems).where(eq(shipmentItems.itemId, itemId)).run(); // only an unsent draft can still hold it
+    tx.delete(photos).where(eq(photos.itemId, itemId)).run();
+    tx.delete(itemStages).where(eq(itemStages.itemId, itemId)).run();
+    tx.delete(orderItems).where(eq(orderItems.id, itemId)).run();
+
+    const now = new Date();
+    tx.update(orders).set({ changedForMasterAt: now, updatedAt: now }).where(eq(orders.id, orderId)).run();
+
+    const left = tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, orderId)).all();
+    if (left.length > 0) {
+      const sentIds = new Set(
+        tx
+          .select({ itemId: shipmentItems.itemId })
+          .from(shipmentItems)
+          .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
+          .where(and(eq(shipments.orderId, orderId), eq(shipments.status, "submitted")))
+          .all()
+          .map((r) => r.itemId),
+      );
+      if (left.every((i) => sentIds.has(i.id))) {
+        tx.update(orders).set({ status: "completed", closedAt: now }).where(eq(orders.id, orderId)).run();
+      }
+    }
+    return { ok: true } as const;
+  });
+}
+
 /** Items for the master. Only call after masterOrder() confirmed the order is theirs. */
 export function masterItems(orderId: number) {
   return listItems(orderId).map((i) => ({ id: i.id, label: i.label, snapshot: i.snapshot, values: i.values }));
@@ -362,7 +423,7 @@ export function masterItems(orderId: number) {
  */
 export function masterSaveFields(masterId: number, orderId: number, itemId: number, raw: Record<string, string>): boolean {
   return db.transaction((tx) => {
-    const order = tx.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.masterId, masterId))).get();
+    const order = tx.select().from(orders).where(and(eq(orders.id, orderId), mine(masterId))).get();
     if (!order || order.status !== "active") return false;
     const item = tx.select().from(orderItems).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId))).get();
     if (!item) return false;

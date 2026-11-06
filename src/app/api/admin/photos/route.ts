@@ -7,7 +7,7 @@ import { addReferencePhoto } from "@/lib/stages";
 
 const fail = (error: string, status = 400) => Response.json({ error }, { status });
 
-// Admin uploads a reference picture for a "picture" field of an order item.
+// Admin uploads a reference picture for a "picture" field (or a comment box) of an order item.
 export async function POST(req: Request) {
   if (!(await isAdmin())) return Response.json({ error: "Admin login needed." }, { status: 401 });
   const form = await req.formData();
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   const item = db.select().from(orderItems).where(eq(orderItems.id, itemId)).get();
   const field = item?.snapshot.fields.find((f) => f.key === fieldKey);
-  if (!item || field?.type !== "picture") return fail("This item has no such picture field.", 404);
+  if (!item || (field?.type !== "picture" && field?.type !== "longtext")) return fail("This item has no such picture field.", 404);
 
   const saved = await storeUpload(item.orderId, file);
   if ("error" in saved) return fail(saved.error);

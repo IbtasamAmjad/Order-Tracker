@@ -66,8 +66,8 @@ describe("the master's Mark complete cannot skip shipping", () => {
   });
 });
 
-describe("shipping order: an order waiting for Admin does not hold back a ready one", () => {
-  it("lets a later order ship while the earlier one has nothing ready, and not once it has", () => {
+describe("shipping order: no order holds back another", () => {
+  it("lets a later order ship whether or not the earlier one has something ready", () => {
     const staged = category("Sherwani", [{ label: "Embroidery", photo: "required" }]);
     const plain = category("Pagri");
     const master = m.createMaster({ name: "M", pin: "1" });
@@ -75,22 +75,20 @@ describe("shipping order: an order waiting for Admin does not hold back a ready 
     const second = o.createOrder(base(master, "Second"), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
     const firstItem = o.listItems(first)[0].id;
 
-    expect(sh.canMasterShip(master, first)).toBe(true); // the first order is always his turn
+    expect(sh.canMasterShip(master, first)).toBe(true);
     // the first order waits for Anas to approve a photo: nothing in it is ready, so the second may go
     s.addStagePhoto({ orderId: first, itemId: firstItem, stageKey: "embroidery", uploadedBy: "master", ...file });
     expect(sh.itemShipReadiness(firstItem).ready).toBe(false);
     expect(sh.canMasterShip(master, second)).toBe(true);
 
-    // once Anas approves it, the first order has something to send and goes first again
+    // once Anas approves it, the first order has something to send, and the second may still go
     const pid = s.pendingPhotos().find((p) => p.orderNumber === o.getOrder(first)!.orderNumber)!.id;
     s.reviewPhoto(pid, "approved", "");
     expect(sh.itemShipReadiness(firstItem).ready).toBe(true);
-    expect(sh.canMasterShip(master, second)).toBe(false);
-    o.setAllowOutOfSequence(second, true); // Admin can still allow it
     expect(sh.canMasterShip(master, second)).toBe(true);
   });
 
-  it("submit enforces the same rule", () => {
+  it("submit works on a later order while an earlier one is ready", () => {
     const plain = category("Pagri");
     const master = m.createMaster({ name: "M", pin: "1" });
     const first = o.createOrder(base(master, "First"), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
@@ -100,7 +98,7 @@ describe("shipping order: an order waiting for Admin does not hold back a ready 
     const item = o.listItems(second)[0].id;
     sh.saveShipmentItems(master, sid, [item], [item]);
     sh.attachShipmentPhoto({ id: sid, orderId: second }, "bill", file);
-    expect(sh.submitShipment(master, sid)).toEqual({ ok: false, reason: "blocked" }); // the first order has a ready item
+    expect(sh.submitShipment(master, sid)).toEqual({ ok: true, orderCompleted: true });
   });
 });
 
@@ -116,5 +114,39 @@ describe("looking at the shipping page does not create a shipment", () => {
     expect(sh.findDraft(master, orderId)?.id).toBe(sid);
     const other = m.createMaster({ name: "Other", pin: "2" });
     expect(sh.findDraft(other, orderId)).toBeNull(); // another master never sees it
+  });
+});
+
+describe("removing an item from a customer", () => {
+  it("removes an unsent item with its steps, keeps a sent one, and completes the customer when the rest is sent", () => {
+    const staged = category("Sherwani", [{ label: "Embroidery", photo: "optional" }]);
+    const master = m.createMaster({ name: "M", pin: "1" });
+    const orderId = o.createOrder(base(master), [
+      { templateId: staged.tplId, label: "Sherwani 1", snapshot: staged.snapshot, values: {} },
+      { templateId: staged.tplId, label: "Sherwani 2", snapshot: staged.snapshot, values: {} },
+      { templateId: staged.tplId, label: "Sherwani 3", snapshot: staged.snapshot, values: {} },
+    ]);
+    const [a, b, c] = o.listItems(orderId).map((i) => i.id);
+    s.addReferencePhoto({ orderId, itemId: c, fieldKey: "x", ...file });
+
+    // the third goes, with its steps and pictures
+    expect(o.removeItem(orderId, c)).toEqual({ ok: true });
+    expect(o.listItems(orderId).map((i) => i.id)).toEqual([a, b]);
+    expect(s.referencePhotos(c)).toHaveLength(0);
+    expect(s.itemStageViews(c)).toHaveLength(0);
+    expect(o.removeItem(orderId, c)).toEqual({ ok: false, reason: "not-found" });
+
+    // send the first: it can no longer be removed
+    s.completeStage({ by: "admin" }, a, "embroidery");
+    const sid = sh.startShipment(master, orderId)!;
+    sh.saveShipmentItems(master, sid, [a], [a]);
+    sh.attachShipmentPhoto({ id: sid, orderId }, "bill", file);
+    expect(sh.submitShipment(master, sid)).toEqual({ ok: true, orderCompleted: false });
+    expect(o.removeItem(orderId, a)).toEqual({ ok: false, reason: "shipped" });
+
+    // removing the only unsent item leaves everything sent, so the customer is complete
+    expect(o.removeItem(orderId, b)).toEqual({ ok: true });
+    expect(o.getOrder(orderId)!.status).toBe("completed");
+    expect(o.removeItem(orderId, a)).toEqual({ ok: false, reason: "order-closed" });
   });
 });

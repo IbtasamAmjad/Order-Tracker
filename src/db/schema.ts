@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 const ts = (name: string) => integer(name, { mode: "timestamp_ms" });
 
@@ -54,6 +54,20 @@ export const orders = sqliteTable("orders", {
     .$defaultFn(() => new Date()),
 });
 
+// An order can have several masters. orders.master_id stays as the first (main) one; this lists every master of the order.
+export const orderMasters = sqliteTable(
+  "order_masters",
+  {
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id),
+    masterId: integer("master_id")
+      .notNull()
+      .references(() => masters.id),
+  },
+  (t) => [primaryKey({ columns: [t.orderId, t.masterId] })],
+);
+
 // ---------------------------------------------------------------- Phase 2
 
 // Field types the Admin can put on a category form.
@@ -68,6 +82,7 @@ export const FIELD_TYPES = [
   "radio", // choose one (buttons)
   "checkboxes", // choose many
   "yesno",
+  "color", // a HEX color code, like #1F69D1
   "picture", // photo upload
   "heading", // not an input: a bold heading
   "note", // not an input: a plain line of text / instruction

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PinForm } from "@/components/PinForm";
-import { PositionTile, card, chipAttention } from "@/components/ui";
+import { PositionTile, btnPrimary, card, chipAttention, fmtDay } from "@/components/ui";
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
@@ -26,35 +26,53 @@ export default async function MasterHome({
     <div className="space-y-5">
       <header>
         <h1 className="page-title text-4xl">Hello {master.name}</h1>
-        <p className="text-lg">{active.length === 0 ? "No orders right now." : "Do your orders in this order. Start with number 1."}</p>
+        <p className="text-lg">{active.length === 0 ? "No orders right now." : "Open an order to work on it. Any order can be done first."}</p>
       </header>
 
-      <ul className="space-y-3">
-        {active.map((o, i) => (
-          <li key={o.id}>
-            <Link href={`/m/${token}/orders/${o.id}`} className={`${card} flex items-center gap-4 border-l-4 ${BAND_CLASS[o.band]}`}>
-              <PositionTile n={i + 1} />
-              <span className="min-w-0 flex-1">
-                <span className="block break-words text-lg font-medium">
-                  #{o.orderNumber} {o.customerName}
-                </span>
-                <span className="block text-lg">Due <span className="whitespace-nowrap max-[240px]:whitespace-normal">{o.karigarDueDate}</span></span>
-                <span className={`block text-base font-medium ${o.flags.overdue ? "text-thread" : BAND_LABEL[o.band].className}`}>
-                  {o.flags.overdue
-                    ? `Late by ${o.flags.daysOverdue} day${o.flags.daysOverdue === 1 ? "" : "s"}`
-                    : BAND_LABEL[o.band].text}
-                </span>
-                {o.flags.stale && <span className="block text-base font-medium text-thread">Please send an update</span>}
+      <ul className="space-y-4">
+        {active.map((o, i) => {
+          const late = o.flags.overdue;
+          const status = late ? `Late by ${o.flags.daysOverdue} day${o.flags.daysOverdue === 1 ? "" : "s"}` : BAND_LABEL[o.band].text;
+          const pill = late || o.band === "red" ? "bg-thread" : o.band === "green" ? "bg-leaf" : "bg-cloth";
+          return (
+            <li key={o.id} className={`${card} space-y-3 border-l-4 ${late ? "border-l-thread" : BAND_CLASS[o.band]}`}>
+              <div className="flex items-start gap-3">
+                <PositionTile n={i + 1} />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-xl font-medium leading-snug">
+                    #{o.orderNumber} - {o.customerName}
+                  </p>
+                  <p className="text-base text-muted">
+                    {o.itemLabels.length > 0 ? o.itemLabels.join(", ") : "No items yet"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`rounded-full px-3 py-1 text-sm font-medium text-white ${pill}`}>{status}</span>
+                  {o.badge && <span className={chipAttention}>{o.badge}</span>}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-base">
+                <span className="rounded-full bg-paper-3 px-3 py-1 font-medium">Due {fmtDay(o.karigarDueDate)}</span>
                 {o.progress.total > 0 && (
-                  <span className="block text-base">
-                    Steps done: {o.progress.done} of {o.progress.total}
+                  <span className="rounded-full bg-paper-3 px-3 py-1">
+                    Steps {o.progress.done} of {o.progress.total}
                   </span>
                 )}
-              </span>
-              {o.badge && <span className={`${chipAttention} self-start`}>{o.badge}</span>}
-            </Link>
-          </li>
-        ))}
+                {o.fields.total > 0 && (
+                  <span className="rounded-full bg-paper-3 px-3 py-1">
+                    Fields {o.fields.filled} of {o.fields.total}
+                  </span>
+                )}
+              </div>
+              {o.flags.stale && <p className="text-base font-medium text-thread">Please send an update</p>}
+
+              <Link href={`/m/${token}/orders/${o.id}`} className={`${btnPrimary} w-full`}>
+                Open order
+              </Link>
+            </li>
+          );
+        })}
       </ul>
 
       {closed.length > 0 && (

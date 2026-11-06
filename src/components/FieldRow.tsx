@@ -1,5 +1,7 @@
 import type { FieldDef } from "@/db/schema";
 import { splitMulti } from "@/lib/items";
+import { ColorInput } from "./ColorInput";
+import { PictureInput } from "./PictureInput";
 import { input, select, textarea } from "./ui";
 
 /**
@@ -31,7 +33,16 @@ export function FieldRow({
     return (
       <div>
         <span className="mb-1 block text-lg font-medium">{label}</span>
-        <p className=" bg-base-200 p-3 text-base">{pictureNote ?? "Add pictures below, after you save."}</p>
+        {pictureNote ? <p className="bg-base-200 p-3 text-base">{pictureNote}</p> : <PictureInput name={name.replace(/^v:/, "pic:")} />}
+      </div>
+    );
+  }
+
+  if (f.type === "color") {
+    return (
+      <div>
+        <span className="mb-1 block text-lg font-medium">{label}</span>
+        <ColorInput name={name} value={value} />
       </div>
     );
   }

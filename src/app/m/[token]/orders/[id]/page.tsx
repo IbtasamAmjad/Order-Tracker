@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PinForm } from "@/components/PinForm";
-import { btnPrimary, btnSecondary } from "@/components/ui";
+import { btnPrimary, btnSecondary, fmtDay } from "@/components/ui";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { markSeen, masterItems, masterOrder } from "@/lib/orders";
 import { MasterStages } from "@/components/MasterStages";
 import { MasterItemFields } from "@/components/MasterItemFields";
+import { FieldProgress } from "@/components/FieldProgress";
+import { referencePhotos } from "@/lib/stages";
 import { completeOrderAction } from "../../../actions";
 import { Icon } from "@/components/Icon";
 
@@ -61,7 +63,7 @@ export default async function MasterOrder({
           <b>Customer:</b> {order.customerName}
         </p>
         <p>
-          <b>Due date:</b> {order.karigarDueDate}
+          <b>Due date:</b> {fmtDay(order.karigarDueDate)}
         </p>
       </div>
       {items.map((item) => (
@@ -70,6 +72,7 @@ export default async function MasterOrder({
             <span className="inline-block h-5 w-5 rounded-full" style={{ background: item.snapshot.colour }} />
             {item.label}
           </h2>
+          <FieldProgress fields={item.snapshot.fields} values={item.values} pictureKeys={referencePhotos(item.id).map((r) => r.fieldKey ?? "")} />
           <MasterItemFields
             token={token}
             orderId={order.id}
@@ -91,7 +94,7 @@ export default async function MasterOrder({
       ))}
       {order.details && <p className="panel whitespace-pre-wrap text-lg">{order.details}</p>}
 
-      {e && e !== "blocked" && e !== "not-active" && (
+      {e && e !== "not-active" && (
         <p role="alert" className="alert alert-error text-lg font-medium">
           {e === "needs-photo"
             ? "This step needs an approved photo first."
@@ -102,9 +105,6 @@ export default async function MasterOrder({
       )}
       {e === "not-shipped" && (
         <p role="alert" className="alert alert-error text-lg font-medium">Send the items first. The order closes when everything has been sent.</p>
-      )}
-      {e === "blocked" && (
-        <p role="alert" className="alert alert-error text-lg font-medium">Finish the orders above this one first.</p>
       )}
 
       {order.status === "active" &&

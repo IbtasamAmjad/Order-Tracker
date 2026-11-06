@@ -15,12 +15,14 @@ export function PhotoUpload({
   label,
   camera = false,
   quiet = false,
+  multiple = false,
 }: {
   endpoint: string;
   fields: Record<string, string>;
   label: string;
   camera?: boolean;
   quiet?: boolean; // a secondary-looking button, when another button on the page is the main action
+  multiple?: boolean; // choose several pictures at once; they are sent one after another
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -28,25 +30,29 @@ export function PhotoUpload({
   const [message, setMessage] = useState("");
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setState("working");
-    setMessage("Preparing photo...");
     try {
-      const small = await imageCompression(file, { maxSizeMB: 0.4, maxWidthOrHeight: 1600, useWebWorker: true });
-      setMessage("Sending...");
-      const form = new FormData();
-      for (const [k, v] of Object.entries(fields)) form.set(k, v);
-      form.set("file", small, "photo.jpg");
-      const res = await fetch(endpoint, { method: "POST", body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Upload failed. Please try again.");
+      for (const [n, file] of files.entries()) {
+        const of = files.length > 1 ? ` ${n + 1} of ${files.length}` : "";
+        setMessage(`Preparing photo${of}...`);
+        const small = await imageCompression(file, { maxSizeMB: 0.4, maxWidthOrHeight: 1600, useWebWorker: true });
+        setMessage(`Sending${of}...`);
+        const form = new FormData();
+        for (const [k, v] of Object.entries(fields)) form.set(k, v);
+        form.set("file", small, "photo.jpg");
+        const res = await fetch(endpoint, { method: "POST", body: form });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? "Upload failed. Please try again.");
+      }
       setState("idle");
       setMessage("");
       router.refresh();
     } catch (err) {
       setState("error");
       setMessage(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      router.refresh();
     } finally {
       if (input.current) input.current.value = "";
     }
@@ -58,6 +64,7 @@ export function PhotoUpload({
         ref={input}
         type="file"
         accept="image/*"
+        multiple={multiple}
         {...(camera ? { capture: "environment" as const } : {})}
         onChange={onPick}
         className="hidden"

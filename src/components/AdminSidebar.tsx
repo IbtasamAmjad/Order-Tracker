@@ -70,7 +70,7 @@ export function AdminSidebar({
           className={tab(onCategories && !open)}
         >
           <Icon name="categories" className="h-5 w-5 shrink-0" />
-          <span className="flex-1 text-left">Categories</span>
+          <span className="flex-1 text-left">Items</span>
           <Icon name="chevron" className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         </button>
         {open && (
@@ -80,7 +80,7 @@ export function AdminSidebar({
               onClick={closeDrawer}
               className="flex min-h-10 items-center gap-2 px-3 text-sm font-medium text-white hover:underline"
             >
-              <Icon name="categories" className="h-4 w-4" /> All categories
+              <Icon name="categories" className="h-4 w-4" /> All items
             </Link>
             {groups.map((g) => (
               <div key={g.id}>
@@ -106,7 +106,6 @@ export function AdminSidebar({
         {item("/admin/masters", "masters", "Masters", is("/admin/masters"))}
 
         {divider()}
-        {item("/admin/review", "photos", "Photos to check", is("/admin/review"), counts.photos)}
         {item("/admin/reminders", "reminders", "Reminders", is("/admin/reminders"), counts.reminders)}
         {item("/admin/shipments", "shipments", "Shipments", is("/admin/shipments"), counts.shipments)}
         {item("/admin/archive", "finished", "Finished", is("/admin/archive"))}

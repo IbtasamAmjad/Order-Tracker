@@ -13,7 +13,6 @@ const ERRORS: Record<string, string> = {
   "no-items": "Tick the items you are sending.",
   "not-ready": "An item you ticked is not approved for shipping yet. Wait for Anas to approve its photo.",
   "no-bill": "Take a photo of the bill first.",
-  blocked: "Finish the orders above this one first.",
   "already-shipped": "One of these items was already sent.",
   "not-draft": "This shipment was already sent.",
 };

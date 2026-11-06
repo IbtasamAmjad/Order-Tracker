@@ -31,5 +31,5 @@ export const BAND_CLASS: Record<Band, string> = {
 export const BAND_LABEL: Record<Band, { text: string; className: string }> = {
   red: { text: "Urgent", className: "text-thread" },
   green: { text: "Coming due", className: "text-leaf" },
-  blue: { text: "Later", className: "text-cloth" },
+  blue: { text: "On Time", className: "text-cloth" },
 };

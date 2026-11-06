@@ -217,3 +217,29 @@ describe("duplicate field names", () => {
     expect(duplicateFieldNames([f("Neck", "heading"), f("Neck", "number")])).toEqual([]);
   });
 });
+
+describe("field progress", () => {
+  it("counts filled fields, ignores headings and notes, and counts a picture once one is attached", async () => {
+    const { fieldProgress } = await import("./items");
+    const f = (key: string, type: FieldDef["type"]): FieldDef => ({ key, label: key, type, required: false });
+    const fields = [f("h", "heading"), f("a", "text"), f("b", "number"), f("c", "longtext"), f("n", "note"), f("p", "picture")];
+    expect(fieldProgress(fields, {})).toEqual({ filled: 0, total: 4 });
+    expect(fieldProgress(fields, { a: "x", b: "  ", c: "y" })).toEqual({ filled: 2, total: 4 }); // blank spaces do not count
+    expect(fieldProgress(fields, { a: "x" }, ["p"])).toEqual({ filled: 2, total: 4 });
+    expect(fieldProgress([f("h", "heading")], {})).toEqual({ filled: 0, total: 0 });
+  });
+});
+
+describe("color code field", () => {
+  it("accepts HEX codes in any case, with or without the #, and drops anything else", async () => {
+    const { normalizeHex, cleanValues } = await import("./items");
+    expect(normalizeHex("#1f69d1")).toBe("#1F69D1");
+    expect(normalizeHex(" 1F69D1 ")).toBe("#1F69D1");
+    expect(normalizeHex("#abc")).toBe("#AABBCC");
+    expect(normalizeHex("blue")).toBe("");
+    expect(normalizeHex("#12345")).toBe("");
+    const f: FieldDef = { key: "c", label: "Color code", type: "color", required: false };
+    expect(cleanValues([f], { c: "ff0000" })).toEqual({ c: "#FF0000" });
+    expect(cleanValues([f], { c: "red" })).toEqual({});
+  });
+});

@@ -1,12 +1,14 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin-auth";
+import { cleanMasterIds } from "@/lib/assign";
 import { redirect } from "next/navigation";
 import {
   addItem,
   createOrder,
   listItems,
   moveOrder,
+  removeItem,
   setAllowOutOfSequence,
   setStatus,
   unarchiveOrder,
@@ -15,7 +17,8 @@ import {
 } from "@/lib/orders";
 import { cleanValues, itemLabel, missingRequired, type NewItem } from "@/lib/items";
 import { templateForItem } from "@/lib/templates";
-import { completeStage, reviewPhoto } from "@/lib/stages";
+import { addReferencePhoto, completeStage, reviewPhoto } from "@/lib/stages";
+import { storeUpload } from "@/lib/photo-upload";
 import { refreshItemFromCategory } from "@/lib/item-sync";
 import type { EditorState } from "@/lib/editor-state";
 import { createMaster, reissueLink, setActive, setPin } from "@/lib/masters";
@@ -26,17 +29,31 @@ const num = (f: FormData, k: string) => Number(f.get(k));
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseOrder(f: FormData): OrderInput {
+  const masterIds = cleanMasterIds(f.getAll("masterIds"));
   const input = {
     customerName: str(f, "customerName"),
     myDueDate: str(f, "myDueDate"),
     karigarDueDate: str(f, "karigarDueDate"),
-    masterId: num(f, "masterId"),
+    masterId: masterIds[0] ?? 0,
+    masterIds,
     details: str(f, "details"),
   };
   if (!input.customerName || !DATE.test(input.myDueDate) || !DATE.test(input.karigarDueDate) || !input.masterId) {
-    throw new Error("Please fill customer name, both due dates and the master.");
+    throw new Error("Please fill customer name, both due dates and choose at least one master.");
   }
   return input;
+}
+
+/** Stores the pictures chosen in the form for each picture field of one item, as reference pictures. A bad file is skipped. */
+async function savePictures(f: FormData, orderId: number, itemId: number, key: string, fields: FieldDef[]) {
+  for (const fd of fields) {
+    if (fd.type !== "picture") continue;
+    for (const file of f.getAll(`pic:${key}:${fd.key}`)) {
+      if (!(file instanceof File) || file.size === 0) continue;
+      const saved = await storeUpload(orderId, file);
+      if (!("error" in saved)) addReferencePhoto({ orderId, itemId, fieldKey: fd.key, ...saved });
+    }
+  }
 }
 
 /**
@@ -78,8 +95,10 @@ ${v}` : v; // checkboxes send several
     }
     if (missing.length && !force) return { nonce, missing, values };
     updateOrder(orderId, input, itemValues);
+    for (const it of listItems(orderId)) await savePictures(f, orderId, it.id, String(it.id), it.snapshot.fields);
   } else {
     const items: NewItem[] = [];
+    const keys: string[] = [];
     for (const key of f.getAll("itemKey").map(String)) {
       const tpl = templateForItem(Number(f.get(`t:${key}`)));
       if (!tpl) continue;
@@ -87,12 +106,15 @@ ${v}` : v; // checkboxes send several
       const vals = collect(key, tpl.snapshot.fields);
       for (const m of missingRequired(tpl.snapshot.fields, vals)) missing.push(`${label}: ${m.label}`);
       items.push({ templateId: tpl.id, label, snapshot: tpl.snapshot, values: vals });
+      keys.push(key);
     }
     if (missing.length && !force) return { nonce, missing, values };
-    const id = createOrder(input, items);
-    redirect(`/admin/customers?notify=new:${id}`);
+    const newId = createOrder(input, items);
+    const saved = listItems(newId); // in the same order as the items given
+    for (const [n, key] of keys.entries()) await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
+    redirect("/admin/customers");
   }
-  redirect(orderId ? `/admin/customers?notify=updated:${orderId}` : "/admin/customers");
+  redirect("/admin/customers");
 }
 
 export async function addItemAction(f: FormData) {
@@ -111,6 +133,13 @@ export async function addItemAction(f: FormData) {
   redirect(`/admin/orders/${orderId}`);
 }
 
+export async function removeItemAction(f: FormData) {
+  await requireAdmin();
+  const orderId = Number(f.get("orderId"));
+  const res = removeItem(orderId, Number(f.get("itemId")));
+  redirect(res.ok ? `/admin/orders/${orderId}?removed=1` : `/admin/orders/${orderId}?e=remove-${res.reason}`);
+}
+
 export async function moveOrderAction(f: FormData) {
   await requireAdmin();
   const dir = str(f, "dir") === "up" ? "up" : "down";
@@ -123,7 +152,7 @@ export async function setStatusAction(f: FormData) {
   await requireAdmin();
   const status = str(f, "status") as OrderStatus;
   if (ORDER_STATUSES.includes(status)) setStatus(num(f, "id"), status);
-  redirect(status === "archived" ? "/admin/archive" : status === "cancelled" ? `/admin/customers?notify=cancelled:${num(f, "id")}` : "/admin/customers");
+  redirect(status === "archived" ? "/admin/archive" : "/admin/customers");
 }
 
 /** Bring an archived order back to the Finished list. */
@@ -144,7 +173,7 @@ export async function createMasterAction(f: FormData) {
   const name = str(f, "name");
   const pin = str(f, "pin");
   if (!name || !pin) throw new Error("Name and PIN are required.");
-  createMaster({ name, pin, whatsappNumber: str(f, "whatsapp").replace(/\D/g, "") });
+  createMaster({ name, pin });
   redirect("/admin/masters");
 }
 
@@ -171,7 +200,7 @@ export async function reviewPhotoAction(f: FormData) {
   await requireAdmin();
   const decision = str(f, "decision") === "approved" ? "approved" : "rejected";
   const res = reviewPhoto(num(f, "id"), decision, str(f, "comment"));
-  redirect(res.ok ? `/admin/review?told=${num(f, "id")}` : `/admin/review?e=${res.reason}`);
+  redirect(res.ok ? "/admin/review" : `/admin/review?e=${res.reason}`);
 }
 
 export async function completeStageAdminAction(f: FormData) {

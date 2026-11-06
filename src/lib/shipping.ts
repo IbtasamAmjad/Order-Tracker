@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { masters, orderItems, orders, photos, shipmentItems, shipments } from "@/db/schema";
 import { itemStageViews } from "./stages";
+import { isAssigned, mine } from "./assign";
 
 // ---------------------------------------------------------------- items
 
@@ -65,32 +66,22 @@ export function shippableItems(orderId: number) {
 
 function ownShipment(masterId: number, shipmentId: number) {
   const s = db.select().from(shipments).where(eq(shipments.id, shipmentId)).get();
-  return s && s.masterId === masterId ? s : null;
+  return s && isAssigned(masterId, s.orderId) ? s : null;
 }
 
-/**
- * May this master send this order now? The order must be his own and active. It also needs to be his turn, but an
- * earlier order that has nothing ready to send (it is waiting for Admin, say) does not hold the later ones back.
- * Admin can always allow it with "Allow before earlier orders".
- */
+/** May this master send this order now? It must be one of his own orders and still active. There is no waiting for earlier orders. */
 export function canMasterShip(masterId: number, orderId: number): boolean {
-  const o = db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.masterId, masterId))).get();
-  if (!o || o.status !== "active") return false;
-  if (o.allowOutOfSequence) return true;
-  const earlier = db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(and(eq(orders.masterId, masterId), eq(orders.status, "active"), lt(orders.priorityPosition, o.priorityPosition)))
-    .all();
-  return !earlier.some((e) => shippableItems(e.id).some((i) => i.shippedIn === null && i.ready));
+  const o = db.select().from(orders).where(and(eq(orders.id, orderId), mine(masterId))).get();
+  return !!o && o.status === "active";
 }
 
 /** The open draft shipment for an order, if there is one. Looking never creates one. */
 export function findDraft(masterId: number, orderId: number): ShipmentView | null {
+  if (!isAssigned(masterId, orderId)) return null;
   const d = db
     .select({ id: shipments.id })
     .from(shipments)
-    .where(and(eq(shipments.orderId, orderId), eq(shipments.masterId, masterId), eq(shipments.status, "draft")))
+    .where(and(eq(shipments.orderId, orderId), eq(shipments.status, "draft")))
     .orderBy(desc(shipments.id))
     .get();
   return d ? shipmentView(d.id) : null;
@@ -98,7 +89,7 @@ export function findDraft(masterId: number, orderId: number): ShipmentView | nul
 
 /** Start a shipment for an order, or reuse the open draft. Only for the master's own, still active orders. */
 export function startShipment(masterId: number, orderId: number): number | null {
-  const o = db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.masterId, masterId))).get();
+  const o = db.select().from(orders).where(and(eq(orders.id, orderId), mine(masterId))).get();
   if (!o || o.status !== "active") return null;
   const draft = db
     .select({ id: shipments.id })

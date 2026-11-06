@@ -1,5 +1,6 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { isDisplayOnly } from "@/lib/items";
+import { isAssigned, mine } from "./assign";
 import { db } from "@/db";
 import {
   itemStages,
@@ -121,19 +122,10 @@ export function orderProgress(orderId: number): { done: number; total: number } 
 
 // ------------------------------------------------------- permissions
 
-/** Is it this master's turn on the order (first in his list, or Admin allowed it)? */
+/** May this master work on the order? It must be one of his own and still active. There is no waiting for earlier orders. */
 export function isMasterTurn(masterId: number, orderId: number): boolean {
-  const o = db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.masterId, masterId))).get();
-  if (!o || o.status !== "active") return false;
-  if (o.allowOutOfSequence) return true;
-  const first = db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(and(eq(orders.masterId, masterId), eq(orders.status, "active")))
-    .orderBy(asc(orders.priorityPosition))
-    .limit(1)
-    .get();
-  return first?.id === o.id;
+  const o = db.select().from(orders).where(and(eq(orders.id, orderId), mine(masterId))).get();
+  return !!o && o.status === "active";
 }
 
 function loadStage(itemId: number, stageKey: string) {
@@ -155,7 +147,7 @@ export type UploadCheck = { ok: true; orderId: number } | { ok: false; reason: "
 /** A master may upload a stage photo on any of his active orders, as long as the stage is open. */
 export function canMasterUpload(masterId: number, itemId: number, stageKey: string): UploadCheck {
   const s = loadStage(itemId, stageKey);
-  if (!s || s.order.masterId !== masterId) return { ok: false, reason: "not-found" };
+  if (!s || !isAssigned(masterId, s.order.id)) return { ok: false, reason: "not-found" };
   if (s.order.status !== "active") return { ok: false, reason: "order-closed" };
   if (s.row.status !== "open") return { ok: false, reason: "not-open" };
   if ((s.def?.photo ?? "none") === "none") return { ok: false, reason: "no-photo-needed" };
@@ -171,7 +163,7 @@ export type CompleteStageResult =
  * - stage must be open
  * - every field the admin made mandatory for this stage must be filled in
  * - photo-required stage: latest photo must be approved by Admin
- * - master: only while it is his turn on the order (Admin can override per order)
+ * - master: any of his own active orders (no waiting for earlier orders)
  * - Admin with force: finishes a stuck step without the photo or fields check (the stage must still be open)
  */
 export function completeStage(
@@ -182,7 +174,7 @@ export function completeStage(
   return db.transaction((tx) => {
     const s = loadStage(itemId, stageKey);
     if (!s) return { ok: false, reason: "not-found" } as const;
-    if (who.by === "master" && s.order.masterId !== who.masterId) return { ok: false, reason: "not-found" } as const;
+    if (who.by === "master" && !isAssigned(who.masterId, s.order.id)) return { ok: false, reason: "not-found" } as const;
     if (s.order.status !== "active") return { ok: false, reason: "order-closed" } as const;
     if (s.row.status !== "open") return { ok: false, reason: "not-open" } as const;
     if (who.by === "master" && !isMasterTurn(who.masterId, s.order.id)) return { ok: false, reason: "blocked" } as const;
@@ -317,7 +309,7 @@ export function photoForMaster(masterId: number, photoId: number) {
   const p = getPhoto(photoId);
   if (!p) return null;
   const o = db.select().from(orders).where(eq(orders.id, p.orderId)).get();
-  if (!o || o.masterId !== masterId || o.status === "archived") return null;
+  if (!o || !isAssigned(masterId, o.id) || o.status === "archived") return null;
   return p;
 }
 

@@ -80,7 +80,7 @@ describe("shipping", () => {
     expect(sh.submitShipment(master, b)).toEqual({ ok: true, orderCompleted: true });
   });
 
-  it("only the owner can use a shipment, and a master must wait his turn unless Admin allows", () => {
+  it("only the owner can use a shipment, and a master can send any of his orders", () => {
     const first = setup(1);
     const second = setup(1, first.master); // same master, later in his list
     const other = m.createMaster({ name: "Other", pin: "2" });
@@ -94,8 +94,6 @@ describe("shipping", () => {
 
     sh.saveShipmentItems(first.master, sid, second.itemIds, second.itemIds);
     sh.attachShipmentPhoto({ id: sid, orderId: second.orderId }, "bill", file);
-    expect(sh.submitShipment(first.master, sid)).toEqual({ ok: false, reason: "blocked" });
-    o.setAllowOutOfSequence(second.orderId, true);
     expect(sh.submitShipment(first.master, sid)).toEqual({ ok: true, orderCompleted: true });
   });
 

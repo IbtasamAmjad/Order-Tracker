@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { itemStages, masters, orderItems, orders, photos, shipments } from "@/db/schema";
 import { daysUntil } from "./colour";
 import { REMINDER_DUE_DAYS, STALE_DAYS } from "./config";
-import { messages, waLink } from "./whatsapp";
 
 const DAY = 86_400_000;
 
@@ -60,9 +59,7 @@ export type Reminder = {
   orderNumber: number;
   customerName: string;
   masterName: string;
-  hasNumber: boolean;
   reasons: string[];
-  link: string; // prefilled WhatsApp message (most urgent reason first)
 };
 
 /** Active orders that need a nudge, most urgent (earliest due date) first. */
@@ -78,24 +75,16 @@ export function remindersList(now: Date = new Date()): Reminder[] {
   for (const { o, m } of rows) {
     const f = orderFlags(o.karigarDueDate, lastActivityAt(o.id), now);
     if (!needsReminder(f)) continue;
-    const c = { masterName: m.name, token: m.token, orderNumber: o.orderNumber, customer: o.customerName };
     const reasons: string[] = [];
     if (f.overdue) reasons.push(`Overdue by ${f.daysOverdue} day${f.daysOverdue === 1 ? "" : "s"}`);
     else if (f.dueSoon) reasons.push(f.daysLeft === 0 ? "Due today" : `Due in ${f.daysLeft} day${f.daysLeft === 1 ? "" : "s"}`);
     if (f.stale) reasons.push(`No update for ${f.idleDays} days`);
-    const text = f.overdue
-      ? messages.overdue({ ...c, dueDate: o.karigarDueDate })
-      : f.stale
-        ? messages.stale({ ...c, days: f.idleDays })
-        : messages.dueSoon({ ...c, days: f.daysLeft });
     out.push({
       orderId: o.id,
       orderNumber: o.orderNumber,
       customerName: o.customerName,
       masterName: m.name,
-      hasNumber: !!m.whatsappNumber,
       reasons,
-      link: waLink(m.whatsappNumber, text),
       due: o.karigarDueDate,
     });
   }

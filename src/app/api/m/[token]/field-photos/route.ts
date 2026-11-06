@@ -4,6 +4,7 @@ import { orderItems, orders, photos } from "@/db/schema";
 import { requireMaster } from "@/lib/master-session";
 import { storeUpload } from "@/lib/photo-upload";
 import { addReferencePhoto } from "@/lib/stages";
+import { isAssigned } from "@/lib/assign";
 
 const fail = (error: string, status = 400) => Response.json({ error }, { status });
 const MAX_PER_FIELD = 10;
@@ -22,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
 
   const item = db.select().from(orderItems).where(eq(orderItems.id, itemId)).get();
   const order = item ? db.select().from(orders).where(eq(orders.id, item.orderId)).get() : null;
-  if (!item || !order || order.masterId !== master.id) return fail("This item was not found.", 404);
+  if (!item || !order || !isAssigned(master.id, order.id)) return fail("This item was not found.", 404);
   if (order.status !== "active") return fail("This order is closed.", 403);
 
   const field = item.snapshot.fields.find((f) => f.key === fieldKey);

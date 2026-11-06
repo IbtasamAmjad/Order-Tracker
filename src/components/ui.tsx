@@ -91,6 +91,14 @@ export function Ruler({ value, total, label }: { value: number; total: number; l
   );
 }
 
+/** "2026-11-20" -> "20 November" (the year is added only when it is not this year). */
+export function fmtDay(ymd: string, now: Date = new Date()): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return ymd;
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return `${d} ${MONTHS[m - 1]}${y === now.getFullYear() ? "" : ` ${y}`}`;
+}
+
 export function fmtDate(d: Date | null | undefined) {
   return d ? d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "";
 }
