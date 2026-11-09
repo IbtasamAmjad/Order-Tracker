@@ -239,4 +239,42 @@ describe("shipping with mandatory fields", () => {
     s.addReferencePhoto({ orderId, itemId, fieldKey: picture, fileKey: "k", thumbKey: "t", bytes: 1 });
     expect(sh.itemShipReadiness(itemId)).toEqual({ ready: true, blockers: [] });
   });
+  it("one cart and one bill cover finished items from several customers", () => {
+    const a = setup(2);
+    const b = setup(1, a.master);
+    const c = setup(1, a.master);
+    const master = a.master;
+    expect(sh.cartCandidates(master)).toHaveLength(4);
+
+    // another master cannot put these in his cart
+    const other = m.createMaster({ name: "Other", pin: "9" });
+    expect(sh.addToCart(other, a.itemIds[0])).toBe(false);
+
+    expect(sh.addToCart(master, a.itemIds[0])).toBe(true);
+    expect(sh.addToCart(master, a.itemIds[0])).toBe(true); // twice: still one
+    expect(sh.addToCart(master, b.itemIds[0])).toBe(true);
+    expect(sh.addToCart(master, c.itemIds[0])).toBe(true);
+    expect(sh.removeFromCart(master, c.itemIds[0])).toBe(true);
+    expect(sh.addToCart(master, c.itemIds[0])).toBe(true);
+
+    const cart = sh.findDraft(master)!;
+    expect(cart.items.map((i) => i.itemId).sort()).toEqual([a.itemIds[0], b.itemIds[0], c.itemIds[0]].sort());
+    expect(new Set(cart.items.map((i) => i.orderId)).size).toBe(3); // three customers, one shipment
+
+    expect(sh.submitShipment(master, cart.id)).toEqual({ ok: false, reason: "no-bill" });
+    sh.attachShipmentPhoto({ id: cart.id, orderId: cart.orderId }, "bill", file); // the one bill
+    expect(sh.submitShipment(master, cart.id)).toEqual({ ok: true, orderCompleted: true });
+
+    // the two orders that were fully sent are completed; the one with an item left is still active
+    expect(o.getOrder(b.orderId)!.status).toBe("completed");
+    expect(o.getOrder(c.orderId)!.status).toBe("completed");
+    expect(o.getOrder(a.orderId)!.status).toBe("active");
+    expect(sh.cartCandidates(master).map((x) => x.itemId)).toEqual([a.itemIds[1]]); // what is left to send
+
+    // admin: one shipment, three customers; an order sees only its own items
+    const mine = sh.submittedShipmentsForAdmin().find((x) => x.id === cart.id)!;
+    expect(new Set(mine.items.map((i) => i.customerName)).size).toBeGreaterThan(0);
+    expect(mine.items).toHaveLength(3);
+    expect(sh.orderShipments(b.orderId, "submitted").map((x) => x.items.map((i) => i.itemId))).toEqual([[b.itemIds[0]]]);
+  });
 });

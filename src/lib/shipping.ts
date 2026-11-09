@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { masters, orderItems, orders, photos, shipmentItems, shipments } from "@/db/schema";
 import { itemStageViews } from "./stages";
-import { isAssigned, mine } from "./assign";
+import { mine } from "./assign";
 import { addEvent } from "./history";
 
 // ---------------------------------------------------------------- items
@@ -56,7 +56,7 @@ export function shippableItems(orderId: number) {
     .select({ itemId: shipmentItems.itemId, shipmentId: shipments.id, at: shipments.submittedAt })
     .from(shipmentItems)
     .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-    .where(and(eq(shipments.orderId, orderId), eq(shipments.status, "submitted")))
+    .where(eq(shipments.status, "submitted"))
     .all();
   return items.map((i) => {
     const s = sent.find((x) => x.itemId === i.id);
@@ -69,7 +69,7 @@ export function shippableItems(orderId: number) {
 
 function ownShipment(masterId: number, shipmentId: number) {
   const s = db.select().from(shipments).where(eq(shipments.id, shipmentId)).get();
-  return s && isAssigned(masterId, s.orderId) ? s : null;
+  return s && s.masterId === masterId ? s : null;
 }
 
 /** May this master send this order now? It must be one of his own orders and still active. There is no waiting for earlier orders. */
@@ -78,30 +78,76 @@ export function canMasterShip(masterId: number, orderId: number): boolean {
   return !!o && o.status === "active";
 }
 
-/** The open draft shipment for an order, if there is one. Looking never creates one. */
-export function findDraft(masterId: number, orderId: number): ShipmentView | null {
-  if (!isAssigned(masterId, orderId)) return null;
+/**
+ * The master's open shipment (his "cart"), if there is one. He has one cart at a time, and it can hold ready items from
+ * all of his customers, so one bill covers them all. Looking never creates one.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function findDraft(masterId: number, _orderId?: number): ShipmentView | null {
   const d = db
     .select({ id: shipments.id })
     .from(shipments)
-    .where(and(eq(shipments.orderId, orderId), eq(shipments.status, "draft")))
+    .where(and(eq(shipments.masterId, masterId), eq(shipments.status, "draft")))
     .orderBy(desc(shipments.id))
     .get();
   return d ? shipmentView(d.id) : null;
 }
 
-/** Start a shipment for an order, or reuse the open draft. Only for the master's own, still active orders. */
+/**
+ * Start the master cart, or reuse the open one. The order given is only where the bill picture is filed; it must be one
+ * of his own, still active orders.
+ */
 export function startShipment(masterId: number, orderId: number): number | null {
   const o = db.select().from(orders).where(and(eq(orders.id, orderId), mine(masterId))).get();
   if (!o || o.status !== "active") return null;
   const draft = db
     .select({ id: shipments.id })
     .from(shipments)
-    .where(and(eq(shipments.orderId, orderId), eq(shipments.status, "draft")))
+    .where(and(eq(shipments.masterId, masterId), eq(shipments.status, "draft")))
     .orderBy(desc(shipments.id))
     .get();
-  if (draft) return draft.id;
+  if (draft) {
+    // a shipment from the old one-order-at-a-time way can point at an order that is closed now: file it under this one
+    const home = db.select().from(shipments).where(eq(shipments.id, draft.id)).get()!;
+    const open = db.select({ id: orders.id }).from(orders).where(and(eq(orders.id, home.orderId), mine(masterId), eq(orders.status, "active"))).get();
+    if (!open) db.update(shipments).set({ orderId }).where(eq(shipments.id, draft.id)).run();
+    return draft.id;
+  }
   return db.insert(shipments).values({ orderId, masterId }).returning({ id: shipments.id }).get().id;
+}
+
+/** Everything this master could put in the cart: ready items, not yet sent, from all his active orders. */
+export function cartCandidates(masterId: number) {
+  const list = db
+    .select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName, designNumber: orders.designNumber })
+    .from(orders)
+    .where(and(mine(masterId), eq(orders.status, "active")))
+    .orderBy(orders.orderNumber)
+    .all();
+  return list.flatMap((o) =>
+    shippableItems(o.id)
+      .filter((i) => i.shippedIn === null && i.ready)
+      .map((i) => ({ itemId: i.id, label: i.label, orderId: o.id, orderNumber: o.orderNumber, customerName: o.customerName, designNumber: o.designNumber })),
+  );
+}
+
+/** Put one ready item of the master into his cart (made if needed). False if it cannot go. */
+export function addToCart(masterId: number, itemId: number): boolean {
+  const c = cartCandidates(masterId).find((x) => x.itemId === itemId);
+  if (!c) return false;
+  const sid = startShipment(masterId, c.orderId);
+  if (!sid) return false;
+  const has = db.select({ id: shipmentItems.id }).from(shipmentItems).where(and(eq(shipmentItems.shipmentId, sid), eq(shipmentItems.itemId, itemId))).get();
+  if (!has) db.insert(shipmentItems).values({ shipmentId: sid, itemId, checked: true }).run();
+  return true;
+}
+
+/** Take an item out of the master open cart. */
+export function removeFromCart(masterId: number, itemId: number): boolean {
+  const d = findDraft(masterId);
+  if (!d) return false;
+  db.delete(shipmentItems).where(and(eq(shipmentItems.shipmentId, d.id), eq(shipmentItems.itemId, itemId))).run();
+  return true;
 }
 
 export type ShipmentView = {
@@ -111,18 +157,27 @@ export type ShipmentView = {
   billPhotoId: number | null;
   packagePhotoId: number | null;
   submittedAt: Date | null;
-  items: { itemId: number; label: string; checked: boolean }[];
+  items: { itemId: number; label: string; checked: boolean; orderId: number; orderNumber: number; customerName: string; designNumber: string | null }[];
 };
 
 export function shipmentView(shipmentId: number): ShipmentView | null {
   const s = db.select().from(shipments).where(eq(shipments.id, shipmentId)).get();
   if (!s) return null;
   const items = db
-    .select({ itemId: shipmentItems.itemId, label: orderItems.label, checked: shipmentItems.checked })
+    .select({
+      itemId: shipmentItems.itemId,
+      label: orderItems.label,
+      checked: shipmentItems.checked,
+      orderId: orders.id,
+      orderNumber: orders.orderNumber,
+      customerName: orders.customerName,
+      designNumber: orders.designNumber,
+    })
     .from(shipmentItems)
     .innerJoin(orderItems, eq(shipmentItems.itemId, orderItems.id))
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .where(eq(shipmentItems.shipmentId, shipmentId))
-    .orderBy(asc(orderItems.position))
+    .orderBy(asc(orders.orderNumber), asc(orderItems.position))
     .all();
   return {
     id: s.id,
@@ -140,13 +195,20 @@ export function masterShipment(masterId: number, shipmentId: number): ShipmentVi
 }
 
 export function orderShipments(orderId: number, status?: "draft" | "submitted") {
-  return db
-    .select()
-    .from(shipments)
-    .where(and(eq(shipments.orderId, orderId), status ? eq(shipments.status, status) : undefined))
-    .orderBy(desc(shipments.id))
-    .all()
-    .map((s) => shipmentView(s.id)!);
+  const ids = new Set(
+    db
+      .select({ id: shipments.id })
+      .from(shipments)
+      .innerJoin(shipmentItems, eq(shipmentItems.shipmentId, shipments.id))
+      .innerJoin(orderItems, eq(shipmentItems.itemId, orderItems.id))
+      .where(and(eq(orderItems.orderId, orderId), status ? eq(shipments.status, status) : undefined))
+      .all()
+      .map((r) => r.id),
+  );
+  return [...ids]
+    .sort((a, b) => b - a)
+    .map((id) => shipmentView(id)!)
+    .map((v) => ({ ...v, items: v.items.filter((i) => i.orderId === orderId) }));
 }
 
 /**
@@ -156,7 +218,7 @@ export function orderShipments(orderId: number, status?: "draft" | "submitted") 
 export function saveShipmentItems(masterId: number, shipmentId: number, included: number[], checked: number[]): boolean {
   const s = ownShipment(masterId, shipmentId);
   if (!s || s.status !== "draft") return false;
-  const free = new Set(shippableItems(s.orderId).filter((i) => i.shippedIn === null && i.ready).map((i) => i.id));
+  const free = new Set(cartCandidates(masterId).map((i) => i.itemId));
   db.transaction((tx) => {
     tx.delete(shipmentItems).where(eq(shipmentItems.shipmentId, shipmentId)).run();
     for (const itemId of new Set(included)) {
@@ -224,20 +286,26 @@ export function submitShipment(masterId: number, shipmentId: number): SubmitResu
     if (v.items.some((i) => !itemShipReadiness(i.itemId).ready)) return { ok: false, reason: "not-ready" } as const;
     if (!req.allChecked) return { ok: false, reason: "unchecked" } as const;
     if (!req.hasBill) return { ok: false, reason: "no-bill" } as const;
-    if (!canMasterShip(masterId, s.orderId)) return { ok: false, reason: "blocked" } as const;
+    const orderIds = [...new Set(v.items.map((i) => i.orderId))];
+    if (orderIds.some((oid) => !canMasterShip(masterId, oid))) return { ok: false, reason: "blocked" } as const;
 
-    const sent = new Set(shippableItems(s.orderId).filter((i) => i.shippedIn !== null).map((i) => i.id));
-    if (v.items.some((i) => sent.has(i.itemId))) return { ok: false, reason: "already-shipped" } as const;
+    for (const oid of orderIds) {
+      const sent = new Set(shippableItems(oid).filter((i) => i.shippedIn !== null).map((i) => i.id));
+      if (v.items.some((i) => i.orderId === oid && sent.has(i.itemId))) return { ok: false, reason: "already-shipped" } as const;
+    }
 
     const now = new Date();
     tx.update(shipments).set({ status: "submitted", submittedAt: now }).where(eq(shipments.id, shipmentId)).run();
-    for (const it of v.items) addEvent({ orderId: s.orderId, itemId: it.itemId, kind: "shipped", by: "master", masterId }, tx);
+    for (const it of v.items) addEvent({ orderId: it.orderId, itemId: it.itemId, kind: "shipped", by: "master", masterId }, tx);
 
-    // completed when all items are in submitted shipments
-    const all = shippableItems(s.orderId);
-    const orderCompleted = all.length > 0 && all.every((i) => i.shippedIn !== null);
-    if (orderCompleted) {
-      tx.update(orders).set({ status: "completed", closedAt: now, updatedAt: now }).where(eq(orders.id, s.orderId)).run();
+    // an order is completed when all its items are in submitted shipments
+    let orderCompleted = false;
+    for (const oid of orderIds) {
+      const all = shippableItems(oid);
+      if (all.length > 0 && all.every((i) => i.shippedIn !== null)) {
+        tx.update(orders).set({ status: "completed", closedAt: now, updatedAt: now }).where(eq(orders.id, oid)).run();
+        orderCompleted = true;
+      }
     }
     return { ok: true, orderCompleted } as const;
   });
@@ -255,17 +323,14 @@ export function unseenShipmentCount(): number {
 
 export function submittedShipmentsForAdmin() {
   const rows = db
-    .select({ s: shipments, orderNumber: orders.orderNumber, customerName: orders.customerName, masterName: masters.name })
+    .select({ s: shipments, masterName: masters.name })
     .from(shipments)
-    .innerJoin(orders, eq(shipments.orderId, orders.id))
     .innerJoin(masters, eq(shipments.masterId, masters.id))
     .where(eq(shipments.status, "submitted"))
     .orderBy(desc(shipments.submittedAt))
     .all();
   return rows.map((r) => ({
     ...shipmentView(r.s.id)!,
-    orderNumber: r.orderNumber,
-    customerName: r.customerName,
     masterName: r.masterName,
     isNew: r.s.adminSeenAt === null,
   }));

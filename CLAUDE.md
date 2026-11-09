@@ -114,3 +114,8 @@ Environment (`.env.local` for dev, real server env in production; see `.env.exam
 - Printable report: `/admin/ordered-items/report` (filters: item kind, customer or design in the search box, due date, status; default "Not made yet"). Print button; "Save as PDF" is in the browser print window.
 - "Due items" panel on the admin Home; "My pending work" (`PendingWork.tsx`, with a camera "Take photo" button when the step takes a photo and the order is confirmed) on the master Home; both link to the item list filtered by due date.
 - Per-master page for the admin: `/admin/masters/[id]` (progress bar, status counts, filtered item cards). Linked from the Home Masters panel and the Masters list.
+
+## Master cart (one shipment, one bill, for all of a master's customers)
+- A master has ONE open shipment at a time (his "cart", `findDraft(masterId)`), and it can hold finished items from ALL his customers. `shipments.orderId` is only where the bill picture is filed (kept on one of his open orders; `startShipment` re-points it if that order closed).
+- `src/lib/shipping.ts`: `cartCandidates(masterId)` (ready, unsent items of his active orders), `addToCart`, `removeFromCart`; `submitShipment` checks every order in the cart, writes a "shipped" event per item, and completes each order whose items are all sent. Shipped-item checks never use `shipments.orderId`; they go through `shipment_items`.
+- Master UI: finished items go into the cart by themselves (a "ready, in your cart" note under the item on the order page, no button), a Cart tile on the home page, and `/m/[token]/cart` (the old `/orders/[id]/ship` redirects there). Admin Shipments page: one card per shipment, items grouped by customer, one bill.

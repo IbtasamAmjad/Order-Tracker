@@ -155,7 +155,7 @@ export async function removeItemAction(f: FormData) {
 export async function moveOrderAction(f: FormData) {
   await requireAdmin();
   const dir = str(f, "dir") === "up" ? "up" : "down";
-  moveOrder(num(f, "id"), dir);
+  moveOrder(num(f, "id"), dir, Number(f.get("with")) || undefined);
   const back = str(f, "back");
   redirect(back.startsWith("/admin") ? back : "/admin/customers");
 }

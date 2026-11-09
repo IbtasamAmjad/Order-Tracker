@@ -51,6 +51,19 @@ describe("orders", () => {
     expect(o.masterDashboard(b).active).toHaveLength(1);
   });
 
+  it("moves an order up or down past an order of another master", () => {
+    const a = m.createMaster({ name: "Move A", pin: "1" });
+    const b = m.createMaster({ name: "Move B", pin: "2" });
+    const first = o.createOrder(input(a, "Mover One"));
+    const second = o.createOrder(input(b, "Mover Two")); // a different master, right after the first
+    const order = () => o.listAdminOrders({ view: "active" }).map((r) => r.id).filter((id) => id === first || id === second);
+    expect(order()).toEqual([first, second]);
+    o.moveOrder(second, "up", first); // the arrow passes the order it sits next to
+    expect(order()).toEqual([second, first]);
+    o.moveOrder(second, "down", first);
+    expect(order()).toEqual([first, second]);
+  });
+
   it("lets a master complete any of his orders, in any order", () => {
     const a = m.createMaster({ name: "C", pin: "1" });
     const first = o.createOrder(input(a, "First"));

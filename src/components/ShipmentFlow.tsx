@@ -6,7 +6,7 @@ import { DownloadLink } from "./DownloadLink";
 import { Icon } from "./Icon";
 import { PhotoUpload } from "./PhotoUpload";
 
-type Choice = { id: number; label: string };
+type Choice = { id: number; label: string; sub?: string }; // sub: the customer and design number
 export type LockedChoice = Choice & { blockers: string[] };
 
 /** Items that cannot be sent yet, with exactly what is missing for each. */
@@ -83,7 +83,7 @@ export function ShipmentFlow({
   shipmentId: number | null; // null until a photo is added or Send is pressed
   turnOk: boolean;
   ready: Choice[];
-  locked: LockedChoice[];
+  locked?: LockedChoice[];
   initialPicked: number[];
   billPhotoId: number | null;
   packagePhotoId: number | null;
@@ -114,7 +114,7 @@ export function ShipmentFlow({
         )}
 
         <section className="space-y-3">
-          <StepTitle n={1} hint="Add each item you checked is here and are sending now.">
+          <StepTitle n={1} hint="Every finished item is here. Take out any you are not sending today.">
             What are you sending?
           </StepTitle>
           <ul className="space-y-2">
@@ -127,6 +127,7 @@ export function ShipmentFlow({
                       <span className="break-words text-xl font-medium">{i.label}</span>
                       <span className="rounded-full bg-ok-soft px-2.5 py-0.5 text-xs font-medium text-ok">Ready</span>
                     </span>
+                    {i.sub && <span className="block text-base font-medium text-ink-2">{i.sub}</span>}
                     <span className="mt-0.5 flex items-center gap-1.5 text-base text-muted">
                       <Icon name="check" className="h-4 w-4 text-ok" /> I checked it is here
                     </span>
@@ -144,7 +145,7 @@ export function ShipmentFlow({
               );
             })}
           </ul>
-          <LockedItems items={locked} />
+          <LockedItems items={locked ?? []} />
         </section>
 
         <section className="space-y-3">
@@ -224,7 +225,10 @@ export function ShipmentFlow({
               .filter((i) => picked.includes(i.id))
               .map((i) => (
                 <li key={i.id} className="flex items-center gap-3 rounded-xl bg-paper-3 px-3 py-2 text-lg">
-                  <span className="min-w-0 flex-1 break-words font-medium">{i.label}</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">
+                    {i.label}
+                    {i.sub && <span className="block text-sm font-normal text-muted">{i.sub}</span>}
+                  </span>
                   <button type="button" onClick={() => toggle(i.id)} className="btn btn-quiet h-auto min-h-9 px-3 py-1 text-sm" aria-label={`Take ${i.label} out of the shipment`}>
                     Remove
                   </button>

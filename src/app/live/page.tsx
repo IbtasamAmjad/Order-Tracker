@@ -3,6 +3,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { isAdmin } from "@/lib/admin-auth";
 import { redirect } from "next/navigation";
 import { BAND_LABEL } from "@/lib/colour";
+import { Icon } from "@/components/Icon";
 import { fmtDay } from "@/components/ui";
 import { listAdminOrders } from "@/lib/orders";
 
@@ -63,13 +64,13 @@ export default async function Live() {
     <main className="min-h-screen px-4 py-5 text-ink sm:px-8 sm:py-8">
       <div className="mx-auto max-w-[110rem] space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-4xl">Custom Order Manager</h1>
           <div className="flex flex-wrap items-center gap-4">
-            <h1 className="font-display text-2xl font-medium tracking-tight sm:text-4xl">Custom Order Manager</h1>
-            <Link href="/admin" className="rounded-full border border-rule-2 bg-paper-2 px-4 py-1.5 text-base text-ink-2 hover:bg-paper-3">
-              Home
+            <AutoRefresh seconds={5} />
+            <Link href="/admin" className="btn h-auto min-h-11 gap-2 !border-ink !bg-ink px-5 py-2 text-base !text-white">
+              <Icon name="home" className="h-5 w-5" /> Home
             </Link>
           </div>
-          <AutoRefresh seconds={5} />
         </header>
 
         <section aria-label="Totals" className="grid grid-cols-2 gap-3 lg:grid-cols-4">

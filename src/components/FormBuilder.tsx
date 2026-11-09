@@ -33,7 +33,8 @@ export type BField = {
   required: boolean;
   masterCanEdit: boolean;
   unit: string;
-  options: string; // one choice per line
+  options: string; // one choice per line (for a group of boxes: the names of the boxes, one per line)
+  sub?: string; // a group of boxes only: "number" or "text"
 };
 export type BStep = { uid: string; key: string; label: string; photo: string; needs: string[] };
 
@@ -46,6 +47,7 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
       { type: "text", name: "Text box", hint: "One line, like a design number", label: "Text box" },
       { type: "color", name: "Color code", hint: "A HEX color, like #1F69D1", label: "Color code" },
       { type: "number", name: "Number", hint: "A measurement or a number", label: "Number" },
+      { type: "group", name: "Group of boxes", hint: "A title with several boxes under it, like Measurements", label: "Measurements" },
     ],
   },
   {
@@ -73,6 +75,32 @@ const ALL = PALETTE.flatMap((g) => g.items);
 const NAME = Object.fromEntries(ALL.map((i) => [i.type, i.name]));
 const CHOICE = ["select", "radio", "checkboxes"];
 const DISPLAY_ONLY = ["heading", "note"];
+
+/**
+ * A group of boxes is only a convenience in the builder: when the form is saved it becomes a bold heading followed by
+ * one box for each name (numbers with a unit, or text), so nothing else in the app needs to know about groups.
+ */
+function expandGroups(rows: BField[]): BField[] {
+  return rows.flatMap((f) => {
+    if (f.type !== "group") return [f];
+    const heading: BField = { uid: f.uid, key: "", label: f.label, type: "heading", required: false, masterCanEdit: false, unit: "", options: "" };
+    const boxes = f.options
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .map((name, n): BField => ({
+        uid: `${f.uid}-${n}`,
+        key: "",
+        label: name,
+        type: f.sub === "text" ? "text" : "number",
+        required: f.required,
+        masterCanEdit: f.masterCanEdit,
+        unit: f.sub === "text" ? "" : f.unit,
+        options: "",
+      }));
+    return [heading, ...boxes];
+  });
+}
 
 // ------------------------------------------------------------- palette tile
 
@@ -165,7 +193,10 @@ function FieldCard({
               {f.label || <em className="opacity-60">No name yet</em>}
             </span>
             <span className="flex flex-wrap gap-1 pt-0.5 text-xs font-medium">
-              <span className="opacity-60">{NAME[f.type]}</span>
+              <span className="opacity-60">
+                {NAME[f.type]}
+                {f.type === "group" && ` - ${f.options.split("\n").filter((x) => x.trim()).length} boxes`}
+              </span>
               {duplicate && <span className="rounded bg-error/15 px-1.5 text-error">Same name as another field</span>}
               {f.required && f.type !== "picture" && <span className="rounded bg-error/15 px-1.5 text-error">Warns if empty</span>}
               {f.masterCanEdit && <span className="rounded bg-secondary/15 px-1.5 text-secondary">Master can fill</span>}
@@ -199,6 +230,37 @@ function FieldCard({
               )}
               <Toggle label="The master can fill this in" checked={f.masterCanEdit} onChange={(v) => onChange({ masterCanEdit: v })} />
             </>
+          )}
+
+          {f.type === "group" && (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <span className="block text-base font-medium">Boxes under it</span>
+                {f.options.split("\n").map((name, n, all) => (
+                  <div key={n} className="flex items-center gap-2">
+                    <input
+                      value={name}
+                      onChange={(e) => onChange({ options: all.map((x, i) => (i === n ? e.target.value.replace(/\n/g, " ") : x)).join("\n") })}
+                      placeholder={n === 0 ? "For example Length" : "For example Chest"}
+                      aria-label={`Box ${n + 1}`}
+                      className={input}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onChange({ options: all.filter((_, i) => i !== n).join("\n") })}
+                      className={`${btnSecondary} !min-h-12 shrink-0 !px-4`}
+                      aria-label={`Remove box ${n + 1}`}
+                    >
+                      <Icon name="close" />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => onChange({ options: `${f.options}\n` })} className={`${btnSecondary} !min-h-12 w-full gap-2`}>
+                  <Icon name="plus" /> Add another box
+                </button>
+              </div>
+              <p className="text-sm opacity-70">When you save, the title becomes a bold heading and each box becomes its own field.</p>
+            </div>
           )}
 
           {CHOICE.includes(f.type) && (
@@ -301,9 +363,9 @@ export function FormBuilder({
     void uid;
     return rest;
   });
-  const dupes = duplicateFieldNames(fields);
+  const dupes = duplicateFieldNames(expandGroups(fields));
   const dupeNames = new Set(dupes.map((d) => d.toLowerCase()));
-  const fieldsJson = JSON.stringify(strip(fields));
+  const fieldsJson = JSON.stringify(strip(expandGroups(fields)));
   const stepsJson = JSON.stringify(strip(steps));
   const dirty = JSON.stringify([strip(fields), strip(steps), workflowId]) !== start;
 
@@ -317,7 +379,8 @@ export function FormBuilder({
       required: false,
       masterCanEdit: false,
       unit: "",
-      options: CHOICE.includes(type) ? "Option 1\nOption 2" : "",
+      options: CHOICE.includes(type) ? "Option 1\nOption 2" : type === "group" ? "Length\nChest" : "",
+      ...(type === "group" ? { sub: "number", unit: "inch" } : {}),
     };
     setFields((rows) => {
       const next = [...rows];
@@ -402,7 +465,7 @@ export function FormBuilder({
                     onChange={(p) => patch(f.uid, p)}
                     onRemove={() => remove(f.uid)}
                     onMove={(d) => move(f.uid, d)}
-                    duplicate={dupeNames.has(f.label.trim().toLowerCase()) && !DISPLAY_ONLY.includes(f.type)}
+                    duplicate={dupeNames.has(f.label.trim().toLowerCase()) && !DISPLAY_ONLY.includes(f.type) && f.type !== "group"}
                   />
                 ))}
               </SortableContext>

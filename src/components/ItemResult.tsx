@@ -38,12 +38,12 @@ export function ItemResult({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           {/* the link stretches over the whole card, the pictures sit above it */}
-          <Link href={href} className="group after:absolute after:inset-0 after:content-['']" aria-label={`Open order ${row.orderNumber}, ${row.label}`}>
-            <p className="break-words text-xl font-medium leading-snug group-hover:underline">{row.label}</p>
+          <Link href={href} className="group after:absolute after:inset-0 after:content-['']" aria-label={`Open order ${row.orderNumber}, ${row.customerName}, ${row.label}`}>
+            <p className="break-words text-xl font-medium leading-snug group-hover:underline">{row.customerName}</p>
           </Link>
           <p className="flex items-center gap-2 text-base text-muted">
             <span aria-hidden className={`inline-block h-2 w-2 shrink-0 rounded-full ${DOT[row.status]}`} />
-            Customer: <span className="font-medium text-ink">{row.customerName}</span>
+            <span className="font-medium text-ink">{row.label}</span>
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">

@@ -63,14 +63,14 @@ export async function sendShipmentAction(f: FormData) {
   if (!master) redirect(`/m/${token}`);
   // the shipment already exists once a photo was added; otherwise it starts now
   const sid = Number(f.get("shipmentId")) || startShipment(master.id, orderId) || 0;
-  if (!sid) redirect(`/m/${token}/orders/${orderId}/ship?e=not-draft`);
+  if (!sid) redirect(`/m/${token}/cart?e=not-draft`);
   const ids = (name: string) => f.getAll(name).map(Number).filter(Boolean);
   saveShipmentItems(master.id, sid, ids("inc"), ids("chk"));
   const res = submitShipment(master.id, sid);
   redirect(
     res.ok
-      ? `/m/${token}/orders/${orderId}/ship?sent=${sid}`
-      : `/m/${token}/orders/${orderId}/ship?e=${res.reason}`,
+      ? `/m/${token}/cart?sent=${sid}`
+      : `/m/${token}/cart?e=${res.reason}`,
   );
 }
 

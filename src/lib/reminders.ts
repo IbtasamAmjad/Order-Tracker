@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { itemStages, masters, orderItems, orders, photos, shipments } from "@/db/schema";
+import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments } from "@/db/schema";
 import { daysUntil } from "./colour";
 import { REMINDER_DUE_DAYS, STALE_DAYS } from "./config";
 import { messages, waLink } from "./whatsapp";
@@ -25,7 +25,14 @@ export function lastActivityAt(orderId: number): Date {
     .where(and(eq(photos.orderId, orderId), eq(photos.uploadedBy, "master")))
     .all())
     times.push(r.t.getTime());
-  for (const r of db.select({ t: shipments.createdAt }).from(shipments).where(eq(shipments.orderId, orderId)).all())
+  // a shipment can carry items of several orders: it counts for every order that has an item in it
+  for (const r of db
+    .select({ t: shipments.createdAt })
+    .from(shipments)
+    .innerJoin(shipmentItems, eq(shipmentItems.shipmentId, shipments.id))
+    .innerJoin(orderItems, eq(shipmentItems.itemId, orderItems.id))
+    .where(eq(orderItems.orderId, orderId))
+    .all())
     times.push(r.t.getTime());
   return new Date(Math.max(...times));
 }

@@ -14,6 +14,7 @@ import { completeOrderAction, confirmOrderAction } from "../../../actions";
 import { HistoryList } from "@/components/HistoryList";
 import { orderHistory } from "@/lib/history";
 import { Icon } from "@/components/Icon";
+import { cartCandidates } from "@/lib/shipping";
 
 export default async function MasterOrder({
   params,
@@ -34,6 +35,7 @@ export default async function MasterOrder({
   if (!order) notFound();
   markSeen(master.id, order.id);
   const items = masterItems(order.id);
+  const readyItems = new Set(cartCandidates(master.id).map((c) => c.itemId)); // finished items that can go in the cart
   const history = orderHistory(order.id);
 
   // "Design: ..." from the first filled field whose name starts with Design (for example Design number)
@@ -109,7 +111,7 @@ export default async function MasterOrder({
           {[
             { href: `/api/m/${token}/orders/${order.id}/pdf`, icon: "download", text: "PDF", native: true },
             { href: `/m/${token}/orders/${order.id}/print`, icon: "note", text: "Print", native: false },
-            { href: `/m/${token}/orders/${order.id}/ship`, icon: "shipments", text: "Send", native: false },
+            { href: `/m/${token}/cart`, icon: "shipments", text: "Cart", native: false },
           ].map((b) => {
             const cls = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-rule-2 bg-paper-2 px-2 text-lg font-medium text-ink hover:bg-paper-3";
             const inner = (
@@ -192,6 +194,16 @@ export default async function MasterOrder({
               />
             </div>
           </details>
+          {order.status === "active" && readyItems.has(item.id) && (
+            <Link
+              href={`/m/${token}/cart`}
+              className="mt-3 flex min-h-12 items-center gap-2 rounded-2xl bg-ok-soft px-4 py-2 text-lg font-medium text-ok"
+            >
+              <Icon name="shipments" className="h-5 w-5 shrink-0" />
+              <span className="flex-1">Finished. It is in your cart, ready to send.</span>
+              <Icon name="arrow" className="h-4 w-4 shrink-0" />
+            </Link>
+          )}
         </section>
       ))}
       {order.details && <p className="panel whitespace-pre-wrap text-lg">{order.details}</p>}

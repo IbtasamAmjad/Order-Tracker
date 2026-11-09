@@ -7,6 +7,7 @@ import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
 import { pendingWork } from "@/lib/item-search";
+import { cartCandidates } from "@/lib/shipping";
 
 export default async function MasterHome({
   params,
@@ -25,6 +26,7 @@ export default async function MasterHome({
   const master = (await requireMaster(token))!;
   const { active } = masterDashboard(master.id);
   const pending = pendingWork(master.id);
+  const ready = cartCandidates(master.id).length; // finished items waiting to be sent
 
   return (
     <div className="space-y-5">
@@ -33,7 +35,7 @@ export default async function MasterHome({
         <p className="text-lg">{active.length === 0 ? "No orders right now." : "Open an order to work on it. Any order can be done first."}</p>
       </header>
 
-      <div className="grid grid-cols-1 gap-2 min-[330px]:grid-cols-3 md:max-w-xl md:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:max-w-2xl md:gap-3">
         <Link href={`/m/${token}/items`} className="flex min-h-24 flex-col justify-between gap-2 rounded-2xl border border-rule-2 bg-paper-2 p-3 text-lg font-medium leading-tight hover:bg-paper-3">
           <Icon name="box" className="h-6 w-6 text-muted" />
           Items
@@ -44,6 +46,13 @@ export default async function MasterHome({
             {pending.length > 0 && <span className="rounded-full bg-accent px-2.5 py-0.5 text-sm text-white">{pending.length}</span>}
           </span>
           My pending work
+        </Link>
+        <Link href={`/m/${token}/cart`} className="flex min-h-24 flex-col justify-between gap-2 rounded-2xl border border-rule-2 bg-paper-2 p-3 text-lg font-medium leading-tight hover:bg-paper-3">
+          <span className="flex items-center justify-between">
+            <Icon name="shipments" className="h-6 w-6 text-muted" />
+            {ready > 0 && <span className="rounded-full bg-accent px-2.5 py-0.5 text-sm text-white">{ready}</span>}
+          </span>
+          Cart
         </Link>
         <Link href={`/m/${token}/finished`} className="flex min-h-24 flex-col justify-between gap-2 rounded-2xl border border-rule-2 bg-paper-2 p-3 text-lg font-medium leading-tight hover:bg-paper-3">
           <Icon name="finished" className="h-6 w-6 text-muted" />

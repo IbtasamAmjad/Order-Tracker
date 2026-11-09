@@ -38,6 +38,7 @@ const PATHS: Record<string, string> = {
   clock: "M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 7.5V12l3 2",
   download: "M12 4v11M7.5 11 12 15.5 16.5 11M5 19.5h14",
   lock: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3",
+  group: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
   box: "M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8",
 };
 

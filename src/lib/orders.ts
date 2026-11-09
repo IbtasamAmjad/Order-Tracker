@@ -152,29 +152,37 @@ export function updateOrder(id: number, input: OrderInput, itemValues: Map<numbe
   });
 }
 
-/** Move an order up/down among the same master's active orders. */
-export function moveOrder(id: number, dir: "up" | "down"): void {
+/**
+ * Move an order up or down. The office passes the order it sits next to in the list it is looking at (`withId`), so an
+ * arrow always works as long as there is an order next to it, whoever the master is. Without `withId` it swaps with the
+ * next active order of the same master.
+ */
+export function moveOrder(id: number, dir: "up" | "down", withId?: number): void {
   db.transaction((tx) => {
     const o = tx.select().from(orders).where(eq(orders.id, id)).get();
     if (!o || o.status !== "active") return;
+    const given = withId ? tx.select().from(orders).where(eq(orders.id, withId)).get() : undefined;
     const mine = and(
       eq(orders.masterId, o.masterId),
       eq(orders.status, "active"),
     );
-    const neighbour = tx
-      .select()
-      .from(orders)
-      .where(
-        and(
-          mine,
-          dir === "up"
-            ? lt(orders.priorityPosition, o.priorityPosition)
-            : gt(orders.priorityPosition, o.priorityPosition),
-        ),
-      )
-      .orderBy(dir === "up" ? desc(orders.priorityPosition) : asc(orders.priorityPosition))
-      .limit(1)
-      .get();
+    const neighbour =
+      given && given.id !== o.id && given.status === "active"
+        ? given
+        : tx
+            .select()
+            .from(orders)
+            .where(
+              and(
+                mine,
+                dir === "up"
+                  ? lt(orders.priorityPosition, o.priorityPosition)
+                  : gt(orders.priorityPosition, o.priorityPosition),
+              ),
+            )
+            .orderBy(dir === "up" ? desc(orders.priorityPosition) : asc(orders.priorityPosition))
+            .limit(1)
+            .get();
     if (!neighbour) return;
     const now = new Date();
     const raised = dir === "up" ? o : neighbour;
@@ -382,7 +390,7 @@ export function masterComplete(masterId: number, orderId: number): CompleteResul
           .select({ itemId: shipmentItems.itemId })
           .from(shipmentItems)
           .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-          .where(and(eq(shipments.orderId, o.id), eq(shipments.status, "submitted")))
+          .where(eq(shipments.status, "submitted"))
           .all()
           .map((r) => r.itemId),
       );
@@ -451,7 +459,7 @@ export function removeItem(orderId: number, itemId: number): RemoveItemResult {
           .select({ itemId: shipmentItems.itemId })
           .from(shipmentItems)
           .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-          .where(and(eq(shipments.orderId, orderId), eq(shipments.status, "submitted")))
+          .where(eq(shipments.status, "submitted"))
           .all()
           .map((r) => r.itemId),
       );
@@ -515,7 +523,7 @@ export function unarchiveOrder(id: number): "completed" | "cancelled" | null {
         .select({ itemId: shipmentItems.itemId })
         .from(shipmentItems)
         .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-        .where(and(eq(shipments.orderId, id), eq(shipments.status, "submitted")))
+        .where(eq(shipments.status, "submitted"))
         .all()
         .map((r) => r.itemId),
     );

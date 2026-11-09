@@ -122,10 +122,10 @@ export default async function Customers({
           const pill = { red: "border-bad/30 bg-bad-soft text-bad", green: "border-ok/30 bg-ok-soft text-ok", blue: "border-cloth/30 bg-cool-soft text-cloth" }[tone];
           const dot = { red: "bg-bad", green: "bg-ok", blue: "bg-cloth" }[tone];
           const pct = (done: number, total: number) => (total === 0 ? 0 : Math.round((done / total) * 100));
-          // an order moves only among its own master's orders, so an arrow with no other order of that master to swap with is greyed out
-          const ofMaster = everyone.filter((r) => r.masterId === o.masterId);
-          const at = ofMaster.findIndex((r) => r.id === o.id);
-          const canMove = { up: at > 0, down: at < ofMaster.length - 1 };
+          // an arrow swaps the order with the one next to it in this list, whoever its master is; the first and last have only one arrow
+          const at = rows.findIndex((r) => r.id === o.id);
+          const next = { up: rows[at - 1], down: rows[at + 1] };
+          const canMove = { up: !!next.up, down: !!next.down };
           const tile = "rounded-2xl border px-4 py-2";
           const tileLabel = "text-xs font-medium uppercase tracking-wide";
           return (
@@ -165,10 +165,11 @@ export default async function Customers({
                       <form key={dir} action={moveOrderAction}>
                         <input type="hidden" name="id" value={o.id} />
                         <input type="hidden" name="dir" value={dir} />
+                        <input type="hidden" name="with" value={next[dir]?.id ?? ""} />
                         <input type="hidden" name="back" value={back} />
                         <button
                           disabled={!canMove[dir]}
-                          title={canMove[dir] ? undefined : "This master has no other order to swap with"}
+                          title={canMove[dir] ? undefined : dir === "up" ? "This is the first order" : "This is the last order"}
                           className="grid h-9 w-10 place-items-center text-ink-2 hover:bg-paper-3 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
                           aria-label={`Move order ${o.orderNumber} ${dir}`}
                         >
