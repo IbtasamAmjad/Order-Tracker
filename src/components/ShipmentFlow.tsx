@@ -202,7 +202,7 @@ export function ShipmentFlow({
         </section>
       </div>
 
-      <form action={sendShipmentAction} className="space-y-4 overflow-hidden rounded-3xl border border-rule-2 bg-paper-2 p-5 shadow-md lg:sticky lg:top-4">
+      <form action={sendShipmentAction} className="space-y-4 overflow-hidden rounded-3xl border border-rule-2 bg-paper-2 p-5 shadow-sm lg:sticky lg:top-4">
         <span aria-hidden className="-mx-5 -mt-5 mb-1 block h-1 bg-gradient-to-r from-accent via-accent-deep to-ink" />
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="orderId" value={orderId} />

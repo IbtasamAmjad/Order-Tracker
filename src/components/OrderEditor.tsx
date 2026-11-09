@@ -117,7 +117,7 @@ export function OrderEditor({
 
       {state.error && <p role="alert" className="alert alert-error text-lg font-medium">{state.error}</p>}
 
-      <div className="rounded-3xl border border-rule bg-paper-2 p-5 shadow-[var(--shadow-card)]">
+      <div className="rounded-3xl border border-rule bg-paper-2 p-5 shadow-sm">
         <p className="mb-4 border-b border-rule pb-3 text-sm text-muted">
           <RequiredMark /> means it must be filled in. The rest is optional.
         </p>

@@ -34,7 +34,7 @@ export function ItemResult({
   const shown = row.photoIds.slice(0, MAX_PICTURES);
   const more = row.photoIds.length - shown.length;
   return (
-    <li className="panel relative space-y-3 transition-shadow hover:shadow-[0_8px_24px_-10px_rgb(27_26_75/0.45)]">
+    <li className="panel relative space-y-3 transition-shadow hover:shadow-[0_4px_14px_-8px_rgb(27_26_75/0.22)]">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           {/* the link stretches over the whole card, the pictures sit above it */}

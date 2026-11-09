@@ -129,7 +129,7 @@ export default async function Customers({
           const tile = "rounded-2xl border px-4 py-2";
           const tileLabel = "text-xs font-medium uppercase tracking-wide";
           return (
-            <li key={o.id} className={`${card} relative space-y-4 border-l-4 transition-shadow hover:shadow-[0_8px_24px_-10px_rgb(27_26_75/0.45)] ${late ? "border-l-thread" : BAND_CLASS[o.band!]}`}>
+            <li key={o.id} className={`${card} relative space-y-4 border-l-4 transition-shadow hover:shadow-[0_4px_14px_-8px_rgb(27_26_75/0.22)] ${late ? "border-l-thread" : BAND_CLASS[o.band!]}`}>
               <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
                 <span aria-label={`Number ${i + 1} in the list`} className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-ink text-xl font-medium text-white">
                   {i + 1}

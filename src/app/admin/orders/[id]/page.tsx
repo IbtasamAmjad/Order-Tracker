@@ -93,7 +93,7 @@ export default async function EditOrder({
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-rule bg-paper-2 px-5 py-4 shadow-[var(--shadow-card)]">
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-rule bg-paper-2 px-5 py-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="page-title normal-case">
             #{order.orderNumber} {order.customerName}
@@ -113,7 +113,7 @@ export default async function EditOrder({
         </Link>
       </header>
       {(order.linkedDesignNumber || linked.length > 0) && (
-        <div className="space-y-1 rounded-2xl border border-rule bg-paper-2 px-5 py-3 text-base shadow-[var(--shadow-card)]">
+        <div className="space-y-1 rounded-2xl border border-rule bg-paper-2 px-5 py-3 text-base shadow-sm">
           {order.linkedDesignNumber && (
             <p>
               Linked to design number <b className="font-medium">{order.linkedDesignNumber}</b>
@@ -158,7 +158,7 @@ export default async function EditOrder({
         </div>
       )}
       {order.masterEditedAt && (
-        <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-accent to-[#7C3AED] px-5 py-4 text-white shadow-[var(--shadow-card)]">
+        <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-accent to-[#7C3AED] px-5 py-4 text-white shadow-sm">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/20">
             <Icon name="info" className="h-5 w-5" />
           </span>

@@ -38,7 +38,7 @@ export function MasterPicker({
         {names.length > 1 && <span className="rounded-full bg-accent-soft px-2 text-sm font-medium text-accent-deep">{names.length}</span>}
         <Icon name="chevron" className="h-5 w-5 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="absolute left-0 right-0 z-20 mt-2 space-y-1 rounded-2xl border border-rule-2 bg-paper-2 p-2 shadow-[var(--shadow-card)]">
+      <div className="absolute left-0 right-0 z-20 mt-2 space-y-1 rounded-2xl border border-rule-2 bg-paper-2 p-2 shadow-sm">
         {masters.length === 0 && <p className="p-2 text-base">No masters yet.</p>}
         {masters.map((m) => (
           <label key={m.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-lg hover:bg-paper-3">

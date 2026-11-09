@@ -51,7 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="drawer-side z-40 print:hidden">
         <label htmlFor="admin-nav" aria-label="Close the menu" className="drawer-overlay" />
         {/* a rounded panel: curved on its open edge on a phone, a floating rounded card beside the page on a computer */}
-        <div className="flex min-h-full flex-col rounded-r-3xl bg-side lg:m-3 lg:min-h-[calc(100dvh-1.5rem)] lg:rounded-3xl lg:shadow-[var(--shadow-card)]">
+        <div className="flex min-h-full flex-col rounded-r-3xl bg-side lg:m-3 lg:min-h-[calc(100dvh-1.5rem)] lg:rounded-3xl lg:shadow-sm">
           <div className="flex min-h-20 items-center px-6 pt-2">
             <Brand />
           </div>
