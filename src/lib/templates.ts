@@ -4,6 +4,7 @@ import { isDisplayOnly, parseOptions } from "./items";
 import {
   categories,
   templates,
+  workflows,
   FIELD_TYPES,
   PHOTO_RULES,
   type FieldDef,
@@ -110,21 +111,43 @@ export function cleanStageRequirements(fields: FieldDef[], stages: StageDef[]): 
   });
 }
 
-export function saveTemplate(id: number, fields: FieldDef[], rawStages: StageDef[]) {
-  const stages = cleanStageRequirements(fields, rawStages);
+/**
+ * The steps a workflow gives one item type: the workflow's steps, keeping the "must be filled in" ticks this item type
+ * already had for the same step (those belong to the item's own form, not to the workflow).
+ */
+export function stagesFromWorkflow(workflowStages: StageDef[], current: StageDef[], fields: FieldDef[]): StageDef[] {
+  const needs = new Map(current.map((s) => [s.key, s.requiresFields]));
+  const merged = workflowStages.map((s) => {
+    const { requiresFields, ...rest } = s;
+    void requiresFields;
+    const keep = needs.get(s.key);
+    return keep?.length ? { ...rest, requiresFields: keep } : rest;
+  });
+  return cleanStageRequirements(fields, merged);
+}
+
+/**
+ * Save an item type's form and steps. `workflowId`: a number = use that workflow (its steps win; only the "must be
+ * filled in" ticks of `rawStages` are kept); null = the item's own custom steps; left out = keep the link it has.
+ */
+export function saveTemplate(id: number, fields: FieldDef[], rawStages: StageDef[], workflowId?: number | null) {
   const old = db.select().from(templates).where(eq(templates.id, id)).get();
   if (!old) return;
-  const changed = JSON.stringify([old.fields, old.stages]) !== JSON.stringify([fields, stages]);
+  const link = workflowId === undefined ? old.workflowId : workflowId;
+  const wf = link ? db.select().from(workflows).where(eq(workflows.id, link)).get() : null;
+  const stages = wf ? stagesFromWorkflow(wf.stages, rawStages, fields) : cleanStageRequirements(fields, rawStages);
+  const newLink = wf ? wf.id : null;
+  const changed = JSON.stringify([old.fields, old.stages, old.workflowId]) !== JSON.stringify([fields, stages, newLink]);
   db.update(templates)
-    .set({ fields, stages, version: changed ? old.version + 1 : old.version, updatedAt: new Date() })
+    .set({ fields, stages, workflowId: newLink, version: changed ? old.version + 1 : old.version, updatedAt: new Date() })
     .where(eq(templates.id, id))
     .run();
 }
 
-/** Save only the fields (stages unchanged). */
+/** Save only the fields (stages and workflow unchanged). */
 export function saveTemplateFields(id: number, fields: FieldDef[]) {
   const old = db.select().from(templates).where(eq(templates.id, id)).get();
-  if (old) saveTemplate(id, fields, old.stages);
+  if (old) saveTemplate(id, fields, old.stages, old.workflowId);
 }
 
 // ------------------------------------------------------- builder parsing
@@ -191,14 +214,6 @@ export function rowsToStages(rows: StageRow[]): StageDef[] {
     out.push({ key: r.key || uniqueKey(label, used), label, photo, ...(requiresFields.length ? { requiresFields } : {}) });
   }
   return out;
-}
-
-/** Item types with the same print group name print on one shared page. Empty = own page. */
-export function setPrintGroup(id: number, name: string) {
-  db.update(templates)
-    .set({ printGroup: name.trim() || null })
-    .where(eq(templates.id, id))
-    .run();
 }
 
 // ---------------------------------------------------- drag-and-drop builder

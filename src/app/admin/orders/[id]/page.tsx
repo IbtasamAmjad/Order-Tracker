@@ -1,21 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderEditor } from "@/components/OrderEditor";
-import { getOrder, listItems } from "@/lib/orders";
+import { getOrder, linkedOrders, listDesignNumbers, listItems, orderOfDesign } from "@/lib/orders";
 import { assignedMasterIds } from "@/lib/assign";
 import { referencePhotos } from "@/lib/stages";
 import { orderShipments, shippableItems } from "@/lib/shipping";
 import { listMasters } from "@/lib/masters";
 import { pickerGroups } from "@/lib/templates";
 import type { EditorItem } from "@/lib/editor-state";
-import { displayValue, fieldProgress, isDisplayOnly, missingRequired } from "@/lib/items";
+import { displayValue, fieldProgress, isDisplayOnly, missingFields } from "@/lib/items";
 import { itemTrack } from "@/lib/track";
 import type { FieldDef } from "@/db/schema";
-import { AdminItemExtras, REFRESH_FORM, STEP_FORM } from "@/components/AdminItemExtras";
+import { AdminItemExtras, INSTRUCTION_FORM, NOTE_FORM, REFRESH_FORM, STEP_FORM } from "@/components/AdminItemExtras";
+import { HistoryList } from "@/components/HistoryList";
+import { orderHistory } from "@/lib/history";
 import { ADD_ITEM_FORM, AddItemBox } from "@/components/AddItemBox";
 import { Icon } from "@/components/Icon";
 import { Notice, btnDanger, btnPrimary, btnSecondary, fmtDate, Field, textarea } from "@/components/ui";
-import { addItemAction, refreshItemAction, removeItemAction, saveOrderAction, setStatusAction, stepAdminAction } from "../../actions";
+import { addItemAction, instructionAction, refreshItemAction, removeItemAction, saveOrderAction, setStatusAction, stepAdminAction, stepNoteAction } from "../../actions";
 
 const REFRESH_ERRORS: Record<string, string> = {
   "remove-shipped": "That item was already sent, so it cannot be removed.",
@@ -30,8 +32,8 @@ const REFRESH_ERRORS: Record<string, string> = {
 function itemSummary(i: { id: number; snapshot: { fields: FieldDef[] }; values: Record<string, string> }): string {
   const p = fieldProgress(i.snapshot.fields, i.values, referencePhotos(i.id).map((r) => r.fieldKey ?? ""));
   const now = itemTrack(i.id).find((s) => s.state === "current");
-  const required = missingRequired(i.snapshot.fields, i.values).length;
-  return `${p.filled} of ${p.total} fields filled${required > 0 ? `. ${required} required still empty` : ""}${now ? `. Now: ${now.label}` : ". All done"}`;
+  const required = missingFields(i.snapshot.fields, i.values).length;
+  return `${p.filled} of ${p.total} fields filled${required > 0 ? `. ${required} still empty` : ""}${now ? `. Now: ${now.label}` : ". All done"}`;
 }
 
 /** Fields filled out of all fields, for the little chip on an item's card. */
@@ -84,6 +86,9 @@ export default async function EditOrder({
     facts: itemFacts(i),
     photos: referencePhotos(i.id).map((r) => ({ id: r.id, fieldKey: r.fieldKey ?? "" })),
   }));
+  const history = orderHistory(order.id);
+  const linked = linkedOrders(order.designNumber);
+  const main = orderOfDesign(order.linkedDesignNumber);
   const templates = pickerGroups().flatMap((g) => g.items.map((t) => ({ ...t, group: g.name })));
 
   return (
@@ -93,6 +98,7 @@ export default async function EditOrder({
           <h1 className="page-title normal-case">
             #{order.orderNumber} {order.customerName}
           </h1>
+          {order.designNumber && <span className="rounded-lg bg-accent-soft px-2.5 py-1 text-sm font-medium text-accent-deep">{order.designNumber}</span>}
           <span
             className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium capitalize ${
               order.status === "active" ? "bg-ok-soft text-ok" : order.status === "completed" ? "bg-accent-soft text-accent-deep" : "bg-bad-soft text-bad"
@@ -106,6 +112,33 @@ export default async function EditOrder({
           <Icon name="note" className="h-4 w-4" /> Print / PDF
         </Link>
       </header>
+      {(order.linkedDesignNumber || linked.length > 0) && (
+        <div className="space-y-1 rounded-2xl border border-rule bg-paper-2 px-5 py-3 text-base shadow-[var(--shadow-card)]">
+          {order.linkedDesignNumber && (
+            <p>
+              Linked to design number <b className="font-medium">{order.linkedDesignNumber}</b>
+              {main && (
+                <>
+                  {": "}
+                  <Link href={`/admin/orders/${main.id}`} className="link font-medium">
+                    #{main.orderNumber} {main.customerName}
+                  </Link>
+                </>
+              )}
+            </p>
+          )}
+          {linked.length > 0 && (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>Linked orders:</span>
+              {linked.map((l) => (
+                <Link key={l.id} href={`/admin/orders/${l.id}`} className="link font-medium">
+                  #{l.orderNumber} {l.customerName}
+                </Link>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
       {updated && <Notice tone="success">Updated from the item. The master will see it was changed.</Notice>}
       {removed && <Notice tone="success">The item was removed.</Notice>}
       {e && REFRESH_ERRORS[e] && <Notice tone="error">{REFRESH_ERRORS[e]}</Notice>}
@@ -140,6 +173,7 @@ export default async function EditOrder({
         {order.masterSeenAt
           ? `Master first opened it ${fmtDate(order.masterSeenAt)}; last ${fmtDate(order.masterLastSeenAt)}.`
           : "Master has not opened it yet."}
+        {order.confirmedAt ? ` Confirmed he has seen it on ${fmtDate(order.confirmedAt)}.` : " Has not confirmed yet."}
       </p>
 
       {active ? (
@@ -152,6 +186,7 @@ export default async function EditOrder({
             orderId={order.id}
             submitLabel="Save changes"
             formId="order-form"
+            designNumbers={listDesignNumbers(order.id).map((d) => ({ designNumber: d.designNumber, orderNumber: d.orderNumber, customerName: d.customerName }))}
             afterMasters={<AddItemBox orderId={order.id} options={templates.map((t) => ({ templateId: t.templateId, label: `${t.group} > ${t.name}` }))} />}
           />
 
@@ -166,6 +201,12 @@ export default async function EditOrder({
           {/* the Remove buttons sit inside each item above and send to this form */}
           {/* the step and update buttons inside each item send to these two */}
           <form id={STEP_FORM} action={stepAdminAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+          </form>
+          <form id={NOTE_FORM} action={stepNoteAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+          </form>
+          <form id={INSTRUCTION_FORM} action={instructionAction}>
             <input type="hidden" name="orderId" value={order.id} />
           </form>
           <form id={REFRESH_FORM} action={refreshItemAction}>
@@ -193,7 +234,7 @@ export default async function EditOrder({
         </>
       ) : (
         <div className="space-y-4 text-base">
-          <div className="panel grid gap-3 sm:grid-cols-3">
+          <div className="panel grid grid-cols-1 gap-3 sm:grid-cols-3">
             <p>
               <span className="block text-muted">Customer</span>
               <b className="text-lg">{order.customerName}</b>
@@ -230,6 +271,19 @@ export default async function EditOrder({
           )}
         </div>
       )}
+
+      <section className="panel">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-xl font-medium [&::-webkit-details-marker]:hidden">
+            <span className="flex-1">History</span>
+            <span className="rounded-full bg-paper-3 px-3 text-base">{history.length}</span>
+            <Icon name="chevron" className="h-5 w-5 text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-3">
+            <HistoryList lines={history} />
+          </div>
+        </details>
+      </section>
     </div>
   );
 }

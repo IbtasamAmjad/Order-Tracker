@@ -92,6 +92,31 @@ describe("orders", () => {
     expect(mine.find((r) => r.id === far)!.band).toBe("blue");
   });
 
+  it("gives each order its own design number, and links an accessory to the main design", () => {
+    const a = m.createMaster({ name: "Design", pin: "1" });
+    const main = o.createOrder({ ...input(a, "Main"), designNumber: " ns-206 " });
+    expect(o.getOrder(main)!.designNumber).toBe("NS-206"); // kept in capitals, no spaces at the ends
+
+    // a design number is used once, whatever the capitals
+    expect(() => o.createOrder({ ...input(a, "Other"), designNumber: "ns-206" })).toThrow(/already used by order #/);
+    expect(o.checkDesignNumbers({ designNumber: "NS-206" })).toMatch(/already used/);
+    const second = o.createOrder({ ...input(a, "Second"), designNumber: "NS-207" });
+    expect(() => o.updateOrder(second, { ...input(a, "Second"), designNumber: "NS-206" })).toThrow(/already used/);
+    // an order may keep its own number when it is edited
+    expect(() => o.updateOrder(second, { ...input(a, "Second", "2099-02-02"), designNumber: "NS-207" })).not.toThrow();
+
+    // an accessory is linked to the design number of a main order, which has to exist
+    const shoes = o.createOrder({ ...input(a, "Shoes"), designNumber: "SH-1", linkedDesignNumber: "ns-206" });
+    expect(o.getOrder(shoes)!.linkedDesignNumber).toBe("NS-206");
+    expect(o.linkedOrders("NS-206").map((r) => r.id)).toEqual([shoes]);
+    expect(o.orderOfDesign("NS-206")!.id).toBe(main);
+    expect(() => o.createOrder({ ...input(a, "Lost"), designNumber: "X-1", linkedDesignNumber: "NOPE" })).toThrow(/No order has design number NOPE/);
+    expect(() => o.createOrder({ ...input(a, "Self"), designNumber: "Y-1", linkedDesignNumber: "Y-1" })).toThrow(/own design number/);
+
+    // older orders without a number can still exist side by side
+    expect(() => [o.createOrder(input(a, "Old 1")), o.createOrder(input(a, "Old 2"))]).not.toThrow();
+  });
+
   it("shows Seen / New / Updated badges", () => {
     const a = m.createMaster({ name: "D", pin: "1" });
     const id = o.createOrder(input(a, "Badge"));

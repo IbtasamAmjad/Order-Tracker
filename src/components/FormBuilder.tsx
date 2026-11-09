@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
@@ -189,9 +190,7 @@ function FieldCard({
           {!displayOnly && (
             <>
               {f.type === "picture" ? (
-                <p className="text-sm opacity-70">
-                  To make a picture compulsory, tick it under Steps, in &quot;Must be filled in before this step can be finished&quot;.
-                </p>
+                <p className="text-sm opacity-70">Pictures are added on the order form. They are not compulsory.</p>
               ) : (
                 <>
                   <Toggle label="Warn me if this is left empty" checked={f.required} onChange={(v) => onChange({ required: v })} />
@@ -245,19 +244,20 @@ function SaveButton({ dirty, duplicates }: { dirty: boolean; duplicates: string[
   const { pending } = useFormStatus();
   const blocked = duplicates.length > 0;
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-base-300 bg-base-100/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      <button disabled={pending || blocked} className={`${btnPrimary} flex-1 sm:flex-none sm:px-10`}>
-        {pending ? "Saving..." : "Save item"}
-      </button>
+    <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule-2 bg-paper-2/95 px-4 py-3 shadow-[0_8px_24px_-12px_rgb(27_26_75/0.4)] backdrop-blur">
       {blocked ? (
-        <span role="alert" className="text-base font-medium text-error">
+        <span role="alert" className="min-w-0 flex-1 text-base font-medium text-error">
           Give each field its own name before saving. Used twice: {duplicates.map((d) => `"${d}"`).join(", ")}
         </span>
       ) : (
-        <span className={`text-base font-medium ${dirty ? "text-warning-content" : "opacity-60"}`}>
+        <span className="flex items-center gap-2 text-base text-muted">
+          <span aria-hidden className={`inline-block h-2.5 w-2.5 rounded-full ${dirty ? "bg-amber-500" : "bg-ok"}`} />
           {dirty ? "You have changes that are not saved yet" : "All changes saved"}
         </span>
       )}
+      <button disabled={pending || blocked} className={`${btnPrimary} ml-auto px-8`}>
+        {pending ? "Saving..." : "Save item"}
+      </button>
     </div>
   );
 }
@@ -266,15 +266,18 @@ function SaveButton({ dirty, duplicates }: { dirty: boolean; duplicates: string[
 
 export function FormBuilder({
   id,
-  version,
   initialFields,
   initialSteps,
+  workflows = [],
+  initialWorkflowId = null,
   action,
 }: {
   id: number;
-  version: number;
   initialFields: Omit<BField, "uid">[];
   initialSteps: Omit<BStep, "uid">[];
+  /** the reusable workflows this item can use for its steps */
+  workflows?: { id: number; name: string; steps: { key: string; label: string; photo: string }[] }[];
+  initialWorkflowId?: number | null;
   action: (f: FormData) => Promise<void>;
 }) {
   const [fields, setFields] = useState<BField[]>(() => initialFields.map((f, i) => ({ ...f, uid: `f${i}` })));
@@ -283,7 +286,9 @@ export function FormBuilder({
   const [dragging, setDragging] = useState<PaletteItem | null>(null);
   const counter = useRef(1000);
   const lastDragEnd = useRef(0);
-  const [start] = useState(() => JSON.stringify([initialFields, initialSteps]));
+  const [workflowId, setWorkflowId] = useState<number | null>(initialWorkflowId);
+  const workflow = workflows.find((w) => w.id === workflowId) ?? null;
+  const [start] = useState(() => JSON.stringify([initialFields, initialSteps, initialWorkflowId]));
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -300,7 +305,7 @@ export function FormBuilder({
   const dupeNames = new Set(dupes.map((d) => d.toLowerCase()));
   const fieldsJson = JSON.stringify(strip(fields));
   const stepsJson = JSON.stringify(strip(steps));
-  const dirty = JSON.stringify([strip(fields), strip(steps)]) !== start;
+  const dirty = JSON.stringify([strip(fields), strip(steps), workflowId]) !== start;
 
   function add(type: string, at?: number) {
     const item = ALL.find((i) => i.type === type)!;
@@ -355,6 +360,15 @@ export function FormBuilder({
 
   // steps (no drag: a short list with up / down)
   const patchStep = (uid: string, p: Partial<BStep>) => setSteps((rows) => rows.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
+  // choose a workflow: its steps replace the list (the item keeps its own "must be filled in" ticks for steps with the same key)
+  function chooseWorkflow(value: string) {
+    const wf = workflows.find((w) => String(w.id) === value) ?? null;
+    setWorkflowId(wf ? wf.id : null);
+    if (!wf) return; // back to custom steps: the list stays as it is and can be changed
+    setSteps((rows) =>
+      wf.steps.map((s, i) => ({ uid: `w${i}`, key: s.key, label: s.label, photo: s.photo, needs: rows.find((r) => r.key === s.key)?.needs ?? [] })),
+    );
+  }
   const moveStep = (i: number, dir: -1 | 1) => setSteps((rows) => (i + dir < 0 || i + dir >= rows.length ? rows : arrayMove(rows, i, i + dir)));
 
   return (
@@ -362,6 +376,7 @@ export function FormBuilder({
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="fields" value={fieldsJson} />
       <input type="hidden" name="stages" value={stepsJson} />
+      <input type="hidden" name="workflowId" value={workflowId ?? ""} />
 
       <DndContext id="form-builder" sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -431,81 +446,73 @@ export function FormBuilder({
 
       {/* steps */}
       <section aria-label="Steps" className="space-y-3">
-        <div>
+        <div className="space-y-3">
           <h2 className="text-2xl font-medium">Steps</h2>
+          <label className="block">
+            <span className="mb-1 block text-base font-medium">Workflow</span>
+            <select value={workflowId ?? ""} onChange={(e) => chooseWorkflow(e.target.value)} className={select} aria-label="Workflow">
+              <option value="">Custom steps (only for this item)</option>
+              {workflows.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {workflow ? (
+            <p className="rounded-2xl bg-accent-soft px-4 py-3 text-base">
+              These steps come from the workflow <b>{workflow.name}</b>. To change the steps themselves, edit the workflow (it changes every item that uses it), or choose Custom steps.{" "}
+              <Link href={`/admin/workflows/${workflow.id}`} className="link font-medium">
+                Edit the workflow
+              </Link>
+            </p>
+          ) : (
+            <p className="text-sm text-muted">
+              These steps are only for this item. To use the same steps on other items, <Link href="/admin/workflows/new" className="link">make a workflow</Link>, or save these steps as one below the form.
+            </p>
+          )}
           <p className="text-base opacity-80">
             The steps this item goes through, in order. A step can wait for two different things. The <b>photo of the work</b> is sent by the master from the phone and you approve it. A <b>field</b> is something on the form above that must be filled in first.
           </p>
         </div>
         {steps.map((s, i) => (
           <div key={s.uid} className="panel space-y-3">
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
-              <input value={s.label} onChange={(e) => patchStep(s.uid, { label: e.target.value })} placeholder="Step name (e.g. Embroidery)" className={input} aria-label={`Step ${i + 1} name`} />
-              <select value={s.photo} onChange={(e) => patchStep(s.uid, { photo: e.target.value })} className={select} aria-label="Work photo (the master sends it, you approve it)">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
+              <input value={s.label} onChange={(e) => patchStep(s.uid, { label: e.target.value })} placeholder="Step name (e.g. Embroidery)" className={input} aria-label={`Step ${i + 1} name`} disabled={!!workflow} />
+              <select value={s.photo} onChange={(e) => patchStep(s.uid, { photo: e.target.value })} className={select} aria-label="Work photo (the master sends it, you approve it)" disabled={!!workflow}>
                 <option value="none">No work photo</option>
                 <option value="optional">Work photo: optional</option>
-                <option value="required">Work photo: required</option>
+                <option value="upload">Work photo: must add one (no approval)</option>
+                <option value="required">Work photo: required, you approve it</option>
               </select>
             </div>
-            <fieldset className="space-y-2">
-              <legend className="text-base font-medium">Must be filled in before this step can be finished</legend>
-              {(() => {
-                const choices = fields.filter((f) => f.key && f.type !== "heading" && f.type !== "note");
-                if (choices.length === 0) return <p className="text-sm text-muted">Add fields to the form and save it, then pick them here.</p>;
-                return (
-                  <div className="flex flex-wrap gap-2">
-                    {choices.map((f) => {
-                      const on = s.needs.includes(f.key);
-                      return (
-                        <label
-                          key={f.key}
-                          className={`inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-3xl px-4 py-1 text-base ${on ? "bg-accent-soft text-accent-deep" : "bg-paper-3 text-ink"}`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-sm checkbox-primary shrink-0"
-                            checked={on}
-                            onChange={() => patchStep(s.uid, { needs: on ? s.needs.filter((k) => k !== f.key) : [...s.needs, f.key] })}
-                          />
-                          {f.label || "Field with no name"}
-                          {f.type === "picture" && <span className="text-sm text-muted">(picture on the form)</span>}
-                          {!f.masterCanEdit && <span className="text-sm text-muted">(only you can fill it: the step waits for you)</span>}
-                        </label>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-              {fields.some((f) => !f.key && f.label.trim() && f.type !== "heading" && f.type !== "note") && (
-                <p className="text-sm text-muted">Fields you have just added appear here after you save the form.</p>
-              )}
-            </fieldset>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => moveStep(i, -1)} disabled={i === 0} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move step up">
-                <Icon name="up" /> Up
-              </button>
-              <button type="button" onClick={() => moveStep(i, 1)} disabled={i === steps.length - 1} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move step down">
-                <Icon name="down" /> Down
-              </button>
-              <button type="button" onClick={() => setSteps((rows) => rows.filter((r) => r.uid !== s.uid))} className={`${btnDanger} !min-h-12 flex-1`} aria-label="Remove step">
-                <Icon name="trash" /> Remove
-              </button>
-            </div>
+            {!workflow && (
+              <div className="flex gap-2">
+                <button type="button" onClick={() => moveStep(i, -1)} disabled={i === 0} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move step up">
+                  <Icon name="up" /> Up
+                </button>
+                <button type="button" onClick={() => moveStep(i, 1)} disabled={i === steps.length - 1} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move step down">
+                  <Icon name="down" /> Down
+                </button>
+                <button type="button" onClick={() => setSteps((rows) => rows.filter((r) => r.uid !== s.uid))} className={`${btnDanger} !min-h-12 flex-1`} aria-label="Remove step">
+                  <Icon name="trash" /> Remove
+                </button>
+              </div>
+            )}
           </div>
         ))}
-        <button
-          type="button"
-          onClick={() => setSteps((rows) => [...rows, { uid: `t${counter.current++}`, key: "", label: "", photo: "none", needs: [] }])}
-          className={btnSecondary}
-        >
-          <Icon name="plus" /> Add a step
-        </button>
+        {!workflow && (
+          <button
+            type="button"
+            onClick={() => setSteps((rows) => [...rows, { uid: `t${counter.current++}`, key: "", label: "", photo: "none", needs: [] }])}
+            className={btnSecondary}
+          >
+            <Icon name="plus" /> Add a step
+          </button>
+        )}
       </section>
 
       <SaveButton dirty={dirty} duplicates={dupes} />
-      <p className="text-sm opacity-60">
-        Saved version {version}. Changing an item does not change customers who are already on it. To bring one of them up to date, open the customer and press &quot;Update from the item&quot;.
-      </p>
     </form>
   );
 }

@@ -8,10 +8,12 @@ export function MasterPicker({
   masters,
   initial,
   name = "masterIds",
+  onChange,
 }: {
   masters: { id: number; name: string }[];
   initial: number[];
   name?: string;
+  onChange?: () => void;
 }) {
   const [picked, setPicked] = useState<number[]>(initial);
   const box = useRef<HTMLDetailsElement>(null);
@@ -45,7 +47,10 @@ export function MasterPicker({
               name={name}
               value={m.id}
               checked={picked.includes(m.id)}
-              onChange={(e) => setPicked(e.target.checked ? [...picked, m.id] : picked.filter((x) => x !== m.id))}
+              onChange={(e) => {
+                setPicked(e.target.checked ? [...picked, m.id] : picked.filter((x) => x !== m.id));
+                onChange?.();
+              }}
               className="checkbox checkbox-primary"
             />
             {m.name}

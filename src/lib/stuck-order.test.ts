@@ -5,6 +5,7 @@ process.env.DATABASE_URL = ":memory:";
 
 let t: typeof import("./templates");
 let o: typeof import("./orders");
+let h: typeof import("./history");
 let m: typeof import("./masters");
 let s: typeof import("./stages");
 let sync: typeof import("./item-sync");
@@ -14,6 +15,7 @@ beforeAll(async () => {
   migrate(db, { migrationsFolder: "./drizzle" });
   t = await import("./templates");
   o = await import("./orders");
+  h = await import("./history");
   m = await import("./masters");
   s = await import("./stages");
   sync = await import("./item-sync");
@@ -38,6 +40,7 @@ describe("the review queue only holds live orders", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Sherwani", snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
 
     const before = s.pendingPhotoCount();
@@ -62,6 +65,7 @@ describe("Admin can finish a stuck step", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Sherwani", snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
 
     expect(s.completeStage({ by: "admin" }, itemId, "cutting")).toEqual({ ok: true });
@@ -80,6 +84,7 @@ describe("Admin can finish a stuck step", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Kurta", snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
     expect(s.completeStage({ by: "admin" }, itemId, "cutting")).toEqual({ ok: false, reason: "needs-fields" });
     expect(s.completeStage({ by: "admin", force: true }, itemId, "cutting")).toEqual({ ok: true });
@@ -95,6 +100,7 @@ describe("what is waiting for the office", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master, "Waiting Customer"), [{ templateId: tplId, label: "Kurta", snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
     const mine = () => s.officeTodo().filter((x) => x.orderId === orderId);
 
@@ -124,6 +130,7 @@ describe("updating an existing order from its category", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Sherwani", snapshot, values: { [f1[0].key]: "42" } }]);
+    h.confirmOrder(master, orderId);
     const item = () => o.listItems(orderId)[0];
     const itemId = item().id;
     expect(s.completeStage({ by: "master", masterId: master }, itemId, "cutting")).toEqual({ ok: true });
@@ -160,6 +167,7 @@ describe("updating an existing order from its category", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Pagri", snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
     t.saveTemplate(tplId, [], t.rowsToStages([{ key: "fold", label: "Fold", photo: "none" }]));
     expect(sync.refreshItemFromCategory(itemId)).toBe("ok");
@@ -171,8 +179,10 @@ describe("updating an existing order from its category", () => {
     const snapshot = t.templateForItem(tplId)!.snapshot;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orphan = o.createOrder(base(master), [{ templateId: 0, label: "Shoes", snapshot, values: {} }]);
+    h.confirmOrder(master, orphan);
     expect(sync.refreshItemFromCategory(o.listItems(orphan)[0].id)).toBe("no-category");
     const closed = o.createOrder(base(master), [{ templateId: tplId, label: "Shoes", snapshot, values: {} }]);
+    h.confirmOrder(master, closed);
     o.setStatus(closed, "cancelled");
     expect(sync.refreshItemFromCategory(o.listItems(closed)[0].id)).toBe("closed");
     expect(sync.refreshItemFromCategory(999999)).toBe("not-found");

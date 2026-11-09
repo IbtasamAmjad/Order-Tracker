@@ -1,6 +1,3 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { templates } from "@/db/schema";
 import { displayValue, isDisplayOnly } from "./items";
 import { getOrder, listItems } from "./orders";
 import { referencePhotos } from "./stages";
@@ -20,14 +17,14 @@ export type Sheet = { key: string; title: string; items: SheetItem[] };
 export type PrintData = {
   orderNumber: number;
   customerName: string;
+  designNumber: string | null;
   karigarDueDate: string; // never "My due date": the printout travels with the fabric
   notes: string;
   sheets: Sheet[];
 };
 
 /**
- * Pages for an order: one per item type, except item types sharing a print group,
- * which print together. Picture / measurement sizing is decided by the renderers.
+ * Pages for an order: one per item type. Picture / measurement sizing is decided by the renderers.
  */
 export function buildPrintData(orderId: number): PrintData | null {
   const order = getOrder(orderId);
@@ -35,11 +32,8 @@ export function buildPrintData(orderId: number): PrintData | null {
 
   const sheets = new Map<string, Sheet>();
   for (const item of listItems(orderId)) {
-    const group = item.templateId
-      ? db.select({ g: templates.printGroup }).from(templates).where(eq(templates.id, item.templateId)).get()?.g
-      : null;
-    const key = group ? `g:${group.toLowerCase()}` : `t:${item.templateId ?? item.snapshot.templateName}`;
-    const sheet = sheets.get(key) ?? { key, title: group || item.snapshot.templateName, items: [] };
+    const key = `t:${item.templateId ?? item.snapshot.templateName}`;
+    const sheet = sheets.get(key) ?? { key, title: item.snapshot.templateName, items: [] };
     sheets.set(key, sheet);
 
     const flow = item.snapshot.fields
@@ -60,6 +54,7 @@ export function buildPrintData(orderId: number): PrintData | null {
   return {
     orderNumber: order.orderNumber,
     customerName: order.customerName,
+    designNumber: order.designNumber,
     karigarDueDate: order.karigarDueDate,
     notes: order.details,
     sheets: [...sheets.values()],

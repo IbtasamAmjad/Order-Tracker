@@ -15,7 +15,7 @@ export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoI
           >
             <header className="mb-3 border-b-2 border-black pb-2">
               <p className="text-base">
-                Order #{data.orderNumber} - {data.customerName} - Due: {data.karigarDueDate}
+                Order #{data.orderNumber} - {data.customerName}{data.designNumber ? ` - Design: ${data.designNumber}` : ""} - Due: {data.karigarDueDate}
               </p>
               <h2 className="text-2xl font-medium">{sheet.title}</h2>
             </header>

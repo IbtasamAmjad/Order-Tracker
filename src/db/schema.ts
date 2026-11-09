@@ -25,6 +25,10 @@ export const orders = sqliteTable("orders", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   orderNumber: integer("order_number").notNull().unique(),
   customerName: text("customer_name").notNull(), // not unique
+  // each order has its own Design Number (kept in capitals, never used twice). Older orders may not have one yet.
+  designNumber: text("design_number").unique(),
+  // an accessory or other single item ordered on its own is linked to the Design Number of its main Sherwani or Bridal
+  linkedDesignNumber: text("linked_design_number"),
   myDueDate: text("my_due_date").notNull(), // YYYY-MM-DD, admin only
   karigarDueDate: text("karigar_due_date").notNull(), // YYYY-MM-DD
   masterId: integer("master_id")
@@ -45,6 +49,9 @@ export const orders = sqliteTable("orders", {
   closedAt: ts("closed_at"), // when completed / cancelled
   // what the order was before it was archived, so it can come back out of the archive as the same thing
   archivedFrom: text("archived_from", { enum: ["completed", "cancelled"] }),
+  // the master pressed "I have seen this order" (the first step, Order received)
+  confirmedAt: ts("confirmed_at"),
+  confirmedBy: integer("confirmed_by"),
   masterEditedAt: ts("master_edited_at"), // last time the master changed a field he is allowed to edit
   createdAt: ts("created_at")
     .notNull()
@@ -89,7 +96,9 @@ export const FIELD_TYPES = [
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
-export const PHOTO_RULES = ["required", "optional", "none"] as const;
+// none: no work image; optional: the master may add images; upload: at least one image must be added (no approval);
+// required: an image the office must approve.
+export const PHOTO_RULES = ["required", "upload", "optional", "none"] as const;
 export type PhotoRule = (typeof PHOTO_RULES)[number];
 
 export type StageDef = {
@@ -120,6 +129,17 @@ export const categories = sqliteTable("categories", {
     .$defaultFn(() => new Date()),
 });
 
+// A reusable, named workflow: the steps a kind of item goes through (for example Embroidery, Stitching, Final check).
+// Item types can use one; editing a workflow updates every item type that uses it (for new customers).
+export const workflows = sqliteTable("workflows", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  stages: text("stages", { mode: "json" }).$type<StageDef[]>().notNull().default([]),
+  updatedAt: ts("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const templates = sqliteTable("templates", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   categoryId: integer("category_id").notNull().unique(), // the sub-category
@@ -128,6 +148,8 @@ export const templates = sqliteTable("templates", {
   version: integer("version").notNull().default(1),
   // item types with the same print group name share one printed page (e.g. "Pagri + Shoes")
   printGroup: text("print_group"),
+  // the workflow this item type uses (its steps are the workflow's); null = its own custom steps
+  workflowId: integer("workflow_id"),
   updatedAt: ts("updated_at")
     .notNull()
     .$defaultFn(() => new Date()),
@@ -173,6 +195,8 @@ export const itemStages = sqliteTable("item_stages", {
   status: text("status", { enum: STAGE_STATUSES }).notNull().default("locked"),
   completedAt: ts("completed_at"),
   completedBy: text("completed_by", { enum: ["master", "admin"] }),
+  // what the office wants done at this step, for this customer's item (the master sees it on the step)
+  instruction: text("instruction"),
 });
 
 export const PHOTO_STATUSES = ["pending", "approved", "rejected"] as const;
@@ -231,4 +255,28 @@ export const shipmentItems = sqliteTable("shipment_items", {
     .notNull()
     .references(() => orderItems.id),
   checked: integer("checked", { mode: "boolean" }).notNull().default(false), // master confirmed it is physically there
+});
+
+// ---------------------------------------------------------------- production history
+
+export const EVENT_KINDS = ["confirmed", "done", "note", "instruction", "image", "shipped"] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+// The history of an order: who did what and when. Never edited or deleted.
+// confirmed: the master saw the order. done: a step was finished. note: a note or comment on a step.
+// instruction: the office's instruction for a step. image: work image(s) added to a step. shipped: an item was sent.
+export const stageEvents = sqliteTable("stage_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => orders.id),
+  itemId: integer("item_id").references(() => orderItems.id), // null for the whole order (confirmed)
+  stageKey: text("stage_key"), // null when it is not about one step
+  kind: text("kind", { enum: EVENT_KINDS }).notNull(),
+  by: text("by", { enum: ["master", "admin"] }).notNull(),
+  masterId: integer("master_id"),
+  text: text("text"),
+  createdAt: ts("created_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
 });

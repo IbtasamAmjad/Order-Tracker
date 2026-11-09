@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 function Brand() {
   return (
     <span className="font-display text-xl font-medium leading-none tracking-tight text-white">
-      Order Tracker
+      Custom Order Manager
     </span>
   );
 }

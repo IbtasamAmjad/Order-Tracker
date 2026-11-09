@@ -4,8 +4,9 @@ import { listMasters } from "@/lib/masters";
 import { listAdminOrders } from "@/lib/orders";
 import { remindersList } from "@/lib/reminders";
 import { unseenShipmentCount } from "@/lib/shipping";
+import { DUE_FILTERS, itemRows, searchItems } from "@/lib/item-search";
 import { officeTodo, orderProgress } from "@/lib/stages";
-import { Ruler, btnPrimary } from "@/components/ui";
+import { Ruler, btnPrimary, fmtDay } from "@/components/ui";
 
 function Figure({ href, label, value, note }: { href: string; label: string; value: number; note: string }) {
   return (
@@ -26,6 +27,7 @@ export default function Home() {
   const shipments = unseenShipmentCount();
   const reminders = remindersList();
   const waiting = officeTodo();
+  const dueItems = searchItems(itemRows(), { due: "7" }).sort((a, b) => a.karigarDueDate.localeCompare(b.karigarDueDate));
   const masters = listMasters()
     .filter((m) => m.active)
     .map((m) => {
@@ -86,14 +88,38 @@ export default function Home() {
         </section>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {dueItems.length > 0 && (
+        <section className="panel space-y-2" aria-label="Due items">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+            <h2 className="text-xl font-medium">Due items</h2>
+            <Link href="/admin/ordered-items?due=7" className="link text-base font-medium">
+              {DUE_FILTERS.find((d) => d.value === "7")?.label}: see all {dueItems.length}
+            </Link>
+          </div>
+          <ul className="divide-y divide-rule">
+            {dueItems.slice(0, 6).map((r) => (
+              <li key={r.itemId}>
+                <Link href={`/admin/orders/${r.orderId}`} className="-mx-2 flex flex-wrap items-baseline justify-between gap-x-3 px-2 py-3 hover:bg-paper-3">
+                  <span className="text-base font-medium">
+                    {r.label} - {r.customerName}
+                    {r.designNumber ? ` (${r.designNumber})` : ""}
+                  </span>
+                  <span className="text-base text-muted">{fmtDay(r.karigarDueDate)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section className="panel space-y-5">
           <h2 className="text-xl font-medium">Masters</h2>
           {masters.length === 0 && <p className="text-base text-muted">No masters yet.</p>}
           {masters.map((m) => (
             <div key={m.id} className="space-y-2">
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                <Link href={`/admin/customers?master=${m.id}`} className="link inline-flex min-h-11 items-center text-lg font-medium">
+                <Link href={`/admin/masters/${m.id}`} className="link inline-flex min-h-11 items-center text-lg font-medium">
                   {m.name}
                 </Link>
                 <span className="text-base text-muted">

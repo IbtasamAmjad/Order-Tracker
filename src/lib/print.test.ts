@@ -21,21 +21,20 @@ beforeAll(async () => {
 
 const row = (label: string, type = "number", unit = "inch") => ({ key: "", label, type, required: "optional", unit });
 
-function makeType(main: number, name: string, fields: ReturnType<typeof row>[], group?: string) {
+function makeType(main: number, name: string, fields: ReturnType<typeof row>[]) {
   t.createSubCategory(main, name, "#222222");
   const tpl = t.listCategoryTree().find((c) => c.id === main)!.subs.find((s) => s.name === name)!.template;
   t.saveTemplateFields(tpl.id, t.rowsToFields(fields));
-  if (group) t.setPrintGroup(tpl.id, group);
   return tpl.id;
 }
 
 describe("print pages", () => {
-  it("prints one page per item type, shared groups together, never My due date; and the PDF has the same pages", async () => {
+  it("prints one page per item type, never My due date; and the PDF has the same pages", async () => {
     const main = t.createMainCategory("PrintTest", "#000000");
     const sherwani = makeType(main, "Sherwani", [row("Fabric", "text", ""), row("Chest"), row("Waist")]);
     const kurta = makeType(main, "Kurta", [row("Chest")]);
-    const pagri = makeType(main, "Pagri", [row("Colour", "text", "")], "Pagri and Shoes");
-    const shoes = makeType(main, "Shoes", [row("Size")], "Pagri and Shoes");
+    const pagri = makeType(main, "Pagri", [row("Colour", "text", "")]);
+    const shoes = makeType(main, "Shoes", [row("Size")]);
 
     const master = m.createMaster({ name: "Pr", pin: "1" });
     const mk = (id: number, label: string, values: Record<string, string>) => ({
@@ -53,9 +52,9 @@ describe("print pages", () => {
     );
 
     const data = p.buildPrintData(orderId)!;
-    expect(data.sheets.map((s) => s.title)).toEqual(["Sherwani", "Kurta", "Pagri and Shoes"]); // 3 pages
+    expect(data.sheets.map((s) => s.title)).toEqual(["Sherwani", "Kurta", "Pagri", "Shoes"]); // 4 pages
     expect(data.sheets[0].items.map((i) => i.label)).toEqual(["Sherwani 1", "Sherwani 2"]);
-    expect(data.sheets[2].items.map((i) => i.label)).toEqual(["Pagri", "Shoes"]);
+    expect(data.sheets[2].items.map((i) => i.label)).toEqual(["Pagri"]);
     expect(data.sheets[0].items[0].measures).toEqual([{ label: "Chest", value: "42 inch" }, { label: "Waist", value: "38 inch" }]);
 
     // My due date must never appear in what gets printed
@@ -65,7 +64,7 @@ describe("print pages", () => {
     const file = await pdf.renderOrderPdf(data);
     expect(file.subarray(0, 5).toString()).toBe("%PDF-");
     const pages = file.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? [];
-    expect(pages).toHaveLength(3);
+    expect(pages).toHaveLength(4);
   });
 
   it("sizes pictures smaller when a page has more of them", () => {

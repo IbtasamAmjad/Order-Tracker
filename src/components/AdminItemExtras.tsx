@@ -3,6 +3,8 @@ import { itemShipReadiness } from "@/lib/shipping";
 import { categoryDiffers } from "@/lib/item-sync";
 import type { ItemSnapshot } from "@/db/schema";
 import { DownloadLink } from "@/components/DownloadLink";
+import { stageInstructions, stageNotes } from "@/lib/history";
+import { StepNotesList } from "./HistoryList";
 import { btnSecondary } from "./ui";
 
 const STATUS: Record<string, string> = { done: "Done ✓", open: "In progress", locked: "Locked" };
@@ -10,6 +12,8 @@ const STATUS: Record<string, string> = { done: "Done ✓", open: "In progress", 
 /** The forms the buttons below send to. The page renders them once, empty, because these buttons sit inside the customer form. */
 export const STEP_FORM = "step-form";
 export const REFRESH_FORM = "refresh-form";
+export const NOTE_FORM = "step-note-form";
+export const INSTRUCTION_FORM = "instruction-form";
 
 /**
  * The steps of one item, its shipping state and "update from the item". It is shown inside the item's own card on
@@ -22,6 +26,8 @@ export function AdminItemExtras({
   item: { id: number; label: string; snapshot: ItemSnapshot; templateId: number | null; values: Record<string, string> };
 }) {
   const stages = itemStageViews(item.id);
+  const notes = stageNotes(item.id);
+  const instructions = stageInstructions(item.id);
   const shipping = itemShipReadiness(item.id);
   const changed = categoryDiffers(item);
   if (stages.length === 0 && !changed) return null;
@@ -55,8 +61,8 @@ export function AdminItemExtras({
                   </div>
                   <div className="text-base">
                     {STATUS[s.status]}
-                    {s.photo !== "none" && `, photo ${s.photo}`}
-                    {s.latestPhoto && (s.photo !== "required" && s.latestPhoto.status === "pending" ? ", image added" : `, latest photo ${s.latestPhoto.status}`)}
+                    {s.photo !== "none" && `, ${{ optional: "photo optional", upload: "photo must be added", required: "photo must be approved" }[s.photo]}`}
+                    {s.photo === "required" ? s.latestPhoto && `, latest photo ${s.latestPhoto.status}` : s.status === "done" && s.allPhotos.length > 0 && ", image added"}
                   </div>
                   {s.status === "open" && s.requiredFields.length > 0 && (
                     <div className="text-base">
@@ -65,7 +71,18 @@ export function AdminItemExtras({
                         : `Still to fill in: ${s.requiredFields.filter((rf) => !rf.filled).map((rf) => rf.label).join(", ")}`}
                     </div>
                   )}
-                  {s.latestPhoto && (
+                  {/* the images of an optional step show to the office once the master has marked the step complete */}
+                  {s.photo !== "required" && s.status === "done" && s.allPhotos.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {s.allPhotos.map((p) => (
+                        <a key={p.id} href={`/api/admin/photos/${p.id}`} target="_blank" rel="noreferrer" className="block" aria-label="Open this image">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={`Image for ${s.label}`} className="h-16 w-16 rounded-xl border object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {s.photo === "required" && s.latestPhoto && (
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <a href={`/api/admin/photos/${s.latestPhoto.id}`} target="_blank" rel="noreferrer" className="block shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -81,6 +98,34 @@ export function AdminItemExtras({
                       </div>
                     </div>
                   )}
+                  <details className="mt-2 text-base">
+                    <summary className="inline-flex min-h-10 cursor-pointer items-center gap-2 underline">
+                      Instruction and notes
+                      {(instructions.has(s.key) || (notes.get(s.key)?.length ?? 0) > 0) && (
+                        <span className="rounded-full bg-accent-soft px-2 text-sm font-medium text-accent-deep no-underline">
+                          {(instructions.has(s.key) ? 1 : 0) + (notes.get(s.key)?.length ?? 0)}
+                        </span>
+                      )}
+                    </summary>
+                    <div className="mt-2 space-y-3">
+                      <div className="space-y-1.5">
+                        <label className="block text-sm font-medium" htmlFor={`instr-${item.id}-${s.key}`}>
+                          Instruction for this step (the master sees it)
+                        </label>
+                        <textarea id={`instr-${item.id}-${s.key}`} name={`instr:${item.id}:${s.key}`} form={INSTRUCTION_FORM} rows={2} maxLength={1000} defaultValue={instructions.get(s.key) ?? ""} className="textarea w-full text-base leading-snug" />
+                        <button type="submit" form={INSTRUCTION_FORM} name="target" value={`${item.id}:${s.key}`} className={btnSecondary}>
+                          Save instruction
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        <StepNotesList notes={notes.get(s.key) ?? []} />
+                        <textarea name={`note:${item.id}:${s.key}`} form={NOTE_FORM} rows={2} maxLength={1000} placeholder="Write a note about this step" aria-label={`Note for ${s.label}`} className="textarea w-full text-base leading-snug" />
+                        <button type="submit" form={NOTE_FORM} name="target" value={`${item.id}:${s.key}`} className={btnSecondary}>
+                          Add note
+                        </button>
+                      </div>
+                    </div>
+                  </details>
                 </div>
                 {s.status === "open" && (
                   <div className="space-y-2">

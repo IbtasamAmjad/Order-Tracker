@@ -14,10 +14,10 @@ export const PictureStore = createContext<Map<string, File[]> | null>(null);
 /**
  * A picture field on the customer form: choose several pictures (or take them), see them, remove the wrong ones.
  * They are shrunk on this computer or phone first and are saved together with the customer when Save is pressed.
- * With pasteInto (the name of a text box), a picture pasted into that box (Ctrl+V) is added here too, and also waits for Save.
- * compact is the quiet version under a comment box: a small "Add picture" link instead of a full button.
+ * With pasteInto (the names of the item's text boxes), a picture pasted into any of those boxes (Ctrl+V) is added here too,
+ * and also waits for Save.
  */
-export function PictureInput({ name, pasteInto, compact = false }: { name: string; pasteInto?: string; compact?: boolean }) {
+export function PictureInput({ name, pasteInto = [] }: { name: string; pasteInto?: string[] }) {
   const store = useContext(PictureStore);
   const box = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>(() => store?.get(name) ?? []);
@@ -74,10 +74,10 @@ export function PictureInput({ name, pasteInto, compact = false }: { name: strin
 
   // a picture pasted into the text box: keep it here until Save (text pasted as usual still goes into the box)
   useEffect(() => {
-    if (!pasteInto) return;
+    if (pasteInto.length === 0) return;
     const onPaste = (e: ClipboardEvent) => {
       const t = e.target;
-      if (!(t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) || t.name !== pasteInto) return;
+      if (!(t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) || !pasteInto.includes(t.name)) return;
       const images = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
       if (images.length === 0) return;
       e.preventDefault();
@@ -86,7 +86,7 @@ export function PictureInput({ name, pasteInto, compact = false }: { name: strin
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pasteInto]);
+  }, [pasteInto.join("|")]);
 
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
@@ -112,21 +112,15 @@ export function PictureInput({ name, pasteInto, compact = false }: { name: strin
           ))}
         </div>
       )}
-      {compact ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => box.current?.click()}
-          title="Add a picture, or paste one with Ctrl+V while the cursor is in the box"
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm text-muted hover:bg-paper-3 hover:text-ink"
-        >
-          <Icon name="picture" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add another picture" : "Add picture"}
-        </button>
-      ) : (
-        <button type="button" disabled={busy} onClick={() => box.current?.click()} className={btnSecondary}>
-          <Icon name="plus" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add more pictures" : "Add pictures"}
-        </button>
-      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => box.current?.click()}
+        title="Add pictures, or paste one with Ctrl+V while the cursor is in a text box"
+        className={btnSecondary}
+      >
+        <Icon name="plus" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add more pictures" : "Add pictures"}
+      </button>
       {files.length > 0 && <p className="text-base text-muted">{files.length} ready. They are saved when you press Save.</p>}
       {error && <p className="text-base font-medium text-thread">{error}</p>}
     </div>

@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 p-6">
       <div className="text-center">
-        <h1 className="mx-auto text-3xl">Order Tracker</h1>
+        <h1 className="mx-auto text-3xl">Custom Order Manager</h1>
         <hr className="stitch mx-auto my-3 w-24" />
         <p className="page-sub">Custom orders, from first measurement to shipment.</p>
       </div>

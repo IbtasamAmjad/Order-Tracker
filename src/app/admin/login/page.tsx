@@ -18,7 +18,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
     <main className="flex min-h-[85vh] items-center justify-center p-2">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="mx-auto text-3xl">Order Tracker</h1>
+          <h1 className="mx-auto text-3xl">Custom Order Manager</h1>
           <hr className="stitch mx-auto my-3 w-24" />
           <p className="page-sub">The order book for your workshop.</p>
         </div>

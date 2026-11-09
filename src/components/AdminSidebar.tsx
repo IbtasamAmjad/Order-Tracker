@@ -61,6 +61,8 @@ export function AdminSidebar({
       <nav className="flex flex-1 flex-col gap-0.5" aria-label="Admin menu">
                 {item("/admin", "home", "Home", is("/admin"))}
         {item("/admin/customers", "customers", "Customers", is("/admin/customers", "/admin/orders"))}
+        {item("/admin/ordered-items", "box", "Ordered items", is("/admin/ordered-items"))}
+        {item("/live", "clock", "Live board", false)}
 
         {divider()}
         <button
@@ -103,6 +105,7 @@ export function AdminSidebar({
             ))}
           </div>
         )}
+        {item("/admin/workflows", "note", "Workflows", is("/admin/workflows"))}
         {item("/admin/masters", "masters", "Masters", is("/admin/masters"))}
 
         {divider()}

@@ -7,7 +7,7 @@ import { clearFailures, isLocked, recordFailure, verifyPin } from "@/lib/pin";
 import { masterComplete, masterSaveFields } from "@/lib/orders";
 import { requireMaster } from "@/lib/master-session";
 import { completeStage } from "@/lib/stages";
-import { completeStepForAll } from "@/lib/track";
+import { addStageNote, confirmOrder } from "@/lib/history";
 import { saveShipmentItems, startShipment, submitShipment } from "@/lib/shipping";
 
 export async function submitPinAction(f: FormData) {
@@ -49,17 +49,6 @@ export async function completeStageAction(f: FormData) {
   redirect(`/m/${token}/orders/${orderId}${res.ok ? "" : `?e=${res.reason}`}`);
 }
 
-/** One tap: finish the same step on every item of the order that is at it. */
-export async function completeStepAllAction(f: FormData) {
-  const token = String(f.get("token") ?? "");
-  const orderId = Number(f.get("orderId"));
-  const master = await requireMaster(token);
-  if (!master) redirect(`/m/${token}`);
-  const label = String(f.get("label") ?? "");
-  const { done, skipped } = completeStepForAll(master.id, orderId, label);
-  redirect(`/m/${token}/orders/${orderId}?all=${done.length}&skip=${skipped.length}&what=${encodeURIComponent(label)}`);
-}
-
 // ---------------------------------------------------------------- shipping
 
 /**
@@ -83,6 +72,26 @@ export async function sendShipmentAction(f: FormData) {
       ? `/m/${token}/orders/${orderId}/ship?sent=${sid}`
       : `/m/${token}/orders/${orderId}/ship?e=${res.reason}`,
   );
+}
+
+/** "I have seen this order": the first step. */
+export async function confirmOrderAction(f: FormData) {
+  const token = String(f.get("token") ?? "");
+  const orderId = Number(f.get("orderId"));
+  const master = await requireMaster(token);
+  if (!master) redirect(`/m/${token}`);
+  confirmOrder(master.id, orderId);
+  redirect(`/m/${token}/orders/${orderId}`);
+}
+
+/** A note or comment on one step. */
+export async function addNoteAction(f: FormData) {
+  const token = String(f.get("token") ?? "");
+  const orderId = Number(f.get("orderId"));
+  const master = await requireMaster(token);
+  if (!master) redirect(`/m/${token}`);
+  const res = addStageNote({ by: "master", masterId: master.id }, Number(f.get("itemId")), String(f.get("stageKey") ?? ""), String(f.get("text") ?? ""));
+  redirect(`/m/${token}/orders/${orderId}${res.ok ? "?noted=1" : "?e=note-empty"}`);
 }
 
 // ---------------------------------------------------------------- master fills his fields

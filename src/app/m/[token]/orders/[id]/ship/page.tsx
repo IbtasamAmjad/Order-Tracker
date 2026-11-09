@@ -11,7 +11,7 @@ import { canMasterShip, findDraft, orderShipments, shippableItems } from "@/lib/
 
 const ERRORS: Record<string, string> = {
   "no-items": "Tick the items you are sending.",
-  "not-ready": "An item you ticked is not approved for shipping yet. Wait for Anas to approve its photo.",
+  "not-ready": "An item you ticked is not approved for shipping yet. Wait for the office to approve its photo.",
   "no-bill": "Take a photo of the bill first.",
   "already-shipped": "One of these items was already sent.",
   "not-draft": "This shipment was already sent.",
@@ -28,7 +28,7 @@ export default async function ShipHome({
   const { sent, e } = await searchParams;
 
   const state = await linkState(token);
-  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask Anas for a new link.</p>;
+  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask the office for a new link.</p>;
   if (state === "need-pin") return <PinForm token={token} />;
 
   const master = (await requireMaster(token))!;
@@ -46,13 +46,17 @@ export default async function ShipHome({
   const turnOk = canMasterShip(master.id, order.id);
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-4xl space-y-5">
       <Link href={`/m/${token}/orders/${order.id}`} className="link inline-flex min-h-12 items-center gap-2 text-lg font-medium">
         <Icon name="arrow" className="h-4 w-4 rotate-180" /> Back
       </Link>
       <h1 className="page-title">Shipping - Order #{order.orderNumber}</h1>
+      <p className="text-xl font-medium">
+        {order.customerName}
+        {order.designNumber ? ` - Design: ${order.designNumber}` : ""}
+      </p>
 
-      {sent && <p className="rounded-2xl bg-leaf p-4 text-xl font-medium text-accent-ink">Sent. Anas can see it now.</p>}
+      {sent && <p className="rounded-2xl bg-leaf p-4 text-xl font-medium text-accent-ink">Sent. The office can see it now.</p>}
       {order.status === "completed" && <p className="text-lg">All items of this order have been sent.</p>}
       {items.length === 0 && <p className="text-lg">This order has no items to ship.</p>}
 

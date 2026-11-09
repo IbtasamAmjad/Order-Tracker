@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { masters, orderItems, orders, photos, shipmentItems, shipments } from "@/db/schema";
 import { itemStageViews } from "./stages";
 import { isAssigned, mine } from "./assign";
+import { addEvent } from "./history";
 
 // ---------------------------------------------------------------- items
 
@@ -230,6 +231,7 @@ export function submitShipment(masterId: number, shipmentId: number): SubmitResu
 
     const now = new Date();
     tx.update(shipments).set({ status: "submitted", submittedAt: now }).where(eq(shipments.id, shipmentId)).run();
+    for (const it of v.items) addEvent({ orderId: s.orderId, itemId: it.itemId, kind: "shipped", by: "master", masterId }, tx);
 
     // completed when all items are in submitted shipments
     const all = shippableItems(s.orderId);

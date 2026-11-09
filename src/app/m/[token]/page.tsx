@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { Icon } from "@/components/Icon";
 import { PinForm } from "@/components/PinForm";
 import { StageTrack } from "@/components/StageTrack";
 import { PositionTile, btnPrimary, card, chipAttention, fmtDay } from "@/components/ui";
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
+import { pendingWork } from "@/lib/item-search";
 
 export default async function MasterHome({
   params,
@@ -17,11 +19,12 @@ export default async function MasterHome({
   const { e } = await searchParams;
 
   const state = await linkState(token);
-  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask Anas for a new link.</p>;
+  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask the office for a new link.</p>;
   if (state === "need-pin") return <PinForm token={token} error={e} />;
 
   const master = (await requireMaster(token))!;
-  const { active, closed } = masterDashboard(master.id);
+  const { active } = masterDashboard(master.id);
+  const pending = pendingWork(master.id);
 
   return (
     <div className="space-y-5">
@@ -30,7 +33,25 @@ export default async function MasterHome({
         <p className="text-lg">{active.length === 0 ? "No orders right now." : "Open an order to work on it. Any order can be done first."}</p>
       </header>
 
-      <ul className="space-y-4">
+      <div className="grid grid-cols-1 gap-2 min-[330px]:grid-cols-3 md:max-w-xl md:gap-3">
+        <Link href={`/m/${token}/items`} className="flex min-h-24 flex-col justify-between gap-2 rounded-2xl border border-rule-2 bg-paper-2 p-3 text-lg font-medium leading-tight hover:bg-paper-3">
+          <Icon name="box" className="h-6 w-6 text-muted" />
+          Items
+        </Link>
+        <Link href={`/m/${token}/pending`} className="flex min-h-24 flex-col justify-between gap-2 rounded-2xl border border-rule-2 bg-paper-2 p-3 text-lg font-medium leading-tight hover:bg-paper-3">
+          <span className="flex items-center justify-between">
+            <Icon name="clock" className="h-6 w-6 text-muted" />
+            {pending.length > 0 && <span className="rounded-full bg-accent px-2.5 py-0.5 text-sm text-white">{pending.length}</span>}
+          </span>
+          My pending work
+        </Link>
+        <Link href={`/m/${token}/finished`} className="flex min-h-24 flex-col justify-between gap-2 rounded-2xl border border-rule-2 bg-paper-2 p-3 text-lg font-medium leading-tight hover:bg-paper-3">
+          <Icon name="finished" className="h-6 w-6 text-muted" />
+          Finished
+        </Link>
+      </div>
+
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {active.map((o, i) => {
           const late = o.flags.overdue;
           const status = late ? `Late by ${o.flags.daysOverdue} day${o.flags.daysOverdue === 1 ? "" : "s"}` : BAND_LABEL[o.band].text;
@@ -43,6 +64,7 @@ export default async function MasterHome({
                   <p className="break-words text-xl font-medium leading-snug group-hover:underline">
                     #{o.orderNumber} - {o.customerName}
                   </p>
+                  {o.designNumber && <p className="text-base font-medium text-accent-deep">Design: {o.designNumber}</p>}
                   <p className="text-base text-muted">
                     {o.itemLabels.length > 0 ? o.itemLabels.join(", ") : "No items yet"}
                   </p>
@@ -71,26 +93,6 @@ export default async function MasterHome({
           );
         })}
       </ul>
-
-      {closed.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="pt-2 text-2xl font-medium">Finished</h2>
-          <ul className="space-y-3">
-            {closed.map((o) => (
-              <li key={o.id}>
-                <Link href={`/m/${token}/orders/${o.id}`} className={`${card} block`}>
-                  <span className="block text-xl font-medium">
-                    #{o.orderNumber} {o.customerName}
-                  </span>
-                  <span className={`block text-lg font-medium ${o.status === "cancelled" ? "text-thread" : "text-leaf"}`}>
-                    {o.status === "cancelled" ? "Cancelled. Stop work." : "Completed"}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }

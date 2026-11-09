@@ -6,6 +6,7 @@ process.env.DATABASE_URL = ":memory:";
 
 let t: typeof import("./templates");
 let o: typeof import("./orders");
+let h: typeof import("./history");
 let m: typeof import("./masters");
 let s: typeof import("./stages");
 let st: typeof import("./storage");
@@ -15,6 +16,7 @@ beforeAll(async () => {
   migrate(db, { migrationsFolder: "./drizzle" });
   t = await import("./templates");
   o = await import("./orders");
+  h = await import("./history");
   m = await import("./masters");
   s = await import("./stages");
   st = await import("./storage");
@@ -37,6 +39,7 @@ function setup() {
   const tpl = t.templateForItem(tplId)!;
   const master = m.createMaster({ name: "M", pin: "1" });
   const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Sherwani", snapshot: tpl.snapshot, values: {} }]);
+  h.confirmOrder(master, orderId);
   const itemId = o.listItems(orderId)[0].id;
   return { master, orderId, itemId };
 }
@@ -78,6 +81,7 @@ describe("stages and the photo gate", () => {
     const second = o.createOrder(base(a.master, "Second"), [
       { templateId: 0, label: "X", snapshot: o.listItems(a.orderId)[0].snapshot, values: {} },
     ]);
+    h.confirmOrder(a.master, second);
     const itemB = o.listItems(second)[0].id;
     const who = { by: "master", masterId: a.master } as const;
     expect(s.canMasterUpload(a.master, itemB, "cutting")).toEqual({ ok: false, reason: "no-photo-needed" });
@@ -148,6 +152,7 @@ describe("mandatory fields before a stage", () => {
     const tpl = t.templateForItem(tplId)!;
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: tplId, label: "Kurta", snapshot: tpl.snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
     return { tplId, master, orderId, itemId, chest, fabric, design };
   }

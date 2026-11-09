@@ -48,6 +48,14 @@ export function missingRequired(fields: FieldDef[], values: ItemValues): FieldDe
   return fields.filter((f) => f.required && f.type !== "picture" && !isDisplayOnly(f) && isEmpty(values[f.key]));
 }
 
+/**
+ * Every field left empty. The office cannot save a customer until all of these are filled in.
+ * Pictures, headings and notes are skipped.
+ */
+export function missingFields(fields: FieldDef[], values: ItemValues): FieldDef[] {
+  return fields.filter((f) => f.type !== "picture" && !isDisplayOnly(f) && isEmpty(values[f.key]));
+}
+
 /** "#1f69d1", "1F69D1" or "#abc" -> "#1F69D1"; anything that is not a HEX color -> "". */
 export function normalizeHex(v: string): string {
   const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v.trim());

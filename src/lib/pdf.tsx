@@ -39,7 +39,7 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
   const head = (title: string) => (
     <View style={s.head}>
       <Text style={s.headLine}>
-        Order #{data.orderNumber} - {data.customerName} - Due: {data.karigarDueDate}
+        Order #{data.orderNumber} - {data.customerName}{data.designNumber ? ` - Design: ${data.designNumber}` : ""} - Due: {data.karigarDueDate}
       </Text>
       <Text style={s.title}>{title}</Text>
     </View>

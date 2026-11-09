@@ -5,6 +5,7 @@ process.env.DATABASE_URL = ":memory:";
 
 let t: typeof import("./templates");
 let o: typeof import("./orders");
+let h: typeof import("./history");
 let m: typeof import("./masters");
 let sh: typeof import("./shipping");
 let s: typeof import("./stages");
@@ -14,6 +15,7 @@ beforeAll(async () => {
   migrate(db, { migrationsFolder: "./drizzle" });
   t = await import("./templates");
   o = await import("./orders");
+  h = await import("./history");
   m = await import("./masters");
   sh = await import("./shipping");
   s = await import("./stages");
@@ -32,6 +34,7 @@ function setup(n: number, masterId?: number) {
     { customerName: "C", myDueDate: "2099-01-01", karigarDueDate: "2099-01-01", masterId: master, details: "" },
     Array.from({ length: n }, (_, i) => ({ templateId: tplId, label: `Sherwani ${i + 1}`, snapshot, values: {} })),
   );
+  h.confirmOrder(master, orderId);
   return { master, orderId, itemIds: o.listItems(orderId).map((i) => i.id) };
 }
 
@@ -132,6 +135,7 @@ describe("shipping waits for photo approval", () => {
       { customerName: "C", myDueDate: "2099-01-01", karigarDueDate: "2099-01-01", masterId: master, details: "" },
       [{ templateId: tplId, label: "Sherwani", snapshot, values: {} }],
     );
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
     return { master, orderId, itemId, who: { by: "master", masterId: master } as const };
   }
@@ -189,6 +193,7 @@ describe("shipping waits for photo approval", () => {
       { customerName: "C2", myDueDate: "2099-01-01", karigarDueDate: "2099-01-01", masterId: master, details: "" },
       [{ templateId: tplId, label: "Kurta", snapshot, values: {} }],
     );
+    h.confirmOrder(master, order2);
     const item2 = o.listItems(order2)[0].id;
     const pid = s.addStagePhoto({ orderId: order2, itemId: item2, stageKey: "finishing", uploadedBy: "master", fileKey: "k", thumbKey: "t", bytes: 1 });
     o.setAllowOutOfSequence(order2, true);
@@ -216,6 +221,7 @@ describe("shipping with mandatory fields", () => {
       { customerName: "C", myDueDate: "2099-01-01", karigarDueDate: "2099-01-01", masterId: master, details: "" },
       [{ templateId: tplId, label: "Kurta", snapshot, values: {} }],
     );
+    h.confirmOrder(master, orderId);
     const itemId = o.listItems(orderId)[0].id;
 
     // the master sends the step photo and Admin approves it

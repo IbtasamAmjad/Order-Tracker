@@ -3,7 +3,7 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { cleanMasterIds } from "@/lib/assign";
 import { redirect } from "next/navigation";
-import {
+import { checkDesignNumbers,
   addItem,
   createOrder,
   listItems,
@@ -15,10 +15,11 @@ import {
   updateOrder,
   type OrderInput,
 } from "@/lib/orders";
-import { cleanValues, itemLabel, missingRequired, type NewItem } from "@/lib/items";
+import { cleanValues, itemLabel, missingFields, type NewItem } from "@/lib/items";
 import { templateForItem } from "@/lib/templates";
 import { addReferencePhoto, completeStage, reviewPhoto } from "@/lib/stages";
 import { storeUpload } from "@/lib/photo-upload";
+import { addStageNote, setInstruction } from "@/lib/history";
 import { refreshItemFromCategory } from "@/lib/item-sync";
 import type { EditorState } from "@/lib/editor-state";
 import { createMaster, reissueLink, setActive, setPin } from "@/lib/masters";
@@ -37,9 +38,11 @@ function parseOrder(f: FormData): OrderInput {
     masterId: masterIds[0] ?? 0,
     masterIds,
     details: str(f, "details"),
+    designNumber: str(f, "designNumber"),
+    linkedDesignNumber: str(f, "linkedDesignNumber"),
   };
-  if (!input.customerName || !DATE.test(input.myDueDate) || !DATE.test(input.karigarDueDate) || !input.masterId) {
-    throw new Error("Please fill customer name, both due dates and choose at least one master.");
+  if (!input.customerName || !input.designNumber || !DATE.test(input.myDueDate) || !DATE.test(input.karigarDueDate) || !input.masterId) {
+    throw new Error("Please fill customer name, design number, both due dates and choose at least one master.");
   }
   return input;
 }
@@ -57,8 +60,8 @@ async function savePictures(f: FormData, orderId: number, itemId: number, key: s
 }
 
 /**
- * Saves a new order (no orderId) or edits one (orderId). If required fields are empty it
- * returns a warning instead; sending again with force=1 ("Submit anyway") saves regardless.
+ * Saves a new order (no orderId) or edits one (orderId). If any field is empty it saves nothing and
+ * returns the list of what is missing.
  */
 export async function saveOrderAction(prev: EditorState, f: FormData): Promise<EditorState> {
   await requireAdmin();
@@ -71,11 +74,13 @@ ${v}` : v; // checkboxes send several
   try {
     input = parseOrder(f);
   } catch (e) {
-    return { nonce, missing: [], values, error: (e as Error).message };
+    return { nonce, missing: [], missingKeys: [], values, error: (e as Error).message };
   }
 
-  const force = f.get("force") === "1";
   const orderId = Number(f.get("orderId")) || 0;
+  // a design number is used once; a link must point at another order's design number
+  const designProblem = checkDesignNumbers(input, orderId || undefined);
+  if (designProblem) return { nonce, missing: [], missingKeys: [], values, error: designProblem };
   const collect = (key: string, fields: FieldDef[]) => {
     const raw: Record<string, string> = {};
     for (const fd of fields) {
@@ -86,14 +91,18 @@ ${v}` : v; // checkboxes send several
   };
 
   const missing: string[] = [];
+  const missingKeys: string[] = [];
   if (orderId) {
     const itemValues = new Map<number, Record<string, string>>();
     for (const it of listItems(orderId)) {
       const vals = collect(String(it.id), it.snapshot.fields);
       itemValues.set(it.id, vals);
-      for (const m of missingRequired(it.snapshot.fields, vals)) missing.push(`${it.label}: ${m.label}`);
+      for (const m of missingFields(it.snapshot.fields, vals)) {
+        missing.push(`${it.label}: ${m.label}`);
+        missingKeys.push(`${it.id}:${m.key}`);
+      }
     }
-    if (missing.length && !force) return { nonce, missing, values };
+    if (missing.length) return { nonce, missing, missingKeys, values };
     updateOrder(orderId, input, itemValues);
     for (const it of listItems(orderId)) await savePictures(f, orderId, it.id, String(it.id), it.snapshot.fields);
   } else {
@@ -104,11 +113,14 @@ ${v}` : v; // checkboxes send several
       if (!tpl) continue;
       const label = String(f.get(`l:${key}`) ?? tpl.snapshot.templateName);
       const vals = collect(key, tpl.snapshot.fields);
-      for (const m of missingRequired(tpl.snapshot.fields, vals)) missing.push(`${label}: ${m.label}`);
+      for (const m of missingFields(tpl.snapshot.fields, vals)) {
+        missing.push(`${label}: ${m.label}`);
+        missingKeys.push(`${key}:${m.key}`);
+      }
       items.push({ templateId: tpl.id, label, snapshot: tpl.snapshot, values: vals });
       keys.push(key);
     }
-    if (missing.length && !force) return { nonce, missing, values };
+    if (missing.length) return { nonce, missing, missingKeys, values };
     const newId = createOrder(input, items);
     const saved = listItems(newId); // in the same order as the items given
     for (const [n, key] of keys.entries()) await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
@@ -218,6 +230,26 @@ export async function stepAdminAction(f: FormData) {
   const [itemId, stageKey, mode] = str(f, "step").split(":");
   const res = completeStage({ by: "admin", force: mode === "force" }, Number(itemId), stageKey ?? "");
   redirect(`/admin/orders/${orderId}${res.ok ? "" : `?e=${res.reason}`}`);
+}
+
+/** A note on one step, from inside an item's card: target = "itemId:stageKey". */
+export async function stepNoteAction(f: FormData) {
+  await requireAdmin();
+  const orderId = num(f, "orderId");
+  const target = str(f, "target");
+  const [itemId, ...rest] = target.split(":");
+  addStageNote({ by: "admin" }, Number(itemId), rest.join(":"), String(f.get(`note:${target}`) ?? ""));
+  redirect(`/admin/orders/${orderId}`);
+}
+
+/** The office's instruction for one step: target = "itemId:stageKey". An empty text removes it. */
+export async function instructionAction(f: FormData) {
+  await requireAdmin();
+  const orderId = num(f, "orderId");
+  const target = str(f, "target");
+  const [itemId, ...rest] = target.split(":");
+  setInstruction(Number(itemId), rest.join(":"), String(f.get(`instr:${target}`) ?? ""));
+  redirect(`/admin/orders/${orderId}`);
 }
 
 /** Copy the category's current form and steps into one item of an existing customer. */

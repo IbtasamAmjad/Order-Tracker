@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { FieldDef } from "@/db/schema";
 import { itemLabel } from "@/lib/items";
 import { daysUntil } from "@/lib/colour";
@@ -12,7 +12,7 @@ import { PictureStore } from "./PictureInput";
 import { RemoveItemButton } from "./RemoveItemButton";
 import { FieldProgress } from "./FieldProgress";
 import { Icon } from "./Icon";
-import { Field, RequiredMark, btnPrimary, btnSecondary, input, textarea, card } from "./ui";
+import { Field, RequiredMark, btnPrimary, input, textarea, card } from "./ui";
 
 type Master = { id: number; name: string };
 
@@ -29,6 +29,8 @@ type Base = {
   masterId?: number;
   masterIds?: number[]; // every master of the order
   details?: string;
+  designNumber?: string | null;
+  linkedDesignNumber?: string | null;
 };
 
 export function OrderEditor({
@@ -41,6 +43,7 @@ export function OrderEditor({
   picker,
   formId,
   afterMasters,
+  designNumbers = [],
 }: {
   action: (prev: EditorState, f: FormData) => Promise<EditorState>;
   masters: Master[];
@@ -49,6 +52,7 @@ export function OrderEditor({
   orderId?: number;
   submitLabel: string;
   picker?: CategoryPicker;
+  designNumbers?: { designNumber: string; orderNumber: number; customerName: string }[]; // design numbers in use, offered when linking an accessory
   afterMasters?: React.ReactNode; // shown right under the masters (the page puts "Add another item" here)
   formId?: string; // when set, the page puts the Save button itself (with form="<formId>") and this form shows none
 }) {
@@ -78,9 +82,37 @@ export function OrderEditor({
   // an existing customer whose saved Karigar due date has passed: the date box turns red and says by how much
   const late = orderId && base.karigarDueDate ? -daysUntil(base.karigarDueDate) : 0;
 
+  // after a save that found empty required fields: open the item, scroll to the first empty field and put the cursor in it
+  useEffect(() => {
+    const first = state.missingKeys[0];
+    if (!first) return;
+    const [itemKey, ...rest] = first.split(":");
+    const el = document.getElementById(`f-${itemKey}-${rest.join(":")}`);
+    if (!el) return;
+    const card = el.closest("details");
+    if (card) card.open = true;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.querySelector<HTMLElement>("input, textarea, select")?.focus({ preventScroll: true });
+  }, [state.nonce, state.missingKeys]);
+
+  // nobody chosen as master: say so at the Masters box before anything is sent
+  const [noMaster, setNoMaster] = useState(false);
+
   return (
     <PictureStore.Provider value={pictures}>
-    <form id={formId} action={formAction} key={state.nonce} className="space-y-3">
+    <form
+      id={formId}
+      action={formAction}
+      key={state.nonce}
+      className="space-y-3"
+      onSubmit={(e) => {
+        if (new FormData(e.currentTarget).getAll("masterIds").length === 0) {
+          e.preventDefault();
+          setNoMaster(true);
+          document.getElementById("masters-field")?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      }}
+    >
       {orderId ? <input type="hidden" name="orderId" value={orderId} /> : null}
 
       {state.error && <p role="alert" className="alert alert-error text-lg font-medium">{state.error}</p>}
@@ -89,11 +121,21 @@ export function OrderEditor({
         <p className="mb-4 border-b border-rule pb-3 text-sm text-muted">
           <RequiredMark /> means it must be filled in. The rest is optional.
         </p>
-        <div className="grid gap-x-4 gap-y-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
           <Field label="Customer name" required upper>
             <input name="customerName" required defaultValue={pick("customerName", base.customerName)} className={input} />
           </Field>
-          <div>
+          <Field label="Design number" required upper>
+            <input
+              name="designNumber"
+              required
+              defaultValue={pick("designNumber", base.designNumber ?? "")}
+              className={`${input} uppercase`}
+              autoCapitalize="characters"
+              spellCheck={false}
+            />
+          </Field>
+          <div id="masters-field" className="scroll-mt-24">
             <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
               Masters
               <RequiredMark />
@@ -105,7 +147,34 @@ export function OrderEditor({
                   ? state.values.masterIds.split("\n").map(Number)
                   : (base.masterIds ?? (base.masterId ? [base.masterId] : []))
               }
+              onChange={() => setNoMaster(false)}
             />
+            {noMaster && (
+              <p role="alert" className="mt-1 flex items-center gap-1.5 text-sm font-medium text-bad">
+                <Icon name="alert" className="h-4 w-4 shrink-0" />
+                Please choose a master
+              </p>
+            )}
+          </div>
+          <div>
+            <Field label="Linked to design number" upper>
+              <input
+                name="linkedDesignNumber"
+                list="design-numbers"
+                defaultValue={pick("linkedDesignNumber", base.linkedDesignNumber ?? "")}
+                className={`${input} uppercase`}
+                autoCapitalize="characters"
+                spellCheck={false}
+              />
+            </Field>
+            <datalist id="design-numbers">
+              {designNumbers.map((d) => (
+                <option key={d.designNumber} value={d.designNumber}>
+                  #{d.orderNumber} {d.customerName}
+                </option>
+              ))}
+            </datalist>
+            <p className="mt-1 text-sm text-muted">For an accessory or single item: the design number of its main Sherwani or Bridal.</p>
           </div>
           <Field label="My due date (only you see this)" required upper>
             <input type="date" name="myDueDate" required defaultValue={pick("myDueDate", base.myDueDate)} className={input} />
@@ -197,6 +266,12 @@ export function OrderEditor({
                       </span>
                     )}
                   </span>
+                  {orderId && base.customerName && (
+                    <span className="block text-base text-muted">
+                      {base.customerName}
+                      {base.designNumber ? ` - Design: ${base.designNumber}` : ""}
+                    </span>
+                  )}
                   {item.summary && <span className="block text-base text-muted">{item.summary}</span>}
                 </span>
                 {orderId && item.removable && <RemoveItemButton itemId={item.key} label={item.label} />}
@@ -212,28 +287,39 @@ export function OrderEditor({
                 </div>
               )}
             </summary>
-            <div className="mt-3 grid gap-x-4 gap-y-3 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <input type="hidden" name="itemKey" value={item.key} />
               {item.templateId ? <input type="hidden" name={`t:${item.key}`} value={item.templateId} /> : null}
               <input type="hidden" name={`l:${item.key}`} value={item.label} />
               {orderId && item.photos && (
                 <div className="sm:col-span-2">
-                  <FieldProgress fields={item.fields} values={item.values} pictureKeys={item.photos.map((p) => p.fieldKey)} />
+                  <FieldProgress
+                    fields={item.fields}
+                    values={item.values}
+                    pictureKeys={item.photos.map((p) => p.fieldKey)}
+                  />
                 </div>
               )}
               {orderId && item.extra && <div className="sm:col-span-2">{item.extra}</div>}
               {item.fields.length === 0 && <p className="sm:col-span-2">This item has no fields yet.</p>}
-              {item.fields.map((f) => {
+              {[...item.fields.filter((f) => f.type !== "picture"), ...item.fields.filter((f) => f.type === "picture")].map((f, n, all) => {
                 const name = `v:${item.key}:${f.key}`;
+                const firstPicture = f.type === "picture" && all.findIndex((x) => x.type === "picture") === n;
+                // pictures pasted into any text box of this item land in its first picture area, at the end
+                const pasteFrom = firstPicture ? item.fields.filter((x) => x.type === "text" || x.type === "longtext").map((x) => `v:${item.key}:${x.key}`) : [];
+                // pictures older forms attached to a text box are shown with that first picture area too
+                const textKeys = new Set(item.fields.filter((x) => x.type === "longtext").map((x) => x.key));
+                const photos = (item.photos ?? []).filter((p) => p.fieldKey === f.key || (firstPicture && textKeys.has(p.fieldKey)));
                 return (
-                  <div key={f.key} className={isWideField(f) ? "sm:col-span-2" : ""}>
+                  <div key={f.key} id={`f-${item.key}-${f.key}`} className={`scroll-mt-24 ${isWideField(f) ? "sm:col-span-2" : ""}`}>
                     <FieldRow
                       f={f}
                       name={name}
                       value={pick(name, item.values[f.key])}
-                      pictures
+                      pasteFrom={pasteFrom}
                       compact
-                      saved={orderId && item.photos ? { itemId: Number(item.key), photos: item.photos.filter((p) => p.fieldKey === f.key) } : undefined}
+                      missing={state.missingKeys.includes(`${item.key}:${f.key}`)}
+                      saved={orderId && item.photos ? { itemId: Number(item.key), photos } : undefined}
                     />
                   </div>
                 );
@@ -257,12 +343,7 @@ export function OrderEditor({
               <li key={m}>{m}</li>
             ))}
           </ul>
-          <div className="flex flex-col gap-2">
-            <span className={`${btnSecondary} text-center`}>Fix them above, then save again</span>
-            <button name="force" value="1" disabled={pending} className={btnPrimary}>
-              Submit anyway
-            </button>
-          </div>
+          <p className="text-base">Fill these in above, then save again. Nothing is saved until every field is filled.</p>
         </div>
       )}
 

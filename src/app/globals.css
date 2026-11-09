@@ -344,6 +344,12 @@ header label,
   outline-offset: 2px;
   border-color: var(--color-ink);
 }
+.input[aria-invalid="true"],
+.select[aria-invalid="true"],
+.textarea[aria-invalid="true"] {
+  border-color: var(--color-bad);
+  background-color: var(--color-bad-soft);
+}
 .input:disabled,
 .select:disabled,
 .textarea:disabled {
@@ -413,4 +419,9 @@ fieldset {
 }
 .drawer-side::-webkit-scrollbar {
   display: none;
+}
+
+/* long words in headings wrap instead of running off a small screen */
+h1, h2, h3 {
+  overflow-wrap: anywhere;
 }

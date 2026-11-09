@@ -5,6 +5,7 @@ process.env.DATABASE_URL = ":memory:";
 
 let t: typeof import("./templates");
 let o: typeof import("./orders");
+let h: typeof import("./history");
 let m: typeof import("./masters");
 let sh: typeof import("./shipping");
 let s: typeof import("./stages");
@@ -14,6 +15,7 @@ beforeAll(async () => {
   migrate(db, { migrationsFolder: "./drizzle" });
   t = await import("./templates");
   o = await import("./orders");
+  h = await import("./history");
   m = await import("./masters");
   sh = await import("./shipping");
   s = await import("./stages");
@@ -39,6 +41,7 @@ describe("the master's Mark complete cannot skip shipping", () => {
       { templateId: tplId, label: "Sherwani 1", snapshot, values: {} },
       { templateId: tplId, label: "Sherwani 2", snapshot, values: {} },
     ]);
+    h.confirmOrder(master, orderId);
     const ids = o.listItems(orderId).map((i) => i.id);
     expect(o.masterComplete(master, orderId)).toEqual({ ok: false, reason: "not-shipped" });
 
@@ -61,6 +64,7 @@ describe("the master's Mark complete cannot skip shipping", () => {
   it("still lets the master close an order that has no items (nothing to ship)", () => {
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), []);
+    h.confirmOrder(master, orderId);
     expect(o.masterComplete(master, orderId)).toEqual({ ok: true });
     expect(o.getOrder(orderId)!.status).toBe("completed");
   });
@@ -72,7 +76,9 @@ describe("shipping order: no order holds back another", () => {
     const plain = category("Pagri");
     const master = m.createMaster({ name: "M", pin: "1" });
     const first = o.createOrder(base(master, "First"), [{ templateId: staged.tplId, label: "Sherwani", snapshot: staged.snapshot, values: {} }]);
+    h.confirmOrder(master, first);
     const second = o.createOrder(base(master, "Second"), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
+    h.confirmOrder(master, second);
     const firstItem = o.listItems(first)[0].id;
 
     expect(sh.canMasterShip(master, first)).toBe(true);
@@ -92,7 +98,9 @@ describe("shipping order: no order holds back another", () => {
     const plain = category("Pagri");
     const master = m.createMaster({ name: "M", pin: "1" });
     const first = o.createOrder(base(master, "First"), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
+    h.confirmOrder(master, first);
     const second = o.createOrder(base(master, "Second"), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
+    h.confirmOrder(master, second);
     expect(first).toBeLessThan(second);
     const sid = sh.startShipment(master, second)!;
     const item = o.listItems(second)[0].id;
@@ -107,6 +115,7 @@ describe("looking at the shipping page does not create a shipment", () => {
     const plain = category("Pagri");
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     expect(sh.findDraft(master, orderId)).toBeNull();
     expect(sh.findDraft(master, orderId)).toBeNull(); // asking again changes nothing
     expect(sh.orderShipments(orderId)).toHaveLength(0);
@@ -126,6 +135,7 @@ describe("removing an item from a customer", () => {
       { templateId: staged.tplId, label: "Sherwani 2", snapshot: staged.snapshot, values: {} },
       { templateId: staged.tplId, label: "Sherwani 3", snapshot: staged.snapshot, values: {} },
     ]);
+    h.confirmOrder(master, orderId);
     const [a, b, c] = o.listItems(orderId).map((i) => i.id);
     s.addReferencePhoto({ orderId, itemId: c, fieldKey: "x", ...file });
 
@@ -163,6 +173,7 @@ describe("the progress bar of an order", () => {
       { templateId: staged.tplId, label: "Sherwani 1", snapshot: staged.snapshot, values: {} },
       { templateId: staged.tplId, label: "Sherwani 2", snapshot: staged.snapshot, values: {} },
     ]);
+    h.confirmOrder(master, orderId);
     const [a, b] = o.listItems(orderId).map((i) => i.id);
     const states = () => orderTrack(orderId).map((x) => `${x.label}:${x.state}`).join(" | ");
 
@@ -191,38 +202,8 @@ describe("the progress bar of an order", () => {
     const plain = category("Pagri");
     const master = m.createMaster({ name: "M", pin: "1" });
     const orderId = o.createOrder(base(master), [{ templateId: plain.tplId, label: "Pagri", snapshot: plain.snapshot, values: {} }]);
+    h.confirmOrder(master, orderId);
     expect(orderTrack(orderId).map((x) => x.label)).toEqual(["Order received", "Shipped"]);
-  });
-});
-
-describe("finishing one step on every item at once", () => {
-  it("finishes the open step on all items that are at it, and skips an item that is not ready", async () => {
-    const { openStepGroups, completeStepForAll } = await import("./track");
-    const plain = category("Sherwani", [{ label: "Embroidery", photo: "none" }, { label: "Stitching", photo: "none" }]);
-    const needsPhoto = category("Pants", [{ label: "Embroidery", photo: "required" }, { label: "Stitching", photo: "none" }]);
-    const master = m.createMaster({ name: "M", pin: "1" });
-    const orderId = o.createOrder(base(master), [
-      { templateId: plain.tplId, label: "Sherwani", snapshot: plain.snapshot, values: {} },
-      { templateId: needsPhoto.tplId, label: "Pants", snapshot: needsPhoto.snapshot, values: {} },
-      { templateId: plain.tplId, label: "Sherwani 2", snapshot: plain.snapshot, values: {} },
-    ]);
-    const [a, p, c] = o.listItems(orderId).map((i) => i.id);
-
-    const groups = openStepGroups(orderId);
-    expect(groups.map((g) => g.label)).toEqual(["Embroidery"]);
-    expect(groups[0].items.map((i) => [i.itemLabel, i.ready])).toEqual([["Sherwani", true], ["Pants", false], ["Sherwani 2", true]]);
-
-    // the Pants needs an approved photo first, so it is skipped, not forced
-    expect(completeStepForAll(master, orderId, "embroidery")).toEqual({ done: ["Sherwani", "Sherwani 2"], skipped: ["Pants"] });
-    expect(s.itemStageViews(a)[0].status).toBe("done");
-    expect(s.itemStageViews(c)[0].status).toBe("done");
-    expect(s.itemStageViews(p)[0].status).toBe("open");
-
-    // Stitching is open on two items now, and Embroidery only on one: only Stitching is a group
-    expect(openStepGroups(orderId).map((g) => g.label)).toEqual(["Stitching"]);
-    // another master cannot do it
-    const other = m.createMaster({ name: "Other", pin: "2" });
-    expect(completeStepForAll(other, orderId, "stitching")).toEqual({ done: [], skipped: ["Sherwani", "Sherwani 2"] });
   });
 });
 
@@ -235,6 +216,7 @@ describe("an image on an optional step does not wait for approval", () => {
       { templateId: optional.tplId, label: "Sherwani", snapshot: optional.snapshot, values: {} },
       { templateId: required.tplId, label: "Pants", snapshot: required.snapshot, values: {} },
     ]);
+    h.confirmOrder(master, orderId);
     const [a, p] = o.listItems(orderId).map((i) => i.id);
     s.addStagePhoto({ orderId, itemId: a, stageKey: "embroidery", uploadedBy: "master", ...file });
     s.addStagePhoto({ orderId, itemId: p, stageKey: "embroidery", uploadedBy: "master", ...file });

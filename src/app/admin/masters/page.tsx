@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listMasters } from "@/lib/masters";
 import { APP_URL } from "@/lib/config";
 import { Field, btnPrimary, btnSecondary, input } from "@/components/ui";
@@ -16,8 +17,13 @@ export default function Masters() {
           const wa = `https://wa.me/${m.whatsappNumber ?? ""}?text=${encodeURIComponent(text)}`;
           return (
             <li key={m.id} className="space-y-3 panel">
-              <div className="text-xl font-medium">
-                {m.name} {!m.active && <span className="text-thread">(inactive)</span>}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xl font-medium">
+                  {m.name} {!m.active && <span className="text-thread">(inactive)</span>}
+                </div>
+                <Link href={`/admin/masters/${m.id}`} className="link text-base font-medium">
+                  See items and progress
+                </Link>
               </div>
               <input readOnly value={link} className={input} aria-label="Personal link" />
               <a href={wa} target="_blank" rel="noreferrer" className={`${btnPrimary} w-full`}>

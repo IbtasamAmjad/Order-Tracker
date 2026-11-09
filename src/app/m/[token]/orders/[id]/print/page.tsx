@@ -12,7 +12,7 @@ import { Icon } from "@/components/Icon";
 export default async function MasterPrint({ params }: { params: Promise<{ token: string; id: string }> }) {
   const { token, id } = await params;
   const state = await linkState(token);
-  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask Anas for a new link.</p>;
+  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask the office for a new link.</p>;
   if (state === "need-pin") return <PinForm token={token} />;
 
   const master = (await requireMaster(token))!;

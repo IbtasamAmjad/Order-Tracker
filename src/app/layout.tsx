@@ -7,7 +7,7 @@ const outfit = Outfit({ subsets: ["latin"], weight: ["300", "500"], display: "sw
 const onest = Onest({ subsets: ["latin"], weight: ["400", "500"], display: "swap", variable: "--font-onest" });
 
 export const metadata: Metadata = {
-  title: "Order Tracker",
+  title: "Custom Order Manager",
   description: "Custom order tracking",
 };
 

@@ -9,8 +9,10 @@ import { MasterItemFields } from "@/components/MasterItemFields";
 import { StageTrack } from "@/components/StageTrack";
 import { DesignPictures } from "@/components/DesignPictures";
 import { designFieldKeys } from "@/lib/items";
-import { itemTrack, openStepGroups } from "@/lib/track";
-import { completeOrderAction, completeStepAllAction } from "../../../actions";
+import { itemTrack } from "@/lib/track";
+import { completeOrderAction, confirmOrderAction } from "../../../actions";
+import { HistoryList } from "@/components/HistoryList";
+import { orderHistory } from "@/lib/history";
 import { Icon } from "@/components/Icon";
 
 export default async function MasterOrder({
@@ -18,13 +20,13 @@ export default async function MasterOrder({
   searchParams,
 }: {
   params: Promise<{ token: string; id: string }>;
-  searchParams: Promise<{ e?: string; saved?: string; all?: string; skip?: string; what?: string }>;
+  searchParams: Promise<{ e?: string; saved?: string; noted?: string }>;
 }) {
   const { token, id } = await params;
-  const { e, saved, all, skip, what } = await searchParams;
+  const { e, saved, noted } = await searchParams;
 
   const state = await linkState(token);
-  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask Anas for a new link.</p>;
+  if (state === "invalid") return <p className="text-xl">This link is not valid. Ask the office for a new link.</p>;
   if (state === "need-pin") return <PinForm token={token} />;
 
   const master = (await requireMaster(token))!;
@@ -32,10 +34,10 @@ export default async function MasterOrder({
   if (!order) notFound();
   markSeen(master.id, order.id);
   const items = masterItems(order.id);
-  const groups = openStepGroups(order.id);
+  const history = orderHistory(order.id);
 
   // "Design: ..." from the first filled field whose name starts with Design (for example Design number)
-  const design = items
+  const design = order.designNumber || items
     .flatMap((it) => it.snapshot.fields.filter((f) => /^design/i.test(f.label) && f.type !== "picture").map((f) => it.values[f.key]))
     .find((v) => v && v.trim());
   const today = new Date();
@@ -43,76 +45,89 @@ export default async function MasterOrder({
   const daysLeft = Math.round((new Date(dy, dm - 1, dd).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link href={`/m/${token}`} className="link inline-flex min-h-12 items-center gap-2 text-lg font-medium">
         <Icon name="arrow" className="h-4 w-4 rotate-180" /> Back
       </Link>
       <section className="panel space-y-4">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="page-title normal-case">Order #{order.orderNumber}</h1>
-            <span className={`rounded-full px-3 py-1 text-base font-medium text-white ${order.status === "active" ? "bg-accent" : order.status === "completed" ? "bg-leaf" : "bg-thread"}`}>
-              {order.status === "active" ? "In Progress" : order.status === "completed" ? "Completed" : "Cancelled"}
-            </span>
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+          <h1 className="page-title normal-case">Order #{order.orderNumber}</h1>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-base font-medium ${
+              order.status === "active"
+                ? "border-ok/30 bg-ok-soft text-ok"
+                : order.status === "completed"
+                  ? "border-accent/30 bg-accent-soft text-accent-deep"
+                  : "border-bad/30 bg-bad-soft text-bad"
+            }`}
+          >
+            <Icon name="check" className="h-4 w-4" />
+            {order.status === "active" ? "In Progress" : order.status === "completed" ? "Completed" : "Cancelled"}
+          </span>
+        </div>
+
+        <dl className="space-y-1.5 border-t border-rule pt-4 text-xl">
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-muted">Customer</dt>
+            <dd className="text-right font-medium">{order.customerName}</dd>
           </div>
-
-          <dl className="space-y-2 text-xl">
-            <div className="flex gap-2">
-              <dt className="text-muted">Customer:</dt>
-              <dd className="font-medium">{order.customerName}</dd>
-            </div>
-            {design && (
-              <div className="flex gap-2">
-                <dt className="text-muted">Design:</dt>
-                <dd className="font-medium">{design}</dd>
-              </div>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <dt className="text-muted">Due date:</dt>
-              <dd className="font-medium">{fmtDay(order.karigarDueDate)}</dd>
-              {order.status === "active" && (
-                <span className={`rounded-full px-3 py-0.5 text-base font-medium text-white ${daysLeft <= 0 ? "bg-thread" : daysLeft <= 3 ? "bg-leaf" : "bg-cloth"}`}>
-                  {daysLeft < 0 ? `Late by ${-daysLeft} ${daysLeft === -1 ? "day" : "days"}` : daysLeft === 0 ? "Due today" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
-                </span>
-              )}
-            </div>
-          </dl>
-
-          {items.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {items.map((it) => (
-                <span key={it.id} className="inline-flex items-center gap-2 rounded-full bg-paper-3 px-3 py-1 text-lg font-medium">
-                  <span className="inline-block h-4 w-4 rounded-full" style={{ background: it.snapshot.colour }} />
-                  {it.label}
-                </span>
-              ))}
+          {design && (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-muted">Design</dt>
+              <dd className="text-right font-medium">{design}</dd>
             </div>
           )}
-
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { href: `/api/m/${token}/orders/${order.id}/pdf`, icon: "download", text: "PDF", native: true },
-              { href: `/m/${token}/orders/${order.id}/print`, icon: "note", text: "Print", native: false },
-              { href: `/m/${token}/orders/${order.id}/ship`, icon: "shipments", text: "Send", native: false },
-            ].map((b) => {
-              const cls = "flex flex-col items-center gap-1 rounded-2xl bg-accent-soft px-2 py-3 text-lg font-medium text-accent-deep";
-              const inner = (
-                <>
-                  <Icon name={b.icon} className="h-7 w-7" />
-                  {b.text}
-                </>
-              );
-              return b.native ? (
-                <a key={b.text} href={b.href} className={cls}>
-                  {inner}
-                </a>
-              ) : (
-                <Link key={b.text} href={b.href} className={cls}>
-                  {inner}
-                </Link>
-              );
-            })}
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-muted">Due date</dt>
+            <dd className="text-right font-medium">{fmtDay(order.karigarDueDate)}</dd>
           </div>
+        </dl>
+
+        {order.status === "active" && (
+          <span
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-base font-medium ${
+              daysLeft <= 0 ? "border-bad/30 bg-bad-soft text-bad" : daysLeft <= 3 ? "border-ok/30 bg-ok-soft text-ok" : "border-cloth/30 bg-cool-soft text-cloth"
+            }`}
+          >
+            <Icon name="clock" className="h-4 w-4" />
+            {daysLeft < 0 ? `Late by ${-daysLeft} ${daysLeft === -1 ? "day" : "days"}` : daysLeft === 0 ? "Due today" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
+          </span>
+        )}
+
+        {items.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-rule pt-4">
+            {items.map((it) => (
+              <span key={it.id} className="inline-flex items-center gap-2 rounded-xl border border-rule bg-paper-3/60 px-3 py-1.5 text-lg font-medium">
+                <span className="inline-block h-3 w-3 rounded-full" style={{ background: it.snapshot.colour }} />
+                {it.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-2 border-t border-rule pt-4">
+          {[
+            { href: `/api/m/${token}/orders/${order.id}/pdf`, icon: "download", text: "PDF", native: true },
+            { href: `/m/${token}/orders/${order.id}/print`, icon: "note", text: "Print", native: false },
+            { href: `/m/${token}/orders/${order.id}/ship`, icon: "shipments", text: "Send", native: false },
+          ].map((b) => {
+            const cls = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-rule-2 bg-paper-2 px-2 text-lg font-medium text-ink hover:bg-paper-3";
+            const inner = (
+              <>
+                <Icon name={b.icon} className="h-5 w-5 text-muted" />
+                {b.text}
+              </>
+            );
+            return b.native ? (
+              <a key={b.text} href={b.href} className={cls}>
+                {inner}
+              </a>
+            ) : (
+              <Link key={b.text} href={b.href} className={cls}>
+                {inner}
+              </Link>
+            );
+          })}
         </div>
       </section>
 
@@ -123,72 +138,67 @@ export default async function MasterOrder({
         <p role="status" className="alert alert-success text-xl font-medium">Completed</p>
       )}
 
-      {saved && <p role="status" className="alert alert-success text-lg font-medium">Saved. Anas can see it.</p>}
+      {saved && <p role="status" className="alert alert-success text-lg font-medium">Saved. The office can see it.</p>}
+      {noted && <p role="status" className="alert alert-success text-lg font-medium">Note added.</p>}
 
-      {all !== undefined && (
-        <p role="status" className="alert alert-success text-lg font-medium">
-          {what}: finished on {all} {all === "1" ? "item" : "items"}.
-          {Number(skip) > 0 && ` ${skip} ${skip === "1" ? "item was" : "items were"} skipped: it still needs something first (see its steps below).`}
-        </p>
-      )}
-
-      {order.canComplete && groups.length > 0 && (
-        <section className="panel space-y-3">
-          <h2 className="text-xl font-medium">Finish a step for all items</h2>
-          <p className="text-base text-muted">The same step is open on several items. Do it once here instead of on each item.</p>
-          {groups.map((g) => {
-            const waiting = g.items.filter((i) => !i.ready);
-            return (
-              <form key={g.label} action={completeStepAllAction} className="space-y-2 rounded-2xl bg-accent-soft p-4">
-                <input type="hidden" name="token" value={token} />
-                <input type="hidden" name="orderId" value={order.id} />
-                <input type="hidden" name="label" value={g.label} />
-                <p className="text-lg font-medium">
-                  {g.label}: {g.items.map((i) => i.itemLabel).join(", ")}
-                </p>
-                {waiting.length > 0 && (
-                  <p className="text-base text-thread">
-                    Not ready, will be skipped: {waiting.map((i) => i.itemLabel).join(", ")} (it needs an image or a field first).
-                  </p>
-                )}
-                <button className={`${btnPrimary} w-full`} disabled={waiting.length === g.items.length}>
-                  Mark {g.label} complete for {g.items.length - waiting.length} {g.items.length - waiting.length === 1 ? "item" : "items"}
-                </button>
-              </form>
-            );
-          })}
+      {order.status === "active" && !order.confirmedAt && (
+        <section className="panel space-y-3 !border-2 !border-accent">
+          <h2 className="text-2xl font-medium">Please confirm you have seen this order</h2>
+          <p className="text-lg">Press the button so the office knows you have it. You can finish steps after that.</p>
+          <form action={confirmOrderAction}>
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="orderId" value={order.id} />
+            <button className={`${btnPrimary} w-full`}>I have seen this order</button>
+          </form>
         </section>
       )}
 
       {items.map((item) => (
-        <section key={item.id} className="panel space-y-3" style={{ borderColor: item.snapshot.colour }}>
-          <h2 className="flex items-center gap-2 text-2xl font-medium">
-            <span className="inline-block h-5 w-5 rounded-full" style={{ background: item.snapshot.colour }} />
-            {item.label}
-          </h2>
-          <StageTrack steps={itemTrack(item.id)} />
-          <DesignPictures token={token} itemId={item.id} fieldKeys={designFieldKeys(item.snapshot.fields)} />
-          <MasterItemFields
-            token={token}
-            orderId={order.id}
-            itemId={item.id}
-            snapshot={item.snapshot}
-            values={item.values}
-            canEdit={order.status === "active"}
-          />
-          <MasterStages
-            token={token}
-            orderId={order.id}
-            itemId={item.id}
-            fields={item.snapshot.fields}
-            skipKeys={designFieldKeys(item.snapshot.fields)}
-            turn={order.canComplete}
-          />
+        <section key={item.id} className="panel" style={{ borderColor: item.snapshot.colour }}>
+          {/* tap the name to minimize or open the item; the progress bar stays in view when it is closed */}
+          <details open={items.length <= 2} className="group">
+            <summary className="cursor-pointer list-none space-y-3 [&::-webkit-details-marker]:hidden" title="Tap to minimize or open">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.snapshot.colour }} />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-2xl font-medium">{item.label}</h2>
+                  <p className="text-base text-muted">
+                    {order.customerName}
+                    {order.designNumber ? ` - Design: ${order.designNumber}` : ""}
+                  </p>
+                </div>
+                <Icon name="chevron" className="h-6 w-6 shrink-0 text-muted transition-transform group-open:rotate-180" />
+              </div>
+              <StageTrack steps={itemTrack(item.id)} />
+            </summary>
+            <div className="mt-4 space-y-3">
+              <DesignPictures token={token} itemId={item.id} fieldKeys={designFieldKeys(item.snapshot.fields)} />
+              <MasterItemFields
+                token={token}
+                orderId={order.id}
+                itemId={item.id}
+                snapshot={item.snapshot}
+                values={item.values}
+                canEdit={order.status === "active"}
+              />
+              <MasterStages
+                token={token}
+                orderId={order.id}
+                itemId={item.id}
+                fields={item.snapshot.fields}
+                skipKeys={designFieldKeys(item.snapshot.fields)}
+                turn={order.canComplete}
+                confirmed={!!order.confirmedAt}
+              />
+            </div>
+          </details>
         </section>
       ))}
       {order.details && <p className="panel whitespace-pre-wrap text-lg">{order.details}</p>}
 
-      {e && e !== "not-active" && (
+      {e === "note-empty" && <p role="alert" className="alert alert-error text-lg font-medium">Write something in the note first.</p>}
+      {e === "not-confirmed" && <p role="alert" className="alert alert-error text-lg font-medium">Press &quot;I have seen this order&quot; first.</p>}
+      {e && e !== "not-active" && e !== "note-empty" && e !== "not-confirmed" && (
         <p role="alert" className="alert alert-error text-lg font-medium">
           {e === "needs-photo"
             ? "This step needs an approved photo first."
@@ -216,6 +226,19 @@ export default async function MasterOrder({
             You can finish this order after the orders above it.
           </p>
         ))}
+
+      <section className="panel">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-xl font-medium [&::-webkit-details-marker]:hidden">
+            <span className="flex-1">History</span>
+            <span className="rounded-full bg-paper-3 px-3 text-base">{history.length}</span>
+            <Icon name="chevron" className="h-5 w-5 text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-3">
+            <HistoryList lines={history} />
+          </div>
+        </details>
+      </section>
     </div>
   );
 }

@@ -27,6 +27,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
 
   const saved = await storeUpload(check.orderId, file);
   if ("error" in saved) return fail(saved.error);
-  const id = addStagePhoto({ orderId: check.orderId, itemId, stageKey, uploadedBy: "master", ...saved });
+  const id = addStagePhoto({ orderId: check.orderId, itemId, stageKey, uploadedBy: "master", masterId: master.id, ...saved });
   return Response.json({ ok: true, id });
 }

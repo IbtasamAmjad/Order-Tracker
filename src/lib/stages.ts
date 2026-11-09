@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { isDisplayOnly } from "@/lib/items";
 import { isAssigned, mine } from "./assign";
+import { addEvent } from "./history";
 import { db } from "@/db";
 import {
   itemStages,
@@ -37,6 +38,8 @@ export type StageView = {
   status: StageStatus;
   completedAt: Date | null;
   latestPhoto: StagePhoto | null;
+  /** every image sent for this step, oldest first (an optional step can have several) */
+  allPhotos: { id: number; status: "pending" | "approved" | "rejected" }[];
   /** photo gate satisfied (not required, or latest photo approved) */
   photoOk: boolean;
   /** form fields the admin made mandatory before this stage can be finished, and whether each one is filled */
@@ -102,7 +105,11 @@ export function itemStageViews(itemId: number): StageView[] {
       status: r.status,
       completedAt: r.completedAt,
       latestPhoto: latest ? { id: latest.id, status: latest.status, comment: latest.comment } : null,
-      photoOk: rule !== "required" || latest?.status === "approved",
+      allPhotos: stagePhotos
+        .filter((p) => p.stageKey === r.stageKey)
+        .map((p) => ({ id: p.id, status: p.status }))
+        .reverse(),
+      photoOk: rule === "required" ? latest?.status === "approved" : rule === "upload" ? stagePhotos.some((p) => p.stageKey === r.stageKey) : true,
       requiredFields,
       fieldsOk: requiredFields.every((x) => x.filled),
     };
@@ -156,7 +163,7 @@ export function canMasterUpload(masterId: number, itemId: number, stageKey: stri
 
 export type CompleteStageResult =
   | { ok: true }
-  | { ok: false; reason: "not-found" | "not-open" | "needs-fields" | "needs-photo" | "blocked" | "order-closed" };
+  | { ok: false; reason: "not-found" | "not-open" | "needs-fields" | "needs-photo" | "blocked" | "order-closed" | "not-confirmed" };
 
 /**
  * Complete a stage and unlock the next one.
@@ -178,6 +185,8 @@ export function completeStage(
     if (s.order.status !== "active") return { ok: false, reason: "order-closed" } as const;
     if (s.row.status !== "open") return { ok: false, reason: "not-open" } as const;
     if (who.by === "master" && !isMasterTurn(who.masterId, s.order.id)) return { ok: false, reason: "blocked" } as const;
+    // the first step is the master saying he has seen the order: nothing else can be finished by him before that
+    if (who.by === "master" && !s.order.confirmedAt) return { ok: false, reason: "not-confirmed" } as const;
 
     const force = who.by === "admin" && who.force === true;
     const missing = stageRequirements(s.item, s.def, pictureKeysOf(tx, itemId)).filter((x) => !x.filled);
@@ -194,6 +203,12 @@ export function completeStage(
       if (latest?.status !== "approved") return { ok: false, reason: "needs-photo" } as const;
     }
 
+    // a step that must have an image (no approval needed): at least one image has to be added
+    if ((s.def?.photo ?? "none") === "upload" && !force) {
+      const any = tx.select({ id: photos.id }).from(photos).where(and(eq(photos.itemId, itemId), eq(photos.stageKey, stageKey), eq(photos.type, "stage"))).limit(1).get();
+      if (!any) return { ok: false, reason: "needs-photo" } as const;
+    }
+
     const now = new Date();
     tx.update(itemStages)
       .set({ status: "done", completedAt: now, completedBy: who.by })
@@ -204,6 +219,7 @@ export function completeStage(
       .where(and(eq(itemStages.itemId, itemId), eq(itemStages.position, s.row.position + 1)))
       .run();
     tx.update(orders).set({ updatedAt: now }).where(eq(orders.id, s.order.id)).run();
+    addEvent({ orderId: s.order.id, itemId, stageKey, kind: "done", by: who.by, masterId: who.by === "master" ? who.masterId : null }, tx);
     return { ok: true } as const;
   });
 }
@@ -218,8 +234,11 @@ type NewPhoto = {
   bytes: number;
 };
 
-export function addStagePhoto(p: NewPhoto & { stageKey: string; uploadedBy: "admin" | "master" }) {
-  return db.insert(photos).values({ ...p, type: "stage", status: "pending" }).returning({ id: photos.id }).get().id;
+export function addStagePhoto(p: NewPhoto & { stageKey: string; uploadedBy: "admin" | "master"; masterId?: number }) {
+  const { masterId, ...row } = p;
+  const id = db.insert(photos).values({ ...row, type: "stage", status: "pending" }).returning({ id: photos.id }).get().id;
+  addEvent({ orderId: p.orderId, itemId: p.itemId, stageKey: p.stageKey, kind: "image", by: p.uploadedBy, masterId: masterId ?? null });
+  return id;
 }
 
 /** Pictures for a "picture" field. Admin or (where allowed) the master adds them; no approval needed. */

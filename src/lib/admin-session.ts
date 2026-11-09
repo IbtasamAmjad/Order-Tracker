@@ -44,5 +44,6 @@ export function checkPassword(typed: string, expected: string | undefined): bool
 
 /** Only allow going back to admin pages after login (no redirects to other sites). */
 export function safeNext(next: string | null | undefined): string {
+  if (next === "/live") return next; // the live board for the office TV
   return next && next.startsWith("/admin") && !next.startsWith("//") && !next.startsWith("/admin/login") ? next : "/admin";
 }

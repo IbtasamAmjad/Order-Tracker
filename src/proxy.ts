@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE, verifySession } from "@/lib/admin-session";
 
-// Everything under /admin and /api/admin needs the admin cookie, except the login page itself.
+// Everything under /admin, /api/admin and /live needs the admin cookie, except the login page itself.
 // Masters (/m/..., /api/m/...) are not affected: they use their personal link + PIN.
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -19,5 +19,6 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  // /live is the live board for the office TV: it needs the admin sign-in too (the page also checks it)
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/live"],
 };

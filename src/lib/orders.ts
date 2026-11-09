@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, lt, max } from "drizzle-orm";
 import { db } from "@/db";
-import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments, type OrderStatus } from "@/db/schema";
+import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments, stageEvents, type OrderStatus } from "@/db/schema";
 import { cleanValues, fieldProgress, isTextEditable, type ItemValues, type NewItem } from "./items";
 import { createStageRows, orderProgress, referencePhotos } from "./stages";
 import { orderStage, orderTrack } from "./track";
@@ -16,19 +16,75 @@ export type OrderInput = {
   masterId: number; // the main master (the first one)
   masterIds?: number[]; // every master of the order, main one first; leave out for just masterId
   details: string;
+  designNumber?: string; // this order's own Design Number (kept in capitals, never used twice)
+  linkedDesignNumber?: string; // for an accessory ordered on its own: the Design Number of its main Sherwani or Bridal
 };
+
+/** A Design Number as it is stored: no spaces at the ends, in capitals. Empty means none. */
+export const cleanDesignNumber = (v: string | null | undefined): string | null => (v ?? "").trim().toUpperCase() || null;
+
+/**
+ * Why these design numbers cannot be saved, or null when they are fine. A Design Number belongs to one order only.
+ * The linked one must be the Design Number of another order (the main Sherwani or Bridal). `ownId` is the order being edited.
+ */
+export function checkDesignNumbers(input: { designNumber?: string | null; linkedDesignNumber?: string | null }, ownId?: number): string | null {
+  const mine = cleanDesignNumber(input.designNumber);
+  const linked = cleanDesignNumber(input.linkedDesignNumber);
+  if (mine) {
+    const clash = db.select({ id: orders.id, n: orders.orderNumber }).from(orders).where(eq(orders.designNumber, mine)).get();
+    if (clash && clash.id !== ownId) return `Design number ${mine} is already used by order #${clash.n}. Each order needs its own.`;
+  }
+  if (linked) {
+    if (linked === mine) return "An order cannot be linked to its own design number.";
+    const main = db.select({ id: orders.id }).from(orders).where(eq(orders.designNumber, linked)).get();
+    if (!main) return `No order has design number ${linked}. Link to the design number of the main Sherwani or Bridal.`;
+  }
+  return null;
+}
+
+/** Design numbers already in use, for the "linked to" suggestions. */
+export function listDesignNumbers(exceptId?: number) {
+  return db
+    .select({ id: orders.id, designNumber: orders.designNumber, orderNumber: orders.orderNumber, customerName: orders.customerName })
+    .from(orders)
+    .all()
+    .filter((r): r is typeof r & { designNumber: string } => !!r.designNumber && r.id !== exceptId)
+    .sort((a, b) => a.designNumber.localeCompare(b.designNumber));
+}
+
+/** Orders linked to a design number (accessories and single items of that main design). */
+export function linkedOrders(designNumber: string | null) {
+  if (!designNumber) return [];
+  return db
+    .select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName, status: orders.status })
+    .from(orders)
+    .where(eq(orders.linkedDesignNumber, designNumber))
+    .orderBy(asc(orders.orderNumber))
+    .all();
+}
+
+/** The order that owns a design number, if any. */
+export function orderOfDesign(designNumber: string | null) {
+  if (!designNumber) return null;
+  return db.select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName }).from(orders).where(eq(orders.designNumber, designNumber)).get() ?? null;
+}
 
 /** Split the input into the columns of the order and the full list of masters. */
 function splitMasters(input: OrderInput) {
-  const { masterIds: given, ...rest } = input;
+  const { masterIds: given, designNumber, linkedDesignNumber, ...rest } = input;
   const ids = cleanMasterIds(given?.length ? given : [input.masterId]);
-  return { cols: { ...rest, masterId: ids[0] ?? input.masterId }, ids: ids.length ? ids : [input.masterId] };
+  return {
+    cols: { ...rest, masterId: ids[0] ?? input.masterId, designNumber: cleanDesignNumber(designNumber), linkedDesignNumber: cleanDesignNumber(linkedDesignNumber) },
+    ids: ids.length ? ids : [input.masterId],
+  };
 }
 
 // ---------------------------------------------------------------- admin
 
 export function createOrder(input: OrderInput, items: NewItem[] = []): number {
   const { cols, ids } = splitMasters(input);
+  const bad = checkDesignNumbers(cols);
+  if (bad) throw new Error(bad);
   return db.transaction((tx) => {
     const row = tx
       .select({ n: max(orders.orderNumber), p: max(orders.priorityPosition) })
@@ -59,6 +115,8 @@ export function createOrder(input: OrderInput, items: NewItem[] = []): number {
 /** itemValues: new values per existing item id. */
 export function updateOrder(id: number, input: OrderInput, itemValues: Map<number, ItemValues> = new Map()): void {
   const { cols, ids } = splitMasters(input);
+  const bad = checkDesignNumbers(cols, id);
+  if (bad) throw new Error(bad);
   db.transaction((tx) => {
     const old = tx.select().from(orders).where(eq(orders.id, id)).get();
     if (!old) return;
@@ -203,6 +261,8 @@ const masterColumns = {
   id: orders.id,
   orderNumber: orders.orderNumber,
   customerName: orders.customerName,
+  designNumber: orders.designNumber,
+  linkedDesignNumber: orders.linkedDesignNumber,
   karigarDueDate: orders.karigarDueDate,
   details: orders.details,
   status: orders.status,
@@ -212,6 +272,7 @@ const masterColumns = {
   changedForMasterAt: orders.changedForMasterAt,
   movedUpAt: orders.movedUpAt,
   closedAt: orders.closedAt,
+  confirmedAt: orders.confirmedAt,
 };
 
 export type Badge = "New" | "Updated" | "Moved up";
@@ -375,6 +436,7 @@ export function removeItem(orderId: number, itemId: number): RemoveItemResult {
     if (sent) return { ok: false, reason: "shipped" } as const;
 
     tx.delete(shipmentItems).where(eq(shipmentItems.itemId, itemId)).run(); // only an unsent draft can still hold it
+    tx.delete(stageEvents).where(eq(stageEvents.itemId, itemId)).run();
     tx.delete(photos).where(eq(photos.itemId, itemId)).run();
     tx.delete(itemStages).where(eq(itemStages.itemId, itemId)).run();
     tx.delete(orderItems).where(eq(orderItems.id, itemId)).run();

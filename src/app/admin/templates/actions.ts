@@ -10,7 +10,6 @@ import {
   deleteCategory,
   fieldsFromBuilder,
   saveTemplate,
-  setPrintGroup,
   stagesFromBuilder,
   templateIdOf,
   updateCategory,
@@ -62,13 +61,7 @@ export async function saveCategoryAction(f: FormData) {
   const id = Number(f.get("id"));
   const fields = fieldsFromBuilder(String(f.get("fields") ?? "[]"));
   if (duplicateFieldNames(fields).length > 0) redirect(`/admin/templates/${id}?e=duplicate`);
-  saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")));
+  const workflowId = Number(f.get("workflowId")) || null; // empty = the item's own custom steps
+  saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")), workflowId);
   redirect(`/admin/templates/${id}?saved=1`);
-}
-
-export async function setPrintGroupAction(f: FormData) {
-  await requireAdmin();
-  const id = Number(f.get("id"));
-  setPrintGroup(id, str(f, "printGroup"));
-  redirect(`/admin/templates/${id}`);
 }

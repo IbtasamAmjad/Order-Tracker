@@ -3,19 +3,21 @@ import { notFound } from "next/navigation";
 import { FormBuilder } from "@/components/FormBuilder";
 import { Notice, btnDanger, btnSecondary, input } from "@/components/ui";
 import { getTemplate } from "@/lib/templates";
-import { deleteCategoryAction, saveCategoryAction, setPrintGroupAction, updateCategoryAction } from "../actions";
+import { deleteCategoryAction, saveCategoryAction, updateCategoryAction } from "../actions";
 import { Icon } from "@/components/Icon";
+import { listWorkflows } from "@/lib/workflows";
+import { saveStepsAsWorkflowAction } from "../../workflows/actions";
 
 export default async function CategoryBuilder({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; e?: string }>;
+  searchParams: Promise<{ saved?: string; e?: string; wf?: string; wfError?: string }>;
 }) {
   const t = getTemplate(Number((await params).id));
   if (!t) notFound();
-  const { saved, e } = await searchParams;
+  const { saved, e, wf, wfError } = await searchParams;
 
   return (
     <div className="space-y-8">
@@ -31,6 +33,8 @@ export default async function CategoryBuilder({
       {e === "duplicate" && (
         <Notice tone="error">Two fields have the same name, so nothing was saved. Give each field its own name, then save again.</Notice>
       )}
+      {wf === "made" && <Notice tone="success">The workflow was made, and this item now uses it.</Notice>}
+      {wfError && <Notice tone="error">{wfError}</Notice>}
       {saved && (
         <p role="status" className="alert alert-success text-lg font-medium">
           Saved. New customers will use this form.
@@ -48,7 +52,6 @@ export default async function CategoryBuilder({
       <FormBuilder
         key={`${t.id}-${t.version}-${saved ?? ""}`}
         id={t.id}
-        version={t.version}
         action={saveCategoryAction}
         initialFields={t.fields.map((f) => ({
           key: f.key,
@@ -60,23 +63,28 @@ export default async function CategoryBuilder({
           options: (f.options ?? []).join("\n"),
         }))}
         initialSteps={t.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, needs: s.requiresFields ?? [] }))}
+        workflows={listWorkflows().map((w) => ({ id: w.id, name: w.name, steps: w.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo })) }))}
+        initialWorkflowId={t.workflowId}
       />
 
-      <form action={setPrintGroupAction} className="panel space-y-3">
-        <input type="hidden" name="id" value={t.id} />
-        <h2 className="text-xl font-medium">Printing</h2>
-        <p className="text-base">
-          Each item prints on its own page. To save paper, give two items the same name here and they share a page, for example
-          &quot;Pagri and Shoes&quot;. Leave empty for a page of its own.
-        </p>
-        <input name="printGroup" defaultValue={t.printGroup ?? ""} placeholder="Shared page name (optional)" className={input} />
-        <button className={btnSecondary}>Save</button>
-      </form>
+      {t.workflowId === null && t.stages.length > 0 && (
+        <form action={saveStepsAsWorkflowAction} className="panel space-y-3">
+          <input type="hidden" name="templateId" value={t.id} />
+          <h2 className="text-xl font-medium">Save these steps as a workflow</h2>
+          <p className="text-base">
+            Make a workflow from this item&apos;s saved steps ({t.stages.map((s) => s.label).join(", ")}), so other items can use it too. This item will use it.
+          </p>
+          <input name="name" required placeholder="Workflow name (for example Garment)" className={input} aria-label="Workflow name" />
+          <button className={btnSecondary}>Save as a workflow</button>
+        </form>
+      )}
 
-      <details className="collapse collapse-arrow border border-base-300 bg-base-100">
-        <summary className="collapse-title text-base font-medium">Delete this item</summary>
-        <form action={deleteCategoryAction} className="collapse-content space-y-3">
-          <p>Existing customers are not changed.</p>
+      <details className="group">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full border border-thread/40 px-5 py-2 text-base font-medium text-thread transition-colors hover:bg-thread/10 group-open:bg-thread/10 [&::-webkit-details-marker]:hidden">
+          <Icon name="trash" className="h-4 w-4" /> Delete this item
+        </summary>
+        <form action={deleteCategoryAction} className="mt-3 space-y-3 rounded-2xl border border-thread/30 bg-paper-2 p-4">
+          <p className="text-base text-muted">Existing customers are not changed.</p>
           <input type="hidden" name="id" value={t.sub.id} />
           <button className={btnDanger}>Yes, delete {t.sub.name}</button>
         </form>

@@ -26,8 +26,17 @@ export default async function Customers({
   for (const r of everyone) if (r.stage) stageCount.set(r.stage, (stageCount.get(r.stage) ?? 0) + 1);
   const LAST = ["Ready to ship", "No steps set up"];
   const stages = [...stageCount.entries()].sort((x, y) => LAST.indexOf(x[0]) - LAST.indexOf(y[0]));
+  // the deadline tags, counted the same way the tag on each card is decided
+  const bandCount = { red: 0, green: 0, blue: 0 };
+  for (const r of everyone) if (r.band) bandCount[r.band]++;
   const rows =
-    show === "overdue" ? overdue : show?.startsWith("stage:") ? everyone.filter((r) => r.stage === show.slice(6)) : everyone;
+    show === "overdue"
+      ? overdue
+      : show?.startsWith("band:")
+        ? everyone.filter((r) => r.band === show.slice(5))
+        : show?.startsWith("stage:")
+          ? everyone.filter((r) => r.stage === show.slice(6))
+          : everyone;
   const href = (to?: string) => {
     const q = new URLSearchParams();
     if (masterId) q.set("master", String(masterId));
@@ -35,15 +44,16 @@ export default async function Customers({
     return `/admin/customers${q.size ? `?${q}` : ""}`;
   };
   const back = href(show);
-  const chip = (active: boolean, tone: "plain" | "red" = "plain") =>
+  const chip = (active: boolean, tone: "plain" | "red" | "green" | "blue" = "plain") =>
     `inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-base font-medium transition-colors ${
       active
-        ? tone === "red"
-          ? "border-bad bg-bad text-white"
-          : "border-ink bg-ink text-white"
-        : tone === "red"
-          ? "border-bad/40 bg-bad-soft text-bad hover:bg-bad/10"
-          : "border-rule-2 bg-paper-2 text-ink hover:bg-paper-3"
+        ? { plain: "border-ink bg-ink text-white", red: "border-bad bg-bad text-white", green: "border-ok bg-ok text-white", blue: "border-cloth bg-cloth text-white" }[tone]
+        : {
+            plain: "border-rule-2 bg-paper-2 text-ink hover:bg-paper-3",
+            red: "border-bad/40 bg-bad-soft text-bad hover:bg-bad/10",
+            green: "border-ok/40 bg-ok-soft text-ok hover:bg-ok/10",
+            blue: "border-cloth/40 bg-cool-soft text-cloth hover:bg-cloth/10",
+          }[tone]
     }`;
   const count = (n: number, active: boolean) => (
     <span className={`rounded-full px-2 text-sm ${active ? "bg-white/25" : "bg-paper-3 text-ink"}`}>{n}</span>
@@ -65,6 +75,14 @@ export default async function Customers({
           <span aria-hidden className="h-2 w-2 rounded-full bg-current" />
           Overdue orders {count(overdue.length, show === "overdue")}
         </Link>
+        {(["red", "green", "blue"] as const).map((band) => {
+          const on = show === `band:${band}`;
+          return (
+            <Link key={band} href={href(`band:${band}`)} className={chip(on, band)} aria-current={on ? "page" : undefined}>
+              {BAND_LABEL[band].text} {count(bandCount[band], on)}
+            </Link>
+          );
+        })}
         {stages.map(([label, n]) => {
           const on = show === `stage:${label}`;
           return (
@@ -104,6 +122,10 @@ export default async function Customers({
           const pill = { red: "border-bad/30 bg-bad-soft text-bad", green: "border-ok/30 bg-ok-soft text-ok", blue: "border-cloth/30 bg-cool-soft text-cloth" }[tone];
           const dot = { red: "bg-bad", green: "bg-ok", blue: "bg-cloth" }[tone];
           const pct = (done: number, total: number) => (total === 0 ? 0 : Math.round((done / total) * 100));
+          // an order moves only among its own master's orders, so an arrow with no other order of that master to swap with is greyed out
+          const ofMaster = everyone.filter((r) => r.masterId === o.masterId);
+          const at = ofMaster.findIndex((r) => r.id === o.id);
+          const canMove = { up: at > 0, down: at < ofMaster.length - 1 };
           const tile = "rounded-2xl border px-4 py-2";
           const tileLabel = "text-xs font-medium uppercase tracking-wide";
           return (
@@ -118,6 +140,8 @@ export default async function Customers({
                   <p className="flex flex-wrap items-center gap-2 text-xl font-medium leading-snug">
                     <span className="rounded-lg bg-accent-soft px-2 py-0.5 text-base text-accent-deep">#{o.orderNumber}</span>
                     <span className="break-words group-hover:underline">{o.customerName}</span>
+                    {o.designNumber && <span className="rounded-lg border border-rule bg-paper-3/60 px-2 py-0.5 text-sm font-medium text-ink-2">{o.designNumber}</span>}
+                    {o.linkedDesignNumber && <span className="rounded-lg border border-accent/20 bg-accent-soft/60 px-2 py-0.5 text-sm text-accent-deep">Linked to {o.linkedDesignNumber}</span>}
                   </p>
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
                     {o.itemLabels.length > 0 ? (
@@ -131,7 +155,7 @@ export default async function Customers({
                     )}
                   </p>
                 </Link>
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                   <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${pill}`}>
                     <Icon name="clock" className="h-4 w-4" />
                     {status}
@@ -142,7 +166,12 @@ export default async function Customers({
                         <input type="hidden" name="id" value={o.id} />
                         <input type="hidden" name="dir" value={dir} />
                         <input type="hidden" name="back" value={back} />
-                        <button className="grid h-9 w-10 place-items-center text-ink-2 hover:bg-paper-3" aria-label={`Move order ${o.orderNumber} ${dir}`}>
+                        <button
+                          disabled={!canMove[dir]}
+                          title={canMove[dir] ? undefined : "This master has no other order to swap with"}
+                          className="grid h-9 w-10 place-items-center text-ink-2 hover:bg-paper-3 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+                          aria-label={`Move order ${o.orderNumber} ${dir}`}
+                        >
                           <Icon name={dir} className="h-4 w-4" />
                         </button>
                       </form>
@@ -207,6 +236,10 @@ export default async function Customers({
                 <p className="flex items-center gap-2 text-muted">
                   <span aria-hidden className="h-2 w-2 rounded-full bg-rule-2" />
                   {o.masterSeenAt ? `Master opened it ${fmtDate(o.masterSeenAt)}` : "Master has not opened it yet"}
+                </p>
+                <p className={`flex items-center gap-2 ${o.confirmedAt ? "text-ok" : "text-muted"}`}>
+                  <span aria-hidden className={`h-2 w-2 rounded-full ${o.confirmedAt ? "bg-ok" : "bg-rule-2"}`} />
+                  {o.confirmedAt ? `Confirmed ${fmtDate(o.confirmedAt)}` : "Not confirmed yet"}
                 </p>
                 <span aria-hidden className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-ink text-white">
                   <Icon name="arrow" className="h-4 w-4" />
