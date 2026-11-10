@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { listMasters } from "@/lib/masters";
 import { APP_URL } from "@/lib/config";
-import { Field, btnPrimary, btnSecondary, input } from "@/components/ui";
+import { Field, btnPrimary, btnSecondary, input, PageTitle } from "@/components/ui";
 import { createMasterAction, reissueLinkAction, setMasterActiveAction, setPinAction } from "../actions";
 
 export default function Masters() {
   const masters = listMasters();
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Masters</h1>
+      <PageTitle icon="masters">Masters</PageTitle>
 
       <ul className="space-y-4">
         {masters.map((m) => {

@@ -116,7 +116,7 @@ export function PictureInput({ name, pasteInto = [] }: { name: string; pasteInto
         type="button"
         disabled={busy}
         onClick={() => box.current?.click()}
-        title="Add pictures, or paste one with Ctrl+V while the cursor is in a text box"
+        title="Add pictures, or paste one with Ctrl+V"
         className={btnSecondary}
       >
         <Icon name="plus" className="h-4 w-4" /> {busy ? "Preparing..." : files.length > 0 ? "Add more pictures" : "Add pictures"}

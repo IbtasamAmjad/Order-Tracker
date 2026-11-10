@@ -1,5 +1,6 @@
 "use server";
 
+import { COOKIE_SECURE } from "@/lib/config";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getMasterByToken } from "@/lib/masters";
@@ -25,6 +26,7 @@ export async function submitPinAction(f: FormData) {
   (await cookies()).set(`ms_${token}`, master.sessionSecret, {
     httpOnly: true,
     sameSite: "lax",
+    secure: COOKIE_SECURE,
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });

@@ -55,7 +55,7 @@ export function WorkflowEditor({
 
       <section aria-label="Steps" className="space-y-3">
         <h2 className="text-xl font-medium">Steps</h2>
-        <p className="text-base text-muted">The steps in the order they happen. The work image is sent by the master from the phone.</p>
+        <p className="text-base text-muted">The steps in order. The master sends the work photo from the phone.</p>
         {steps.map((s, i) => (
           <div key={s.uid} className="panel flex flex-wrap items-center gap-2 !p-3">
             <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-base font-medium text-accent-deep">

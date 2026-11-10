@@ -175,6 +175,7 @@ export type BuilderRow = {
   unit: string;
   options?: string; // one choice per line
   who?: string; // "master" = the master can fill / change it
+  pictures?: boolean; // pictures can be added under it (text and long text only)
 };
 
 /** Turn submitted builder rows into field definitions. Rows with no label are dropped. */
@@ -195,6 +196,7 @@ export function rowsToFields(rows: BuilderRow[]): FieldDef[] {
     if (unit && type === "number") def.unit = unit;
     if (type === "select" || type === "radio" || type === "checkboxes") def.options = parseOptions(r.options ?? "");
     if (r.who === "master" && !isDisplayOnly({ type })) def.masterCanEdit = true;
+    if (r.pictures === true && (type === "text" || type === "longtext")) def.pictures = true;
     out.push(def);
   }
   return out;
@@ -225,6 +227,7 @@ export type BuilderField = {
   type?: string;
   required?: boolean;
   masterCanEdit?: boolean;
+  pictures?: boolean;
   unit?: string;
   options?: string; // one choice per line
 };
@@ -251,6 +254,7 @@ export function fieldsFromBuilder(json: string): FieldDef[] {
       unit: str(f?.unit),
       options: str(f?.options),
       who: f?.masterCanEdit === true ? "master" : "admin",
+      pictures: f?.pictures === true,
     })),
   );
 }

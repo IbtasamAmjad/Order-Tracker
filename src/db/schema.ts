@@ -116,6 +116,7 @@ export type FieldDef = {
   unit?: string; // free text, e.g. "inch" or "cm" (number fields)
   options?: string[]; // choices for select / radio / checkboxes
   masterCanEdit?: boolean; // the master may fill or change this field (comments, pictures...)
+  pictures?: boolean; // text and long text only: the office can add pictures right under this field (for example Embroidery details)
 };
 
 // Two levels: main (parentId null) > sub. Templates hang off sub-categories.

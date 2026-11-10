@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { markShipmentsSeen, submittedShipmentsForAdmin } from "@/lib/shipping";
-import { EmptyState, fmtDate } from "@/components/ui";
+import { EmptyState, fmtDate, PageTitle } from "@/components/ui";
 import { DownloadLink } from "@/components/DownloadLink";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default function Shipments() {
 
   return (
     <div className="space-y-4">
-      <h1 className="page-title">Shipments</h1>
+      <PageTitle icon="shipments">Shipments</PageTitle>
       {rows.length === 0 && <EmptyState title="No shipments yet">When a master sends items, they appear here with the bill.</EmptyState>}
       <ul className="space-y-4">
         {rows.map((s) => {

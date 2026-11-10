@@ -31,7 +31,7 @@ export default async function CategoryBuilder({
       </div>
 
       {e === "duplicate" && (
-        <Notice tone="error">Two fields have the same name, so nothing was saved. Give each field its own name, then save again.</Notice>
+        <Notice tone="error">Two fields have the same name. Nothing was saved. Rename one and save again.</Notice>
       )}
       {wf === "made" && <Notice tone="success">The steps were saved, and this item now uses them.</Notice>}
       {wfError && <Notice tone="error">{wfError}</Notice>}
@@ -60,6 +60,7 @@ export default async function CategoryBuilder({
           type: f.type,
           required: f.required,
           masterCanEdit: !!f.masterCanEdit,
+          pictures: !!f.pictures,
           unit: f.unit ?? "",
           options: (f.options ?? []).join("\n"),
         }))}

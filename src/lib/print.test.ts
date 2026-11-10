@@ -8,6 +8,7 @@ let o: typeof import("./orders");
 let m: typeof import("./masters");
 let p: typeof import("./print");
 let pdf: typeof import("./pdf");
+let st: typeof import("./stages");
 
 beforeAll(async () => {
   const { db } = await import("@/db");
@@ -17,6 +18,7 @@ beforeAll(async () => {
   m = await import("./masters");
   p = await import("./print");
   pdf = await import("./pdf");
+  st = await import("./stages");
 });
 
 const row = (label: string, type = "number", unit = "inch") => ({ key: "", label, type, required: "optional", unit });
@@ -80,5 +82,41 @@ describe("print pages", () => {
     expect(data.sheets).toEqual([]);
     const file = await pdf.renderOrderPdf(data);
     expect((file.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length).toBe(1);
+  });
+  it("prints a picture under its own field, groups measurements in a grid, and writes the due date in words", () => {
+    const main = t.createMainCategory("PrintPics", "#000000");
+    t.createSubCategory(main, "Coat", "#333333");
+    const tpl = t.listCategoryTree().find((c) => c.id === main)!.subs.find((s) => s.name === "Coat")!.template;
+    t.saveTemplateFields(
+      tpl.id,
+      t.rowsToFields([
+        { key: "", label: "Fabric", type: "text", required: "optional", unit: "" },
+        { key: "", label: "Embroidery details", type: "longtext", required: "optional", unit: "", pictures: true },
+        { key: "", label: "Measurements", type: "heading", required: "optional", unit: "" },
+        { key: "", label: "Length", type: "text", required: "optional", unit: "" },
+        { key: "", label: "Chest", type: "text", required: "optional", unit: "" },
+        { key: "", label: "Reference picture", type: "picture", required: "optional", unit: "" },
+      ]),
+    );
+    const master = m.createMaster({ name: "PP", pin: "1" });
+    const orderId = o.createOrder(
+      { customerName: "Pic Customer", myDueDate: "2031-07-07", karigarDueDate: "2030-01-02", masterId: master, details: "" },
+      [{ templateId: tpl.id, label: "Coat", snapshot: t.templateForItem(tpl.id)!.snapshot, values: { fabric: "Silk", embroidery_details: "Gold border", length: "42", chest: "38" } }],
+    );
+    const itemId = o.listItems(orderId)[0].id;
+    const file = { fileKey: "k", thumbKey: "t", bytes: 1 };
+    const under = st.addReferencePhoto({ orderId, itemId, fieldKey: "embroidery_details", ...file });
+    const design = st.addReferencePhoto({ orderId, itemId, fieldKey: "reference_picture", ...file });
+
+    const data = p.buildPrintData(orderId)!;
+    expect(data.dueLabel).toBe("2 January 2030");
+    const item = data.sheets[0].items[0];
+    expect(item.details.find((d) => d.label === "Embroidery details")!.photoIds).toEqual([under]); // right under its field
+    expect(item.photoIds).toEqual([design]); // the other picture stays at the end, the field one is not repeated
+    expect(p.allPhotoIds(data).sort()).toEqual([under, design].sort());
+
+    const blocks = p.layoutDetails(item.details, item.measures);
+    expect(blocks.map((b) => b.type)).toEqual(["row", "row", "heading", "grid"]);
+    expect(blocks[3]).toEqual({ type: "grid", cells: [{ label: "Length", value: "42" }, { label: "Chest", value: "38" }] });
   });
 });

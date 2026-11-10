@@ -13,13 +13,13 @@ export default function Templates() {
     <div className="space-y-6">
       <AddGroupBox
         title="Items"
-        sub="A group holds items. For example the group Men holds Kurta and Pagri. Open an item to build its form."
+        sub="A group holds items, for example Men holds Kurta and Pagri. Open an item to edit its form."
         action={createMainAction}
         startOpen={tree.length === 0}
       />
 
       {tree.length === 0 && (
-        <EmptyState title="No groups yet">Start by pressing Add group, such as Men or Ladies. Then add its categories.</EmptyState>
+        <EmptyState title="No groups yet">Press Add group to start, for example Men or Ladies.</EmptyState>
       )}
 
       <ul className="space-y-6">
@@ -68,7 +68,7 @@ export default function Templates() {
             <details>
               <summary className="inline-flex min-h-11 cursor-pointer items-center text-base underline">Delete this group</summary>
               <form action={deleteCategoryAction} className="mt-2 space-y-2">
-                <p>This also deletes its items and forms. Existing orders are not changed.</p>
+                <p>Also deletes its items and forms. Existing orders are not changed.</p>
                 <input type="hidden" name="id" value={main.id} />
                 <button className={btnDanger}>Yes, delete {main.name}</button>
               </form>

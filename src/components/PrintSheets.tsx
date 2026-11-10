@@ -1,8 +1,16 @@
-import { photoHeightMm, type PrintData, type Sheet } from "@/lib/print";
+import { FIELD_PHOTO_MM, layoutDetails, photoHeightMm, type PrintData, type Sheet } from "@/lib/print";
 
-/** Black-and-white printable pages: one per item type (or shared print group). */
+/** Black-and-white printable pages: one per item type. */
 export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoId: number) => string }) {
   const sheets: Sheet[] = data.sheets.length ? data.sheets : [{ key: "empty", title: "Order", items: [] }];
+  const pics = (ids: number[], mm: number) => (
+    <div className="mt-1.5 flex flex-wrap gap-2">
+      {ids.map((id) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={id} src={imgUrl(id)} alt="Picture" style={{ height: `${mm}mm`, width: "auto" }} className="border border-neutral-400" />
+      ))}
+    </div>
+  );
   return (
     <div className="space-y-6 print:space-y-0">
       {sheets.map((sheet, n) => {
@@ -10,57 +18,74 @@ export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoI
         return (
           <section
             key={sheet.key}
-            className="border-2 border-black bg-white p-4 text-black print:border-0 print:p-0"
+            className="border-2 border-black bg-white p-5 text-black print:border-0 print:p-0"
             style={n < sheets.length - 1 ? { breakAfter: "page" } : undefined}
           >
-            <header className="mb-3 border-b-2 border-black pb-2">
-              <p className="text-base">
-                Order #{data.orderNumber} - {data.customerName}{data.designNumber ? ` - Design: ${data.designNumber}` : ""} - Due: {data.karigarDueDate}
-              </p>
-              <h2 className="text-2xl font-medium">{sheet.title}</h2>
+            <header className="mb-5 border-2 border-black">
+              <div className="flex">
+                <div className="min-w-0 flex-1 border-b-2 border-black p-3">
+                  <p className="text-xs uppercase tracking-wider">Order #{data.orderNumber}</p>
+                  <p className="text-2xl font-medium leading-tight">{data.customerName}</p>
+                  {data.designNumber && (
+                    <p className="text-base">
+                      Design: <b className="font-medium">{data.designNumber}</b>
+                    </p>
+                  )}
+                </div>
+                <div className="w-52 shrink-0 border-b-2 border-l-2 border-black p-3 text-right">
+                  <p className="text-xs uppercase tracking-wider">Due date</p>
+                  <p className="text-xl font-medium leading-tight">{data.dueLabel}</p>
+                </div>
+              </div>
+              <h2 className="px-3 py-2 text-3xl font-medium">{sheet.title}</h2>
             </header>
 
             {sheet.items.map((item) => (
-              <div key={item.label} className="mb-4" style={{ breakInside: "avoid" }}>
-                <h3 className="mb-1 text-xl font-medium">{item.label}</h3>
-                {item.details.map((d) =>
-                  d.kind === "heading" ? (
-                    <p key={d.label} className="mt-2 border-b border-black text-lg font-medium">
-                      {d.label}
+              <div key={item.label} className="mb-6" style={{ breakInside: "avoid" }}>
+                {(sheet.items.length > 1 || item.label !== sheet.title) && <h3 className="mb-1 border-b-2 border-black pb-1 text-xl font-medium">{item.label}</h3>}
+                {layoutDetails(item.details, item.measures).map((b, i) =>
+                  b.type === "heading" ? (
+                    <p key={i} className="mb-1 mt-5 border-b-2 border-black pb-0.5 text-sm font-medium uppercase tracking-wider">
+                      {b.label}
                     </p>
-                  ) : d.kind === "note" ? (
-                    <p key={d.label} className="whitespace-pre-wrap">
-                      {d.label}
+                  ) : b.type === "note" ? (
+                    <p key={i} className="whitespace-pre-wrap border-b border-neutral-400 py-1 text-sm italic">
+                      {b.label}
                     </p>
+                  ) : b.type === "grid" ? (
+                    <div key={i} className="mt-1 grid grid-cols-3 gap-px border border-black bg-black">
+                      {b.cells.map((c) => (
+                        <div key={c.label} className="bg-white px-2 py-1.5">
+                          <p className="text-xs">{c.label}</p>
+                          <p className="text-lg font-medium leading-tight">{c.value}</p>
+                        </div>
+                      ))}
+                      {Array.from({ length: (3 - (b.cells.length % 3)) % 3 }, (_, k) => (
+                        <div key={`pad-${k}`} className="bg-white" />
+                      ))}
+                    </div>
                   ) : (
-                    <p key={d.label}>
-                      <b>{d.label}:</b> {d.value}
-                    </p>
+                    <div key={i} className="border-b border-neutral-400 py-1.5" style={{ breakInside: "avoid" }}>
+                      <div className="grid grid-cols-[34%_minmax(0,1fr)] gap-3">
+                        <span className="font-medium">{b.label}</span>
+                        <span className="whitespace-pre-wrap break-words">{b.value}</span>
+                      </div>
+                      {b.photoIds.length > 0 && pics(b.photoIds, FIELD_PHOTO_MM)}
+                    </div>
                   ),
                 )}
-                {item.measures.length > 0 && (
-                  <dl className="mt-1 grid grid-cols-3 gap-x-4 gap-y-1 border border-black p-2">
-                    {item.measures.map((m) => (
-                      <div key={m.label}>
-                        {m.label}: <b>{m.value}</b>
-                      </div>
-                    ))}
-                  </dl>
-                )}
                 {item.photoIds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {item.photoIds.map((id) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={id} src={imgUrl(id)} alt="Reference" style={{ height: `${h}mm`, width: "auto" }} />
-                    ))}
+                  <div className="mt-5">
+                    <p className="border-b-2 border-black pb-0.5 text-sm font-medium uppercase tracking-wider">Pictures</p>
+                    {pics(item.photoIds, h)}
                   </div>
                 )}
               </div>
             ))}
 
             {data.notes && (
-              <div className="mt-3 border-t border-black pt-2">
-                <b>Notes</b>
+              <div className="mt-4 border-t-2 border-black pt-2">
+                <p className="text-sm font-medium uppercase tracking-wider">Notes</p>
                 <p className="whitespace-pre-wrap">{data.notes}</p>
               </div>
             )}

@@ -3,7 +3,7 @@ import { ItemFilters } from "@/components/ItemFilters";
 import { ItemResult } from "@/components/ItemResult";
 import { Icon } from "@/components/Icon";
 import { PinForm } from "@/components/PinForm";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, PageTitle } from "@/components/ui";
 import { itemRows, searchItems } from "@/lib/item-search";
 import { linkState, requireMaster } from "@/lib/master-session";
 
@@ -43,7 +43,7 @@ export default async function MasterItems({
         <Icon name="arrow" className="h-4 w-4 rotate-180" /> Back
       </Link>
       <header>
-        <h1 className="page-title text-4xl">Items</h1>
+        <PageTitle icon="box" large>Items</PageTitle>
         <p className="text-lg">The same items from different customers, together.</p>
       </header>
 

@@ -137,6 +137,12 @@ export function FieldRow({
           />
         )}
       </label>
+      {f.pictures && (f.type === "text" || f.type === "longtext") && (
+        <div className="mt-2">
+          {saved && <SavedPictures photos={saved.photos} label={f.label} itemId={saved.itemId} />}
+          {!pictureNote && <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={[name]} />}
+        </div>
+      )}
       {missing && (
         <p role="alert" className="mt-1 flex items-center gap-1.5 text-sm font-medium text-bad">
           <Icon name="alert" className="h-4 w-4 shrink-0" />

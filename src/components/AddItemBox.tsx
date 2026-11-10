@@ -18,7 +18,7 @@ export function AddItemBox({ orderId, options }: { orderId: number; options: { t
         </span>
         <div className="min-w-0">
           <p className="text-lg font-medium leading-tight">Add another item</p>
-          <p className="text-base text-muted">Choose an item to add to this customer. Save your changes first.</p>
+          <p className="text-base text-muted">Choose an item to add. Save your changes first.</p>
         </div>
       </div>
       <input type="hidden" name="orderId" value={orderId} form={ADD_ITEM_FORM} />

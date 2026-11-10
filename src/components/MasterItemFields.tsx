@@ -1,6 +1,7 @@
 import type { FieldDef, ItemSnapshot } from "@/db/schema";
 import { saveMasterFieldsAction } from "@/app/m/actions";
 import { displayValue, isDisplayOnly, isTextEditable } from "@/lib/items";
+import { FieldPictures } from "./DesignPictures";
 import { FieldRow } from "./FieldRow";
 import { PhotoUpload } from "./PhotoUpload";
 import { btnPrimary } from "./ui";
@@ -95,6 +96,7 @@ export function MasterItemFields({
                         )}
                         {v}
                       </dd>
+                      {f.pictures && <FieldPictures token={token} itemId={itemId} fieldKey={f.key} label={f.label} />}
                     </div>
                   ))}
                 </dl>

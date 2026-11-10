@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PinForm } from "@/components/PinForm";
-import { btnPrimary, fmtDay } from "@/components/ui";
+import { TitleIcon, btnPrimary, fmtDay } from "@/components/ui";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { markSeen, masterItems, masterOrder } from "@/lib/orders";
 import { MasterStages } from "@/components/MasterStages";
@@ -56,7 +56,10 @@ export default async function MasterOrder({
       </Link>
       <section className="panel space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-          <h1 className="page-title normal-case">Order #{order.orderNumber}</h1>
+          <div className="flex items-center gap-3">
+            <TitleIcon name="note" />
+            <h1 className="page-title normal-case">Order #{order.orderNumber}</h1>
+          </div>
           <span
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-base font-medium ${
               order.status === "active"
@@ -159,7 +162,7 @@ export default async function MasterOrder({
       {order.status === "active" && !order.confirmedAt && (
         <section className="panel space-y-3 !border-2 !border-accent">
           <h2 className="text-2xl font-medium">Please confirm you have seen this order</h2>
-          <p className="text-lg">Press the button so the office knows you have it. You can finish steps after that.</p>
+          <p className="text-lg">Press the button to tell the office you have it. Then you can finish steps.</p>
           <form action={confirmOrderAction}>
             <input type="hidden" name="token" value={token} />
             <input type="hidden" name="orderId" value={order.id} />
@@ -231,18 +234,18 @@ export default async function MasterOrder({
           {e === "needs-photo"
             ? "This step needs an approved photo first."
             : e === "needs-fields"
-              ? "Some required fields are not filled in yet. Fill them in, then finish the step."
+              ? "Some required fields are empty. Fill them in, then finish the step."
               : "That did not work. Please try again."}
         </p>
       )}
       {e === "not-shipped" && (
-        <p role="alert" className="alert alert-error text-lg font-medium">Send the items first. The order closes when everything has been sent.</p>
+        <p role="alert" className="alert alert-error text-lg font-medium">Send the items first. The order closes when all are sent.</p>
       )}
 
       {order.status === "active" &&
         (items.length > 0 ? (
           // an order with items is closed by sending them, so "Mark complete" would only be a way round shipping
-          <p className="alert text-lg">This order closes by itself when every item has been sent. Use Shipping above.</p>
+          <p className="alert text-lg">This order closes when every item is sent. Use the Cart.</p>
         ) : order.canComplete ? (
           <form action={completeOrderAction}>
             <input type="hidden" name="token" value={token} />

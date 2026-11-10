@@ -21,7 +21,7 @@ export default async function OrderedItems({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Ordered items" sub="Every item ordered across all customers, with due dates, embroidery details and status.">
+      <PageHeader icon="box" title="Ordered items" sub="Every item across all customers: due date, embroidery and status.">
         <Link href={`/admin/ordered-items/report?${new URLSearchParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), ...(status ? { status } : {}), ...(due ? { due } : {}) })}`} className="btn btn-quiet inline-flex">
           Print report
         </Link>

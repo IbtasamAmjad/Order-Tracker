@@ -32,3 +32,19 @@ export function DesignPictures({ token, itemId, fieldKeys }: { token: string; it
     </section>
   );
 }
+
+/** The pictures attached under one field (for example Embroidery details), as small pictures to tap and open full size. */
+export function FieldPictures({ token, itemId, fieldKey, label }: { token: string; itemId: number; fieldKey: string; label: string }) {
+  const pics = referencePhotos(itemId).filter((r) => r.fieldKey === fieldKey);
+  if (pics.length === 0) return null;
+  return (
+    <div className="mt-2 grid grid-cols-3 gap-2">
+      {pics.map((r) => (
+        <a key={r.id} href={`/api/m/${token}/photos/${r.id}`} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-2xl border border-rule bg-paper-3" aria-label={`Open the picture of ${label} full size`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/m/${token}/photos/${r.id}?thumb=1`} alt={label} className="h-full w-full object-cover" />
+        </a>
+      ))}
+    </div>
+  );
+}

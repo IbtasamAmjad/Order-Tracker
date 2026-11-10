@@ -242,4 +242,15 @@ describe("color code field", () => {
     expect(cleanValues([f], { c: "ff0000" })).toEqual({ c: "#FF0000" });
     expect(cleanValues([f], { c: "red" })).toEqual({});
   });
+  it("lets pictures be added under a text or long text field, and ignores the option on other types", () => {
+    const fields = t.fieldsFromBuilder(
+      JSON.stringify([
+        { key: "", label: "Embroidery details", type: "longtext", required: false, masterCanEdit: false, unit: "", options: "", pictures: true },
+        { key: "", label: "Fabric", type: "text", required: false, masterCanEdit: false, unit: "", options: "", pictures: true },
+        { key: "", label: "Chest", type: "number", required: false, masterCanEdit: false, unit: "inch", options: "", pictures: true },
+        { key: "", label: "Notes", type: "longtext", required: false, masterCanEdit: false, unit: "", options: "" },
+      ]),
+    );
+    expect(fields.map((f) => [f.label, !!f.pictures])).toEqual([["Embroidery details", true], ["Fabric", true], ["Chest", false], ["Notes", false]]);
+  });
 });

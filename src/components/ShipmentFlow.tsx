@@ -114,7 +114,7 @@ export function ShipmentFlow({
         )}
 
         <section className="space-y-3">
-          <StepTitle n={1} hint="Every finished item is here. Take out any you are not sending today.">
+          <StepTitle n={1} hint="Finished items are here. Take out any you are not sending today.">
             What are you sending?
           </StepTitle>
           <ul className="space-y-2">

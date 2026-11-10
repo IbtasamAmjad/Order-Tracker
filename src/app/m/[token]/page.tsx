@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { PinForm } from "@/components/PinForm";
 import { StageTrack } from "@/components/StageTrack";
-import { PositionTile, btnPrimary, card, chipAttention, fmtDay } from "@/components/ui";
+import { PositionTile, TitleIcon, btnPrimary, card, chipAttention, fmtDay } from "@/components/ui";
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
@@ -39,7 +39,10 @@ export default async function MasterHome({
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="page-title text-4xl">Hello {master.name}</h1>
+        <div className="flex items-center gap-3">
+          <TitleIcon name="masters" large />
+          <h1 className="page-title text-4xl">Hello {master.name}</h1>
+        </div>
         <p className="text-lg">{active.length === 0 ? "No orders right now." : "Open an order to work on it. Any order can be done first."}</p>
       </header>
 

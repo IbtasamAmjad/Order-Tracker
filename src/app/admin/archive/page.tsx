@@ -15,6 +15,7 @@ export default async function Archive({ searchParams }: { searchParams: Promise<
   return (
     <div className="space-y-4">
       <PageHeader
+        icon="finished"
         title={archived ? "Archived orders" : "Finished orders"}
         sub={
           archived

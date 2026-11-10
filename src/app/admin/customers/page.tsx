@@ -69,7 +69,7 @@ export default async function Customers({
   return (
     <div className="space-y-4">
       <WhatsAppNotice notices={notices} />
-      <PageHeader title="Customers" sub={byDue ? "By due date, the earliest first." : "In the order the masters should work them."}>
+      <PageHeader icon="customers" title="Customers" sub={byDue ? "By due date, the earliest first." : "In the order the masters should work them."}>
         <Link href="/admin/orders/new" className={btnPrimary}>
           <Icon name="plus" className="h-4 w-4" /> New customer
         </Link>
@@ -139,7 +139,7 @@ export default async function Customers({
 
       {rows.length === 0 &&
         (show || masterId ? (
-          <EmptyState title="No customers here">Nothing matches this filter. Choose All live orders to see everyone.</EmptyState>
+          <EmptyState title="No customers here">Nothing matches. Choose All live orders to see everyone.</EmptyState>
         ) : (
           <EmptyState title="No customers yet">Press New customer to start the order book.</EmptyState>
         ))}

@@ -182,7 +182,7 @@ export function OrderEditor({
                 </option>
               ))}
             </datalist>
-            <p className="mt-1 text-sm text-muted">For an accessory or single item: the design number of its main Sherwani or Bridal.</p>
+            <p className="mt-1 text-sm text-muted">For an accessory: the design number of its main Sherwani or Bridal.</p>
           </div>
           <Field label="My due date (only you see this)" required upper>
             <input type="date" name="myDueDate" required defaultValue={pick("myDueDate", base.myDueDate)} className={input} />
@@ -315,9 +315,9 @@ export function OrderEditor({
                 const name = `v:${item.key}:${f.key}`;
                 const firstPicture = f.type === "picture" && all.findIndex((x) => x.type === "picture") === n;
                 // pictures pasted into any text box of this item land in its first picture area, at the end
-                const pasteFrom = firstPicture ? item.fields.filter((x) => x.type === "text" || x.type === "longtext").map((x) => `v:${item.key}:${x.key}`) : [];
+                const pasteFrom = firstPicture ? item.fields.filter((x) => (x.type === "text" || x.type === "longtext") && !x.pictures).map((x) => `v:${item.key}:${x.key}`) : [];
                 // pictures older forms attached to a text box are shown with that first picture area too
-                const textKeys = new Set(item.fields.filter((x) => x.type === "longtext").map((x) => x.key));
+                const textKeys = new Set(item.fields.filter((x) => x.type === "longtext" && !x.pictures).map((x) => x.key));
                 const photos = (item.photos ?? []).filter((p) => p.fieldKey === f.key || (firstPicture && textKeys.has(p.fieldKey)));
                 return (
                   <div key={f.key} id={`f-${item.key}-${f.key}`} className={`scroll-mt-24 ${isWideField(f) ? "sm:col-span-2" : ""}`}>
@@ -352,7 +352,7 @@ export function OrderEditor({
               <li key={m}>{m}</li>
             ))}
           </ul>
-          <p className="text-base">Fill these in above, then save again. Nothing is saved until every field is filled.</p>
+          <p className="text-base">Fill these in, then save. Nothing is saved until every field is filled.</p>
         </div>
       )}
 

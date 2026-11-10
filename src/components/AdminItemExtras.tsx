@@ -36,9 +36,9 @@ export function AdminItemExtras({
     <div className="space-y-3">
       {changed && (
         <div className="space-y-2 rounded-2xl bg-accent-soft p-4">
-          <p className="text-base font-medium">The item has changed since this customer was added.</p>
+          <p className="text-base font-medium">The item has changed.</p>
           <p className="text-base">
-            Update this customer to the item&apos;s current form and steps. What is already filled in stays, steps already done stay done, and the master is told it was updated.
+            Bring this customer up to date. What is filled in and finished stays.
           </p>
           <button type="submit" form={REFRESH_FORM} name="itemId" value={item.id} className={btnSecondary}>
             Update from the item
@@ -143,7 +143,7 @@ export function AdminItemExtras({
                       <details className="text-base">
                         <summary className="inline-flex min-h-11 cursor-pointer items-center underline">Cannot finish it?</summary>
                         <div className="mt-1 space-y-2">
-                          <p>This finishes the step without the photo or fields check and opens the next step.</p>
+                          <p>Finishes the step without the photo check and opens the next one.</p>
                           <button type="submit" form={STEP_FORM} name="step" value={`${item.id}:${s.key}:force`} className={btnSecondary}>
                             Mark done anyway
                           </button>

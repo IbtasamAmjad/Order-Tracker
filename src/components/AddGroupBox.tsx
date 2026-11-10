@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "./Icon";
-import { Field, btnPrimary, input } from "./ui";
+import { Field, TitleIcon, btnPrimary, input } from "./ui";
 
 const colourInput = "h-12 w-14 shrink-0 cursor-pointer rounded-full border border-muted bg-paper p-1";
 
@@ -25,9 +25,12 @@ export function AddGroupBox({
   return (
     <>
       <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="page-title">{title}</h1>
-          <p className="page-sub mt-1">{sub}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <TitleIcon name="categories" />
+          <div className="min-w-0">
+            <h1 className="page-title">{title}</h1>
+            <p className="page-sub mt-1">{sub}</p>
+          </div>
         </div>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${btnPrimary} shrink-0`}>
           <Icon name="plus" className="h-4 w-4" /> Add group

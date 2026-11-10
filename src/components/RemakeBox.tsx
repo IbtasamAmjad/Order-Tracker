@@ -23,7 +23,7 @@ export function RemakeBox({ orderId, items }: { orderId: number; items: { id: nu
       <form action={remakeItemsAction} className="space-y-4 border-t border-rule px-5 py-4">
         <input type="hidden" name="orderId" value={orderId} />
         <p className="text-base text-muted">
-          Choose the items that must be made again. Their steps start from the beginning, the due date stays the same (so they show as late), and the master is told why.
+          Choose the items to make again. They restart from the first step. The due date stays, so they show as late.
         </p>
         <ul className="space-y-2">
           {items.map((i) => (

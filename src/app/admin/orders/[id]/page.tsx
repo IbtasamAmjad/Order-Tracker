@@ -151,7 +151,7 @@ export default async function EditOrder({
         </div>
       )}
       {updated && <Notice tone="success">Updated from the item. The master will see it was changed.</Notice>}
-      {caughtUp > 0 && <Notice tone="success">This customer was brought up to date with the latest form and steps. What was filled in is kept; check any new fields below.</Notice>}
+      {caughtUp > 0 && <Notice tone="success">Brought up to date with the latest form and steps. Your entries are kept. Check any new fields.</Notice>}
       {removed && <Notice tone="success">The item was removed.</Notice>}
       {e && REFRESH_ERRORS[e] && <Notice tone="error">{REFRESH_ERRORS[e]}</Notice>}
       {shipments.length > 0 && (

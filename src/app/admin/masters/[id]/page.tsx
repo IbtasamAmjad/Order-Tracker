@@ -34,7 +34,7 @@ export default async function MasterPage({
       <Link href="/admin/masters" className="link inline-flex min-h-11 items-center gap-2 text-base font-medium">
         <Icon name="arrow" className="h-4 w-4 rotate-180" /> Masters
       </Link>
-      <PageHeader title={master.name} sub={`${customers} order${customers === 1 ? "" : "s"}, ${all.length} item${all.length === 1 ? "" : "s"}${master.active ? "" : " (inactive)"}`} />
+      <PageHeader icon="masters" title={master.name} sub={`${customers} order${customers === 1 ? "" : "s"}, ${all.length} item${all.length === 1 ? "" : "s"}${master.active ? "" : " (inactive)"}`} />
 
       <section className="panel space-y-3" aria-label="Progress">
         <Ruler value={finished} total={all.length} label={`${finished} of ${all.length} items made`} />

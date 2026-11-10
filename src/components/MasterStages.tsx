@@ -122,7 +122,7 @@ export function MasterStages({
 
                   {s.status === "open" && s.photo === "upload" && (
                     <div className="space-y-2">
-                      <p className="text-lg">Add at least one image of your work. You need it to finish this step.</p>
+                      <p className="text-lg">Add at least one photo of your work to finish this step.</p>
                       {s.allPhotos.length > 0 && <StepImages photos={s.allPhotos} img={img} />}
                       <PhotoUpload
                         endpoint={`/api/m/${token}/photos`}
@@ -201,7 +201,7 @@ export function MasterStages({
                     (!turn ? (
                       <p className="text-base">You can finish this step after the orders above it.</p>
                     ) : !confirmed ? (
-                      <p className="text-lg font-medium">Press &quot;I have seen this order&quot; at the top first. Then you can finish steps.</p>
+                      <p className="text-lg font-medium">First press &quot;I have seen this order&quot; at the top.</p>
                     ) : s.photoOk && s.fieldsOk ? (
                       <form action={completeStageAction}>
                         <input type="hidden" name="token" value={token} />

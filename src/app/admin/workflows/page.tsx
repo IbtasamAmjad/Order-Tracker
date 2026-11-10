@@ -14,14 +14,14 @@ export default async function Workflows({ searchParams }: { searchParams: Promis
   const list = listWorkflows();
   return (
     <div className="space-y-5">
-      <PageHeader title="Steps" sub="The steps each kind of item goes through. Make a set once, then use it for several items.">
+      <PageHeader icon="note" title="Steps" sub="The steps each kind of item goes through. Make a set once, use it for many items.">
         <Link href="/admin/workflows/new" className={btnPrimary}>
           <Icon name="plus" className="h-4 w-4" /> New steps
         </Link>
       </PageHeader>
 
       {saved && <Notice tone="success">Saved.{Number(synced) > 0 && ` ${synced} customer item${Number(synced) === 1 ? "" : "s"} already in progress ${Number(synced) === 1 ? "was" : "were"} updated too.`}</Notice>}
-      {deleted && <Notice tone="success">The steps were deleted. The items that used them keep their steps.</Notice>}
+      {deleted && <Notice tone="success">Steps deleted. Items that used them keep their steps.</Notice>}
 
       {list.length === 0 ? (
         <EmptyState title="No steps yet">Press New steps to make the first set.</EmptyState>
@@ -70,7 +70,7 @@ export default async function Workflows({ searchParams }: { searchParams: Promis
                 <summary className="inline-flex min-h-10 cursor-pointer items-center text-muted underline">Delete these steps</summary>
                 <form action={deleteWorkflowAction} className="mt-2 space-y-2">
                   <input type="hidden" name="id" value={w.id} />
-                  <p>The items that use them keep their steps, as their own. Customers are not changed.</p>
+                  <p>Items using them keep their steps. Customers are not changed.</p>
                   <button className={btnDanger}>Delete {w.name}</button>
                 </form>
               </details>

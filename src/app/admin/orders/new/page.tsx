@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { OrderEditor, type CategoryPicker } from "@/components/OrderEditor";
-import { btnPrimary } from "@/components/ui";
+import { btnPrimary, PageTitle } from "@/components/ui";
 import { listMasters } from "@/lib/masters";
 import { listDesignNumbers } from "@/lib/orders";
 import { pickerGroups, templateForItem } from "@/lib/templates";
@@ -17,7 +17,7 @@ export default async function NewOrder({
   if (masters.length === 0) {
     return (
       <div className="space-y-3">
-        <h1 className="page-title">New customer</h1>
+        <PageTitle icon="customers">New customer</PageTitle>
         <p className="text-lg">Add a master first.</p>
         <Link href="/admin/masters" className={btnPrimary}>
           Go to Masters
@@ -46,7 +46,7 @@ export default async function NewOrder({
 
   return (
     <div className="space-y-4">
-      <h1 className="page-title">New customer</h1>
+      <PageTitle icon="customers">New customer</PageTitle>
       <OrderEditor action={saveOrderAction} masters={masters.map((m) => ({ id: m.id, name: m.name }))} designNumbers={listDesignNumbers().map((d) => ({ designNumber: d.designNumber, orderNumber: d.orderNumber, customerName: d.customerName }))} items={[]} submitLabel="Save customer" picker={{ groups, templates, initial }} />
     </div>
   );

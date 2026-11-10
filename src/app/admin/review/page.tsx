@@ -1,5 +1,5 @@
 import { pendingPhotos } from "@/lib/stages";
-import { EmptyState, btnDanger, btnPrimary, fmtDate, input } from "@/components/ui";
+import { EmptyState, btnDanger, btnPrimary, fmtDate, input, PageTitle } from "@/components/ui";
 import { WhatsAppNotice } from "@/components/WhatsAppNotice";
 import { DownloadLink } from "@/components/DownloadLink";
 import { photoNotice } from "@/lib/notify";
@@ -11,7 +11,7 @@ export default async function Review({ searchParams }: { searchParams: Promise<{
   const rows = pendingPhotos();
   return (
     <div className="space-y-4">
-      <h1 className="page-title">Photos to check</h1>
+      <PageTitle icon="photos">Photos to check</PageTitle>
       <WhatsAppNotice notice={notice} />
       {e === "comment-needed" && (
         <p className=" bg-thread/10 p-3 text-lg font-medium text-thread">Please write a comment to reject a photo.</p>

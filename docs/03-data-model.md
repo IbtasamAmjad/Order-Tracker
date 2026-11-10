@@ -61,7 +61,7 @@ Design goal: the **only built-in order fields** are the order number (auto), the
   "order": 4
 }
 ```
-Allowed `type`: `text` (short), `longtext` (comments), `number`, `phone`, `date`, `time`, `select` (dropdown), `radio` (choose one), `checkboxes` (choose many), `yesno`, `picture`, `heading` (a note, no answer). Choice types carry `options`. Any field can be `required` and can be marked `masterCanEdit` (the master may fill it: comments, pictures, choices).
+Allowed `type`: `text` (short), `longtext` (comments), `number`, `phone`, `date`, `time`, `select` (dropdown), `radio` (choose one), `checkboxes` (choose many), `yesno`, `picture`, `heading` (a note, no answer). Choice types carry `options`. Any field can be `required` and can be marked `masterCanEdit` (the master may fill it: comments, pictures, choices). A `text` or `longtext` field can also have `pictures: true`: the office can add pictures right under it (stored in `photos` with that field's key).
 
 **Stage definition (JSON)**
 ```json

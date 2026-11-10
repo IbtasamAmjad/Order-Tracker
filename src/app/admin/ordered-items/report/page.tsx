@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ItemFilters } from "@/components/ItemFilters";
 import { Icon } from "@/components/Icon";
 import { PrintButton } from "@/components/PrintButton";
-import { btnSecondary, fmtDay } from "@/components/ui";
+import { btnSecondary, fmtDay, PageTitle } from "@/components/ui";
 import { DUE_FILTERS, STATUS_FILTERS, itemRows, quantityByItem, searchItems, STATUS_TEXT } from "@/lib/item-search";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function PendingReport({ searchParams }: { searchParams: Pr
       </div>
 
       <header>
-        <h1 className="page-title">Items to make</h1>
+        <PageTitle icon="box">Items to make</PageTitle>
         <p className="text-base text-muted">{filterText}</p>
         <p className="text-base">
           {found.length} item{found.length === 1 ? "" : "s"}

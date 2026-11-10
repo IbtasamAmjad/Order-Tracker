@@ -32,6 +32,7 @@ export type BField = {
   type: string;
   required: boolean;
   masterCanEdit: boolean;
+  pictures?: boolean; // text and long text: pictures can be added under the field
   unit: string;
   options: string; // one choice per line (for a group of boxes: the names of the boxes, one per line)
   sub?: string; // a group of boxes only: "number" or "text"
@@ -200,6 +201,7 @@ function FieldCard({
               {duplicate && <span className="rounded bg-error/15 px-1.5 text-error">Same name as another field</span>}
               {f.required && f.type !== "picture" && <span className="rounded bg-error/15 px-1.5 text-error">Warns if empty</span>}
               {f.masterCanEdit && <span className="rounded bg-secondary/15 px-1.5 text-secondary">Master can fill</span>}
+              {f.pictures && <span className="rounded bg-secondary/15 px-1.5 text-secondary">Pictures</span>}
             </span>
           </span>
           <Icon name="chevron" className={`h-4 w-4 shrink-0 transition-transform ${selected ? "rotate-180" : ""}`} />
@@ -215,7 +217,7 @@ function FieldCard({
             ) : (
               <input value={f.label} onChange={(e) => onChange({ label: e.target.value })} className={input} autoFocus />
             )}
-            {duplicate && <span className="mt-1 block text-sm font-medium text-error">Another field already has this name. Give each field its own name.</span>}
+            {duplicate && <span className="mt-1 block text-sm font-medium text-error">Another field has this name. Use a different name.</span>}
           </label>
 
           {!displayOnly && (
@@ -225,10 +227,13 @@ function FieldCard({
               ) : (
                 <>
                   <Toggle label="Warn me if this is left empty" checked={f.required} onChange={(v) => onChange({ required: v })} />
-                  <p className="-mt-2 text-sm opacity-70">Only a reminder: you can still save. To make a step wait for it, tick it under Steps.</p>
+                  <p className="-mt-2 text-sm opacity-70">The master sees &quot;please fill in&quot; next to it.</p>
                 </>
               )}
               <Toggle label="The master can fill this in" checked={f.masterCanEdit} onChange={(v) => onChange({ masterCanEdit: v })} />
+              {(f.type === "text" || f.type === "longtext") && (
+                <Toggle label="Pictures can be added under it" checked={!!f.pictures} onChange={(v) => onChange({ pictures: v })} />
+              )}
             </>
           )}
 
@@ -259,7 +264,7 @@ function FieldCard({
                   <Icon name="plus" /> Add another box
                 </button>
               </div>
-              <p className="text-sm opacity-70">When you save, the title becomes a bold heading and each box becomes its own field.</p>
+              <p className="text-sm opacity-70">On save, the title becomes a heading and each box its own field.</p>
             </div>
           )}
 
@@ -448,7 +453,7 @@ export function FormBuilder({
             <div>
               <h2 className="text-2xl font-medium">The form</h2>
               <p className="text-base opacity-80">
-                Drag a field from the list into the form, or tap it to add it at the bottom. Drag the dots to change the order. Tap a field to change its settings.
+                Drag a field into the form, or tap it to add. Drag the dots to reorder. Tap a field to edit it.
               </p>
             </div>
 
@@ -531,11 +536,11 @@ export function FormBuilder({
             </p>
           ) : (
             <p className="text-sm text-muted">
-              These steps are only for this item. To use the same steps on other items, <Link href="/admin/workflows/new" className="link">make saved steps</Link>, or save these steps below the form.
+              Only for this item. To reuse them, <Link href="/admin/workflows/new" className="link">make saved steps</Link>, or save these steps below the form.
             </p>
           )}
           <p className="text-base opacity-80">
-            The steps this item goes through, in order. A step can wait for two different things. The <b>photo of the work</b> is sent by the master from the phone and you approve it. A <b>field</b> is something on the form above that must be filled in first.
+            The steps this item goes through, in order. The <b>work photo</b> is sent by the master and you approve it.
           </p>
         </div>
         {steps.map((s, i) => (

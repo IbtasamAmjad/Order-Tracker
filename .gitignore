@@ -47,3 +47,7 @@ next-env.d.ts
 
 # separate video project with its own git history (not part of the order tracker)
 /my-video/
+
+# backups made by deploy/windows/backup.cjs, and the server log
+/backups
+/deploy/windows/server.log

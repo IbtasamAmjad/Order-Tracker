@@ -47,13 +47,35 @@ export function Field({ label, children, hint, required = false, upper = false }
   );
 }
 
-/** Title row for a page: heading, optional subtitle, and actions on the right. */
-export function PageHeader({ title, sub, children }: { title: string; sub?: string; children?: ReactNode }) {
+/** The small rounded tile with an icon that sits left of a page title. */
+export function TitleIcon({ name, large = false }: { name: string; large?: boolean }) {
+  return (
+    <span aria-hidden className={`grid shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-deep ${large ? "h-12 w-12" : "h-10 w-10"}`}>
+      <Icon name={name} className={large ? "h-6 w-6" : "h-5 w-5"} />
+    </span>
+  );
+}
+
+/** A page title with its icon tile, for pages that write their own subtitle. */
+export function PageTitle({ icon, children, large = false }: { icon: string; children: ReactNode; large?: boolean }) {
+  return (
+    <div className="flex items-center gap-3">
+      <TitleIcon name={icon} large={large} />
+      <h1 className={`page-title ${large ? "text-4xl" : ""}`}>{children}</h1>
+    </div>
+  );
+}
+
+/** Title row for a page: icon, heading, optional subtitle, and actions on the right. */
+export function PageHeader({ title, sub, icon, children }: { title: string; sub?: string; icon?: string; children?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        {sub && <p className="page-sub mt-1">{sub}</p>}
+      <div className="flex min-w-0 items-center gap-3">
+        {icon && <TitleIcon name={icon} />}
+        <div className="min-w-0">
+          <h1 className="page-title">{title}</h1>
+          {sub && <p className="page-sub mt-1">{sub}</p>}
+        </div>
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>

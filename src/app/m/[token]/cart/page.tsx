@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui";
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { PinForm } from "@/components/PinForm";
@@ -38,11 +39,11 @@ export default async function Cart({ params, searchParams }: { params: Promise<{
         <Icon name="arrow" className="h-4 w-4 rotate-180" /> Back
       </Link>
       <header>
-        <h1 className="page-title text-4xl">Cart</h1>
+        <PageTitle icon="shipments" large>Cart</PageTitle>
         <p className="text-lg">
           {candidates.length === 0
             ? "Nothing is ready to send."
-            : `${candidates.length} finished item${candidates.length === 1 ? "" : "s"} from ${customers} customer${customers === 1 ? "" : "s"}. They are all ready to go. Take one photo of the bill and send them together.`}
+            : `${candidates.length} finished item${candidates.length === 1 ? "" : "s"} from ${customers} customer${customers === 1 ? "" : "s"}. Take one photo of the bill and send them all together.`}
         </p>
       </header>
 
@@ -50,7 +51,7 @@ export default async function Cart({ params, searchParams }: { params: Promise<{
 
       {candidates.length === 0 ? (
         <div className="space-y-3">
-          <p className="text-lg">When you finish an item, it appears here, ready to add to the shipment.</p>
+          <p className="text-lg">Finished items appear here, ready to send.</p>
           <Link href={`/m/${token}/pending`} className="link inline-flex min-h-12 items-center text-lg font-medium">
             See my pending work
           </Link>

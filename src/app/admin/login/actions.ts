@@ -1,5 +1,6 @@
 "use server";
 
+import { COOKIE_SECURE } from "@/lib/config";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ADMIN_COOKIE, SESSION_DAYS, checkPassword, createSession, safeNext } from "@/lib/admin-session";
@@ -23,7 +24,7 @@ export async function loginAction(f: FormData) {
   (await cookies()).set(ADMIN_COOKIE, await createSession(secret), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: COOKIE_SECURE,
     path: "/",
     maxAge: SESSION_DAYS * 86_400,
   });

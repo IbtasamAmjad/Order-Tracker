@@ -1,10 +1,11 @@
+import { PageTitle } from "@/components/ui";
 import { WorkflowEditor } from "@/components/WorkflowEditor";
 import { saveWorkflowAction } from "../actions";
 
 export default function NewWorkflow() {
   return (
     <div className="space-y-5">
-      <h1 className="page-title">New steps</h1>
+      <PageTitle icon="note">New steps</PageTitle>
       <WorkflowEditor
         initialName=""
         initialSteps={[

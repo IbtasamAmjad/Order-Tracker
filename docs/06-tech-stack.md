@@ -50,3 +50,6 @@ Web application, built as a **PWA**. No native mobile app. Masters only have a p
 ## Possible future changes
 - Move to Postgres if SQLite is outgrown (same ORM).
 - Native wrapper only if offline-heavy use or many more users appear.
+
+## Running it on a local office PC
+The app can run on an ordinary Windows PC that stays on: `npm run build`, then `npm run start -- -H 0.0.0.0 -p 3000`, with the data (`data/app.db` and `data/uploads`) on the PC's disk. Helper scripts live in `deploy/windows/` (prepare the PC, start at boot, nightly backup, update, restart). Phones on the office Wi-Fi use the PC's fixed address over plain `http://`; masters outside the office need an `https://` address, for which a Cloudflare Tunnel on the client's domain is the suggested free way (no router changes). Login cookies are marked `secure` only when `APP_URL` starts with `https://`. When the PC is in another country from its users (for example the USA and Pakistan), the tunnel is required and the PC's Windows time zone must be set to the users' time zone, because the app shows dates and times in the server's time zone. The step-by-step guide is the Claude Doc "Running Custom Order Manager on a Local Office PC".

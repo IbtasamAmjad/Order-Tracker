@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { PinForm } from "@/components/PinForm";
-import { card } from "@/components/ui";
+import { card, PageTitle } from "@/components/ui";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
 
@@ -21,7 +21,7 @@ export default async function MasterFinished({ params, searchParams }: { params:
       <Link href={`/m/${token}`} className="link inline-flex min-h-12 items-center gap-2 text-lg font-medium">
         <Icon name="arrow" className="h-4 w-4 rotate-180" /> Back
       </Link>
-      <h1 className="page-title text-4xl">Finished</h1>
+      <PageTitle icon="finished" large>Finished</PageTitle>
       {closed.length === 0 ? (
         <p className="text-xl">No finished orders yet.</p>
       ) : (

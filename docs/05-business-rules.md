@@ -93,4 +93,5 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 60. A colour is shown by its **name** (for example "Maroon"), never as a code, on every screen and in print; the exact colour is still stored.
 61. The WhatsApp reminders to a master say in plain words which order it is, the Karigar due date, how late it is, and which items are finished, sent or still to make. They never contain My due date.
 62. The master sees, for each order, which items are sent, finished (waiting in the cart) and still to make.
-
+63. A text or long text field can allow pictures right under it (for example Embroidery details): Admin switches it on per field in the item form; the office adds the pictures on the customer form and the master sees them as small pictures under that field. The text is still compulsory; a picture does not replace it.
+64. The printed order sheet and the PDF are the same: a header with the order, customer, design number and due date in words (never My due date), a divider under every row, measurements in a ruled grid, pictures added under a field printed right under that field, and the item's other pictures small at the end.

@@ -14,6 +14,10 @@ export const PIN_LOCK_MINUTES = 5;
 
 export const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
+// Login cookies are marked "secure" only when the site address is https. On a plain http office network a secure
+// cookie would never come back from the browser, and nobody could sign in.
+export const COOKIE_SECURE = APP_URL.startsWith("https://");
+
 // Reminders: an active order is flagged when it is overdue, due within this many days,
 // or has had no progress (stage done / photo / shipment) for STALE_DAYS.
 export const REMINDER_DUE_DAYS = 7;
