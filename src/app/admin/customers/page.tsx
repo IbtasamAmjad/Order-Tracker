@@ -159,7 +159,7 @@ export default async function Customers({
           const tile = "rounded-2xl border px-4 py-2";
           const tileLabel = "text-xs font-medium uppercase tracking-wide";
           return (
-            <li key={o.id} className={`${card} relative space-y-4 border-l-4 transition-shadow hover:shadow-[0_4px_14px_-8px_rgb(27_26_75/0.22)] ${late ? "border-l-thread" : BAND_CLASS[o.band!]}`}>
+            <li key={o.id} className={`${card} relative space-y-4 border-l-4 transition-shadow hover:shadow-[0_4px_14px_-8px_rgb(27_26_75/0.22)] ${late ? "border-l-thread !border-bad/40 !bg-bad-soft" : BAND_CLASS[o.band!]}`}>
               <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
                 <span aria-label={`Number ${i + 1} in the list`} className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-ink text-xl font-medium text-white">
                   {i + 1}
@@ -228,7 +228,7 @@ export default async function Customers({
                     <p className="font-medium">{fmtDay(o.myDueDate)}</p>
                   </div>
                 </div>
-                <div className={`${tile} flex items-center gap-3 ${late ? "border-bad/30 bg-bad-soft" : "border-rule bg-paper-3/60"} ${byDue ? "ring-2 ring-ink/70" : ""}`}>
+                <div className={`${tile} flex items-center gap-3 ${late ? "border-bad/50 bg-white" : "border-rule bg-paper-3/60"} ${byDue ? "ring-2 ring-ink/70" : ""}`}>
                   <span aria-hidden className="relative flex h-2.5 w-2.5 shrink-0">
                     {late && <span className="absolute inline-flex h-full w-full rounded-full bg-bad opacity-70 motion-safe:animate-ping" />}
                     <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${late ? "bg-bad shadow-[0_0_8px_2px_rgb(200_30_30/0.6)]" : "bg-muted"}`} />
