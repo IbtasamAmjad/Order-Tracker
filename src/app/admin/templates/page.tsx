@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { listCategoryTree } from "@/lib/templates";
-import { EmptyState, Field, PageHeader, btnDanger, btnPrimary, btnSecondary, input } from "@/components/ui";
+import { EmptyState, btnDanger, btnPrimary, btnSecondary, input } from "@/components/ui";
 import { createMainAction, createSubAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 import { Icon } from "@/components/Icon";
+import { AddGroupBox } from "@/components/AddGroupBox";
 
 const colourInput = "h-12 w-14 shrink-0 cursor-pointer rounded-full border border-muted bg-paper p-1";
 
@@ -10,13 +11,15 @@ export default function Templates() {
   const tree = listCategoryTree();
   return (
     <div className="space-y-6">
-      <PageHeader
+      <AddGroupBox
         title="Items"
         sub="A group holds items. For example the group Men holds Kurta and Pagri. Open an item to build its form."
+        action={createMainAction}
+        startOpen={tree.length === 0}
       />
 
       {tree.length === 0 && (
-        <EmptyState title="No groups yet">Start by adding a group below, such as Men or Ladies. Then add its categories.</EmptyState>
+        <EmptyState title="No groups yet">Start by pressing Add group, such as Men or Ladies. Then add its categories.</EmptyState>
       )}
 
       <ul className="space-y-6">
@@ -73,17 +76,6 @@ export default function Templates() {
           </li>
         ))}
       </ul>
-
-      <form action={createMainAction} className="space-y-3 panel">
-        <h2 className="text-xl font-medium">Add a group</h2>
-        <Field label="Group name" hint="For example: Men, Ladies, Shoes">
-          <input name="name" required className={input} />
-        </Field>
-        <div className="flex flex-wrap items-center gap-3">
-          <input type="color" name="colour" defaultValue="#64748b" className={colourInput} aria-label="Colour" />
-          <button className={btnPrimary}>Add group</button>
-        </div>
-      </form>
     </div>
   );
 }

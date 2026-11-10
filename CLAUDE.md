@@ -23,6 +23,7 @@ Next.js 16 (App Router, TypeScript), Tailwind 4 + daisyUI 5 (CSS only), SQLite v
 2. Keep storage and notifications behind small helpers (`src/lib/storage.ts`, `src/lib/whatsapp.ts`) so providers can be swapped.
 3. Verify with `npx tsc --noEmit`, `npm run lint`, `npm test`, and for UI changes look at it in the browser. Say plainly what was NOT tested.
 4. Never guess about Next.js 16: read `node_modules/next/dist/docs/` first (e.g. `middleware` is now `proxy.ts`; `params`/`searchParams` are Promises).
+5. **Keep the markdown files up to date with every change** (by request): after any feature, fix, rename or removal, update `CLAUDE.md` (what is built, rules, gotchas, what is no longer true) and the matching file in `docs/` (business rules, screens and flows, data model) in the same piece of work, before saying it is done. Remove or correct lines that are no longer true instead of only adding new ones.
 
 ## Commands
 ```
@@ -41,6 +42,7 @@ Environment (`.env.local` for dev, real server env in production; see `.env.exam
 - Field progress: each customer item shows "N of M fields filled" (`fieldProgress` in `src/lib/items.ts`, `FieldProgress` component). Band label "Later" is now "On Time".
 - Pictures can be added several at once, and pasted into comment boxes (`PastePictures`).
 - UI says **Customers**; code says **orders** (`orders` table, `/admin/customers` lists them). Order number is the identifier, customer name is not unique.
+- UI says **Steps** (the Steps page, "Saved steps" in an item's builder); code says **workflow** (`workflows` table, `src/lib/workflows.ts`, `/admin/workflows`, `WorkflowEditor`). Same thing: a named, reusable set of steps. The sections below that say "workflow" mean this.
 - UI says **Categories** (Group > Category, e.g. Men > Kurta); code says **categories/templates** (`categories` two levels; one `templates` row per sub-category holding `fields`, `stages`; the old `print_group` column is unused).
 - A customer's chosen category becomes an **order item** with a **snapshot** of the form, so editing or deleting a category never changes existing customers.
 

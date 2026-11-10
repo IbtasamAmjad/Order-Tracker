@@ -17,7 +17,7 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 10. Every item field must be filled in before an order is saved, new or old (pictures, headings and notes excepted). If something is empty the app lists what is missing (for example "You haven't given sleeve length") and saves nothing until it is filled. (Changed from "warn, then submit anyway".)
 11. Templates are **pre-created** so Anas never re-enters the same fields; an order takes 30-40 minutes today and this must shrink.
 12. Number of measurements can change over time (6 today, 9 later); templates must allow this.
-13. Editing a template must not break existing orders (orders keep a snapshot).
+13. Editing a template must not break existing orders. Finished, cancelled and archived customers keep their own snapshot. Customers **in progress** follow the item automatically when it (or its steps) is saved: what is filled in stays, finished steps stay, the master sees "Updated", and a new field appears empty and must be filled before that customer can be saved. (Changed from "orders keep a snapshot, press Update from the item".)
 
 ## Priority
 14. New orders are numbered in the sequence they are added (1, 2, 3...).
@@ -81,3 +81,16 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 ## Printing and sharing details
 53. Print output must also be available as a **downloadable / shareable PDF**, because masters print at an internet cafe or print shop.
 54. The measurement view must be **screenshot-friendly** on a phone, so a master can send it to a karigar on WhatsApp.
+
+## Remake (an item came back wrong)
+55. If a delivered item is wrong, Admin sends it back for a **remake** instead of making a new order: one, several or all items of the order, with a required reason.
+56. The chosen items start again from their first step; what is filled in stays. The other items stay as they were (sent or in progress).
+57. The order keeps its **original due date**, so it shows as late (the late tag and "Overdue by N days"). A completed or archived order becomes active again and moves to the top of the list. A cancelled order cannot be remade.
+58. The old shipment and its bill stay in the record, marked as sent back; the remade item is sent again in a new shipment with a new bill. Step photos from before the remake no longer count.
+59. The reason is written in the history and shown to the master under the first step ("From the office"); the master sees a "Remake" tag.
+
+## Display rules
+60. A colour is shown by its **name** (for example "Maroon"), never as a code, on every screen and in print; the exact colour is still stored.
+61. The WhatsApp reminders to a master say in plain words which order it is, the Karigar due date, how late it is, and which items are finished, sent or still to make. They never contain My due date.
+62. The master sees, for each order, which items are sent, finished (waiting in the cart) and still to make.
+

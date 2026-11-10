@@ -98,3 +98,10 @@ Admin is alerted when a photo is waiting for review and when a shipment is submi
 
 ### Reminders
 If an order is overdue or has had no update for a set period (for example a week), it is flagged in colour, and optionally a reminder is sent to the master.
+
+### Remake
+Admin opens the customer, opens **Remake items**, ticks the items that must be made again, writes why, and presses **Send back for remake**. The order goes active again (late, because the due date is unchanged), the master is told through the usual WhatsApp banner and sees a "Remake" tag and the reason. When the item is finished again it goes into the master's cart and is sent in a new shipment.
+
+### Customers list
+Filter chips (overdue, urgent, coming due, on time, work stages) plus **Sort by due date** (earliest Karigar due date first; the up/down arrows rest while it is on). The up/down arrows swap an order with the one next to it in the list, whatever its master. Overdue orders have a glowing red dot.
+
