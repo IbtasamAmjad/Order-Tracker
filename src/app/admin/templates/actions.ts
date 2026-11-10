@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin-auth";
+import { syncActiveItems } from "@/lib/item-sync";
 import { duplicateFieldNames } from "@/lib/items";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -63,5 +64,6 @@ export async function saveCategoryAction(f: FormData) {
   if (duplicateFieldNames(fields).length > 0) redirect(`/admin/templates/${id}?e=duplicate`);
   const workflowId = Number(f.get("workflowId")) || null; // empty = the item's own custom steps
   saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")), workflowId);
-  redirect(`/admin/templates/${id}?saved=1`);
+  const updated = syncActiveItems({ templateId: id }); // customers already in progress get the change too, nobody has to press a button
+  redirect(`/admin/templates/${id}?saved=1${updated > 0 ? `&synced=${updated}` : ""}`);
 }

@@ -91,7 +91,7 @@ export function MasterItemFields({
                       <dt className="text-base text-muted">{f.label}</dt>
                       <dd className="mt-0.5 flex items-center gap-2 whitespace-pre-wrap break-words text-xl font-medium leading-snug">
                         {f.type === "color" && (
-                          <span aria-hidden className="inline-block h-7 w-7 shrink-0 rounded-full border border-rule-2" style={{ background: v }} />
+                          <span aria-hidden className="inline-block h-7 w-7 shrink-0 rounded-full border border-rule-2" style={{ background: values[f.key] }} />
                         )}
                         {v}
                       </dd>

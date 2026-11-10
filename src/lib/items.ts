@@ -1,3 +1,4 @@
+import { colourName } from "./colour-name";
 import type { FieldDef, ItemSnapshot } from "@/db/schema";
 
 export type ItemValues = Record<string, string>;
@@ -110,5 +111,6 @@ export function displayValue(f: FieldDef, v: string | undefined): string {
   if (isDisplayOnly(f) || f.type === "picture" || isEmpty(v)) return "";
   if (f.type === "yesno") return v === "yes" ? "Yes" : "No";
   if (f.type === "checkboxes") return splitMulti(v).join(", ");
+  if (f.type === "color") return colourName(v); // a colour reads as its name ("Maroon"), never as a code
   return f.unit && f.type === "number" ? `${v} ${f.unit}` : v!;
 }

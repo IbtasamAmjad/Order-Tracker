@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listAdminOrders } from "@/lib/orders";
 import { listMasters } from "@/lib/masters";
+import { syncActiveItems } from "@/lib/item-sync";
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { EmptyState, PageHeader, Ruler, btnPrimary, btnSecondary, card, fmtDate, fmtDay, input } from "@/components/ui";
 import { Icon } from "@/components/Icon";
@@ -11,12 +12,14 @@ import { moveOrderAction } from "../actions";
 export default async function Customers({
   searchParams,
 }: {
-  searchParams: Promise<{ master?: string; notify?: string; show?: string }>;
+  searchParams: Promise<{ master?: string; notify?: string; show?: string; sort?: string }>;
 }) {
-  const { master, notify, show } = await searchParams;
+  const { master, notify, show, sort } = await searchParams;
+  const byDue = sort === "due"; // the chip "Sort by due date": earliest Karigar due date first
   const [kind, nid] = (notify ?? "").split(":");
   const notices = kind && nid ? orderNotices(kind as OrderNoticeKind, Number(nid)) : [];
   const masterId = Number(master) || undefined;
+  syncActiveItems(); // keeps customers in progress up to date with their items
   const everyone = listAdminOrders({ masterId, view: "active" });
   const masters = listMasters();
 
@@ -29,7 +32,7 @@ export default async function Customers({
   // the deadline tags, counted the same way the tag on each card is decided
   const bandCount = { red: 0, green: 0, blue: 0 };
   for (const r of everyone) if (r.band) bandCount[r.band]++;
-  const rows =
+  const picked =
     show === "overdue"
       ? overdue
       : show?.startsWith("band:")
@@ -37,10 +40,14 @@ export default async function Customers({
         : show?.startsWith("stage:")
           ? everyone.filter((r) => r.stage === show.slice(6))
           : everyone;
-  const href = (to?: string) => {
+  // by due date: the earliest first; orders with the same date keep their priority order
+  const rank = new Map(everyone.map((r, i) => [r.id, i]));
+  const rows = byDue ? [...picked].sort((a, b) => a.karigarDueDate.localeCompare(b.karigarDueDate) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)) : picked;
+  const href = (to?: string, due: boolean = byDue) => {
     const q = new URLSearchParams();
     if (masterId) q.set("master", String(masterId));
     if (to) q.set("show", to);
+    if (due) q.set("sort", "due");
     return `/admin/customers${q.size ? `?${q}` : ""}`;
   };
   const back = href(show);
@@ -62,7 +69,7 @@ export default async function Customers({
   return (
     <div className="space-y-4">
       <WhatsAppNotice notices={notices} />
-      <PageHeader title="Customers" sub="In the order the masters should work them.">
+      <PageHeader title="Customers" sub={byDue ? "By due date, the earliest first." : "In the order the masters should work them."}>
         <Link href="/admin/orders/new" className={btnPrimary}>
           <Icon name="plus" className="h-4 w-4" /> New customer
         </Link>
@@ -91,10 +98,33 @@ export default async function Customers({
             </Link>
           );
         })}
+        <Link href={href(show, !byDue)} className={chip(byDue)} aria-pressed={byDue} title={byDue ? "Back to the priority order" : "Show the earliest due date first"}>
+          <Icon name={byDue ? "check" : "clock"} className="h-4 w-4" /> {byDue ? "Sorted by due date" : "Sort by due date"}
+        </Link>
       </nav>
+
+      {byDue && rows.length > 0 && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-2xl border border-ink/15 bg-paper-2 px-4 py-2.5 text-base">
+          <Icon name="clock" className="h-4 w-4 shrink-0 text-muted" />
+          <span>
+            Earliest Karigar due date first: <b className="font-medium">{fmtDay(rows[0].karigarDueDate)}</b>
+            {rows.length > 1 && (
+              <>
+                {" "}to <b className="font-medium">{fmtDay(rows[rows.length - 1].karigarDueDate)}</b>
+              </>
+            )}
+            .
+          </span>
+          <Link href={href(show, false)} className="link ml-auto font-medium">
+            Back to priority order
+          </Link>
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <form className="flex w-full flex-wrap gap-2">
+          {show && <input type="hidden" name="show" value={show} />}
+          {byDue && <input type="hidden" name="sort" value="due" />}
           <select name="master" defaultValue={masterId ?? ""} className={`${input} min-w-0 flex-1 basis-40`}>
             <option value="">All masters</option>
             {masters.map((m) => (
@@ -125,7 +155,7 @@ export default async function Customers({
           // an arrow swaps the order with the one next to it in this list, whoever its master is; the first and last have only one arrow
           const at = rows.findIndex((r) => r.id === o.id);
           const next = { up: rows[at - 1], down: rows[at + 1] };
-          const canMove = { up: !!next.up, down: !!next.down };
+          const canMove = { up: !byDue && !!next.up, down: !byDue && !!next.down }; // the arrows set the priority order, so they rest while the list is sorted by date
           const tile = "rounded-2xl border px-4 py-2";
           const tileLabel = "text-xs font-medium uppercase tracking-wide";
           return (
@@ -133,7 +163,7 @@ export default async function Customers({
               <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
                 <span aria-label={`Number ${i + 1} in the list`} className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-ink text-xl font-medium text-white">
                   {i + 1}
-                  <span aria-hidden className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-paper-2 ${dot}`} />
+                  <span aria-hidden className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-paper-2 ${dot} ${tone === "red" ? "shadow-[0_0_8px_2px_rgb(200_30_30/0.6)] motion-safe:animate-pulse" : ""}`} />
                 </span>
                 {/* the link stretches over the whole card (the ::after), so a click anywhere opens the customer; the arrows sit above it */}
                 <Link href={`/admin/orders/${o.id}`} className="group min-w-0 flex-1 basis-48 after:absolute after:inset-0 after:content-['']" aria-label={`Open customer ${o.customerName}`}>
@@ -169,7 +199,7 @@ export default async function Customers({
                         <input type="hidden" name="back" value={back} />
                         <button
                           disabled={!canMove[dir]}
-                          title={canMove[dir] ? undefined : dir === "up" ? "This is the first order" : "This is the last order"}
+                          title={canMove[dir] ? undefined : byDue ? "Turn off Sort by due date to move orders" : dir === "up" ? "This is the first order" : "This is the last order"}
                           className="grid h-9 w-10 place-items-center text-ink-2 hover:bg-paper-3 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
                           aria-label={`Move order ${o.orderNumber} ${dir}`}
                         >
@@ -198,8 +228,11 @@ export default async function Customers({
                     <p className="font-medium">{fmtDay(o.myDueDate)}</p>
                   </div>
                 </div>
-                <div className={`${tile} flex items-center gap-3 ${late ? "border-bad/30 bg-bad-soft" : "border-rule bg-paper-3/60"}`}>
-                  <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${late ? "bg-bad" : "bg-muted"}`} />
+                <div className={`${tile} flex items-center gap-3 ${late ? "border-bad/30 bg-bad-soft" : "border-rule bg-paper-3/60"} ${byDue ? "ring-2 ring-ink/70" : ""}`}>
+                  <span aria-hidden className="relative flex h-2.5 w-2.5 shrink-0">
+                    {late && <span className="absolute inline-flex h-full w-full rounded-full bg-bad opacity-70 motion-safe:animate-ping" />}
+                    <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${late ? "bg-bad shadow-[0_0_8px_2px_rgb(200_30_30/0.6)]" : "bg-muted"}`} />
+                  </span>
                   <div>
                     <p className={`${tileLabel} ${late ? "text-bad" : "text-muted"}`}>Karigar due</p>
                     <p className={`font-medium ${late ? "text-bad" : ""}`}>{fmtDay(o.karigarDueDate)}</p>

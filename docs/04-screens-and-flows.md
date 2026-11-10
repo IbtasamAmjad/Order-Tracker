@@ -17,7 +17,7 @@ All screens are mobile-first, English only, with big buttons. "It doesn't have t
 1. Enter customer name, order number, **My due date**, **Karigar due date**, and assigned master.
 2. Tick which items this order needs (Sherwani, Kurta, Pants, Pagri, Shoes, Shawl, Vest...). Unticked items are skipped, and the same item can be added twice.
 3. For each ticked item, the app shows that item's **pre-built template form** (design number, fabric, colour, embroidery notes, measurements, reference picture...).
-4. On save, if required fields are empty the app warns, for example "You haven't given sleeve length." Admin can fix it or choose **Submit anyway**.
+4. On save, if any item field is empty the app lists what is missing, for example "You haven't given sleeve length", and saves nothing until it is filled.
 5. Saving adds the order at the end of the priority sequence and may notify the master.
 
 ### A3. Template builder
@@ -63,7 +63,7 @@ Open the personal link, enter the personal code (one large input; numbers and le
 - If rejected: the comment is shown and the master uploads again.
 
 ### M5. Shipping checklist
-- Pick the items being dropped off (for example "5 Sherwanis").
+- Finished items of all the master's customers are in his **cart** automatically; he can take out any he is not sending today.
 - Tick each item to confirm it is physically present.
 - Optionally take a photo of the packed items as proof.
 - Upload the **bill** for that shipment.
@@ -88,7 +88,7 @@ Admin moves an order up -> sequence renumbers -> master's dashboard re-sorts, an
 Master completes work -> uploads compressed photo -> status `pending` -> Admin approves or rejects with comment -> if approved, next stage unlocks and the master is notified; if rejected, the master re-uploads.
 
 ### Shipping
-Master ticks items being dropped off -> uploads bill -> submits -> Admin receives a copy of the bill and the shipment record. Checkout stays blocked until the bill is uploaded.
+Finished items go into the master's cart (all customers) -> he uploads one bill -> submits -> Admin receives a copy of the bill and the shipment record. Checkout stays blocked until the bill is uploaded.
 
 ### Cancel an order
 Admin sets the order to cancelled -> master sees "Cancelled, stop work" and is notified (they may be mid-work) -> it later moves to archive. It is never hard-deleted.

@@ -45,7 +45,7 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
     group: "Write",
     items: [
       { type: "text", name: "Text box", hint: "One line, like a design number", label: "Text box" },
-      { type: "color", name: "Color code", hint: "A HEX color, like #1F69D1", label: "Color code" },
+      { type: "color", name: "Colour", hint: "Pick a colour; it is shown by its name", label: "Colour" },
       { type: "number", name: "Number", hint: "A measurement or a number", label: "Number" },
       { type: "group", name: "Group of boxes", hint: "A title with several boxes under it, like Measurements", label: "Measurements" },
     ],
@@ -512,8 +512,8 @@ export function FormBuilder({
         <div className="space-y-3">
           <h2 className="text-2xl font-medium">Steps</h2>
           <label className="block">
-            <span className="mb-1 block text-base font-medium">Workflow</span>
-            <select value={workflowId ?? ""} onChange={(e) => chooseWorkflow(e.target.value)} className={select} aria-label="Workflow">
+            <span className="mb-1 block text-base font-medium">Saved steps</span>
+            <select value={workflowId ?? ""} onChange={(e) => chooseWorkflow(e.target.value)} className={select} aria-label="Saved steps">
               <option value="">Custom steps (only for this item)</option>
               {workflows.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -524,14 +524,14 @@ export function FormBuilder({
           </label>
           {workflow ? (
             <p className="rounded-2xl bg-accent-soft px-4 py-3 text-base">
-              These steps come from the workflow <b>{workflow.name}</b>. To change the steps themselves, edit the workflow (it changes every item that uses it), or choose Custom steps.{" "}
+              These steps come from the saved steps <b>{workflow.name}</b>. To change them, edit those saved steps (it changes every item that uses them), or choose Custom steps.{" "}
               <Link href={`/admin/workflows/${workflow.id}`} className="link font-medium">
-                Edit the workflow
+                Edit the saved steps
               </Link>
             </p>
           ) : (
             <p className="text-sm text-muted">
-              These steps are only for this item. To use the same steps on other items, <Link href="/admin/workflows/new" className="link">make a workflow</Link>, or save these steps as one below the form.
+              These steps are only for this item. To use the same steps on other items, <Link href="/admin/workflows/new" className="link">make saved steps</Link>, or save these steps below the form.
             </p>
           )}
           <p className="text-base opacity-80">

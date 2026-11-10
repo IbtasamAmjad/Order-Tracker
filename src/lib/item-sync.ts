@@ -58,3 +58,21 @@ export function refreshItemFromCategory(itemId: number): RefreshResult {
     return "ok";
   });
 }
+
+/**
+ * Bring the items of ACTIVE customers up to date with their item's current form and steps, so nobody has to press
+ * "Update from the item". Only items that really differ are touched; what is filled in stays, finished steps stay
+ * finished, and the master sees the customer as updated. Finished, cancelled and archived customers are left alone.
+ * `templateId` limits it to one item type, `orderId` to one customer. Returns how many items were updated.
+ */
+export function syncActiveItems(only: { templateId?: number; orderId?: number } = {}): number {
+  const rows = db
+    .select({ item: orderItems })
+    .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(and(eq(orders.status, "active"), only.templateId ? eq(orderItems.templateId, only.templateId) : undefined, only.orderId ? eq(orderItems.orderId, only.orderId) : undefined))
+    .all();
+  let n = 0;
+  for (const { item } of rows) if (categoryDiffers(item) && refreshItemFromCategory(item.id) === "ok") n++;
+  return n;
+}

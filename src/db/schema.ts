@@ -177,6 +177,8 @@ export const orderItems = sqliteTable("order_items", {
   snapshot: text("snapshot", { mode: "json" }).$type<ItemSnapshot>().notNull(),
   values: text("values", { mode: "json" }).$type<Record<string, string>>().notNull(),
   position: integer("position").notNull(),
+  // set when the office sends the item back for a remake: step photos from before this time no longer count
+  remadeAt: ts("remade_at"),
 });
 
 // ---------------------------------------------------------------- Phase 3
@@ -255,11 +257,12 @@ export const shipmentItems = sqliteTable("shipment_items", {
     .notNull()
     .references(() => orderItems.id),
   checked: integer("checked", { mode: "boolean" }).notNull().default(false), // master confirmed it is physically there
+  returnedAt: ts("returned_at"), // the item came back wrong and is being remade: this line no longer counts as sent
 });
 
 // ---------------------------------------------------------------- production history
 
-export const EVENT_KINDS = ["confirmed", "done", "note", "instruction", "image", "shipped"] as const;
+export const EVENT_KINDS = ["confirmed", "done", "note", "instruction", "image", "shipped", "remade"] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 // The history of an order: who did what and when. Never edited or deleted.

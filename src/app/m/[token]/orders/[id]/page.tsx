@@ -15,6 +15,8 @@ import { HistoryList } from "@/components/HistoryList";
 import { orderHistory } from "@/lib/history";
 import { Icon } from "@/components/Icon";
 import { cartCandidates } from "@/lib/shipping";
+import { remakeCount } from "@/lib/remake";
+import { itemStatesOfOrder, itemStatesSummary } from "@/lib/item-search";
 
 export default async function MasterOrder({
   params,
@@ -35,6 +37,7 @@ export default async function MasterOrder({
   if (!order) notFound();
   markSeen(master.id, order.id);
   const items = masterItems(order.id);
+  const states = itemStatesOfOrder(order.id);
   const readyItems = new Set(cartCandidates(master.id).map((c) => c.itemId)); // finished items that can go in the cart
   const history = orderHistory(order.id);
 
@@ -96,14 +99,24 @@ export default async function MasterOrder({
           </span>
         )}
 
-        {items.length > 0 && (
-          <div className="flex flex-wrap gap-2 border-t border-rule pt-4">
-            {items.map((it) => (
-              <span key={it.id} className="inline-flex items-center gap-2 rounded-xl border border-rule bg-paper-3/60 px-3 py-1.5 text-lg font-medium">
-                <span className="inline-block h-3 w-3 rounded-full" style={{ background: it.snapshot.colour }} />
-                {it.label}
-              </span>
-            ))}
+        {states.length > 0 && (
+          <div className="space-y-2 border-t border-rule pt-4">
+            <p className="text-lg font-medium">{itemStatesSummary(states)}</p>
+            <ul className="space-y-2">
+              {states.map((it) => (
+                <li key={it.itemId} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-rule bg-paper-3/60 px-3 py-2 text-lg">
+                  <span className="inline-block h-3 w-3 shrink-0 rounded-full" style={{ background: it.colour }} />
+                  <span className="flex-1 font-medium">{it.label}</span>
+                  {it.state === "sent" && <span className="rounded-full bg-cool-soft px-3 py-0.5 text-base font-medium text-cloth">Sent</span>}
+                  {it.state === "ready" && (
+                    <Link href={`/m/${token}/cart`} className="rounded-full bg-ok-soft px-3 py-0.5 text-base font-medium text-ok">
+                      Finished, in your cart
+                    </Link>
+                  )}
+                  {it.state === "making" && <span className="rounded-full bg-[#FEF3C7] px-3 py-0.5 text-base font-medium text-[#92400E]">To make{it.stage ? `: ${it.stage}` : ""}</span>}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -163,7 +176,10 @@ export default async function MasterOrder({
               <div className="flex items-center gap-2">
                 <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.snapshot.colour }} />
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-2xl font-medium">{item.label}</h2>
+                  <h2 className="flex flex-wrap items-center gap-2 text-2xl font-medium">
+                    {item.label}
+                    {remakeCount(item.id) > 0 && <span className="rounded-full bg-bad-soft px-3 py-0.5 text-sm font-medium text-bad">Remake</span>}
+                  </h2>
                   <p className="text-base text-muted">
                     {order.customerName}
                     {order.designNumber ? ` - Design: ${order.designNumber}` : ""}

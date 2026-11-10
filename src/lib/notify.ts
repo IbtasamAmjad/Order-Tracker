@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { masters, orderItems, orders, photos } from "@/db/schema";
 import { messages, waLink } from "./whatsapp";
+import { orderInfo } from "./order-info";
 import { assignedMasterIds } from "./assign";
 
 export type Notice = { masterName: string; hasNumber: boolean; link: string; label: string };
@@ -21,15 +22,16 @@ export function orderNotices(kind: OrderNoticeKind, orderId: number): Notice[] {
   const o = db.select().from(orders).where(eq(orders.id, orderId)).get();
   if (!o) return [];
   const out: Notice[] = [];
+  const info = orderInfo(orderId);
   for (const masterId of assignedMasterIds(orderId)) {
     const m = db.select().from(masters).where(eq(masters.id, masterId)).get();
     if (!m) continue;
     const c = { masterName: m.name, token: m.token, orderNumber: o.orderNumber, customer: o.customerName };
     const text =
       kind === "new"
-        ? messages.newOrder({ ...c, karigarDue: o.karigarDueDate })
+        ? messages.newOrder({ ...c, karigarDue: o.karigarDueDate, info })
         : kind === "movedUp"
-          ? messages.movedUp(c)
+          ? messages.movedUp({ ...c, info })
           : kind === "updated"
             ? messages.updated(c)
             : messages.cancelled(c);

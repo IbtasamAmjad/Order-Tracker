@@ -49,7 +49,7 @@ export function WorkflowEditor({
       {state.error && <Notice tone="error">{state.error}</Notice>}
 
       <label className="block">
-        <span className="mb-1 block text-base font-medium">Workflow name</span>
+        <span className="mb-1 block text-base font-medium">Name of the steps</span>
         <input name="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="For example: Shoes, or Bridal" className={input} />
       </label>
 
@@ -116,7 +116,7 @@ export function WorkflowEditor({
 
       <div className="flex flex-wrap gap-2">
         <button disabled={pending} className={btnPrimary}>
-          {pending ? "Saving..." : "Save workflow"}
+          {pending ? "Saving..." : "Save steps"}
         </button>
         <Link href="/admin/workflows" className={btnSecondary}>
           Back

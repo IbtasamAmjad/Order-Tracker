@@ -56,7 +56,7 @@ export function shippableItems(orderId: number) {
     .select({ itemId: shipmentItems.itemId, shipmentId: shipments.id, at: shipments.submittedAt })
     .from(shipmentItems)
     .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-    .where(eq(shipments.status, "submitted"))
+    .where(and(eq(shipments.status, "submitted"), isNull(shipmentItems.returnedAt)))
     .all();
   return items.map((i) => {
     const s = sent.find((x) => x.itemId === i.id);
@@ -157,7 +157,7 @@ export type ShipmentView = {
   billPhotoId: number | null;
   packagePhotoId: number | null;
   submittedAt: Date | null;
-  items: { itemId: number; label: string; checked: boolean; orderId: number; orderNumber: number; customerName: string; designNumber: string | null }[];
+  items: { itemId: number; label: string; checked: boolean; orderId: number; orderNumber: number; customerName: string; designNumber: string | null; returned: boolean }[];
 };
 
 export function shipmentView(shipmentId: number): ShipmentView | null {
@@ -172,6 +172,7 @@ export function shipmentView(shipmentId: number): ShipmentView | null {
       orderNumber: orders.orderNumber,
       customerName: orders.customerName,
       designNumber: orders.designNumber,
+      returnedAt: shipmentItems.returnedAt,
     })
     .from(shipmentItems)
     .innerJoin(orderItems, eq(shipmentItems.itemId, orderItems.id))
@@ -186,7 +187,7 @@ export function shipmentView(shipmentId: number): ShipmentView | null {
     billPhotoId: s.billPhotoId,
     packagePhotoId: s.packagePhotoId,
     submittedAt: s.submittedAt,
-    items,
+    items: items.map(({ returnedAt, ...i }) => ({ ...i, returned: returnedAt !== null })),
   };
 }
 

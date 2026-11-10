@@ -15,6 +15,7 @@ import { checkDesignNumbers,
   updateOrder,
   type OrderInput,
 } from "@/lib/orders";
+import { remakeItems } from "@/lib/remake";
 import { cleanValues, itemLabel, missingFields, type NewItem } from "@/lib/items";
 import { templateForItem } from "@/lib/templates";
 import { addReferencePhoto, completeStage, reviewPhoto } from "@/lib/stages";
@@ -150,6 +151,15 @@ export async function removeItemAction(f: FormData) {
   const orderId = Number(f.get("orderId"));
   const res = removeItem(orderId, Number(f.get("itemId")));
   redirect(res.ok ? `/admin/orders/${orderId}?removed=1` : `/admin/orders/${orderId}?e=remove-${res.reason}`);
+}
+
+/** The office sends some items of an order (or all) back for a remake, with the reason. */
+export async function remakeItemsAction(f: FormData) {
+  await requireAdmin();
+  const orderId = num(f, "orderId");
+  const ids = f.getAll("item").map(Number).filter(Boolean);
+  const res = remakeItems(orderId, ids, str(f, "reason"));
+  redirect(res.ok ? `/admin/customers?notify=updated:${orderId}` : `/admin/orders/${orderId}?e=remake-${res.reason}`);
 }
 
 export async function moveOrderAction(f: FormData) {

@@ -118,9 +118,17 @@ export function OrderEditor({
       {state.error && <p role="alert" className="alert alert-error text-lg font-medium">{state.error}</p>}
 
       <div className="rounded-3xl border border-rule bg-paper-2 p-5 shadow-sm">
-        <p className="mb-4 border-b border-rule pb-3 text-sm text-muted">
-          <RequiredMark /> means it must be filled in. The rest is optional.
-        </p>
+        <div className="mb-4 flex items-center gap-3 border-b border-rule pb-4">
+          <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-deep">
+            <Icon name="customers" className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xl font-medium leading-tight">{orderId ? "Customer details" : "Add customer details"}</h2>
+            <p className="text-sm text-muted">
+              Name, design number, masters and due dates. <RequiredMark /> means it must be filled in.
+            </p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
           <Field label="Customer name" required upper>
             <input name="customerName" required defaultValue={pick("customerName", base.customerName)} className={input} />
@@ -249,7 +257,8 @@ export function OrderEditor({
       {allItems.map((item) => (
         <section key={item.key} className={`${card} border-2 !p-4`} style={{ borderColor: item.colour }}>
           {/* with more than two items the cards start closed, so the page stays short; the line under each name says where it is */}
-          <details open={allItems.length <= 2} className="group">
+          {/* a saved customer: an item with everything filled in starts closed, one with something still empty starts open; a new customer keeps the old rule */}
+          <details open={orderId && item.progress && item.progress.total > 0 ? item.progress.filled < item.progress.total : allItems.length <= 2} className="group">
             <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden" title="Tap to minimize or open">
               <div className="flex min-h-11 items-center gap-2">
                 <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.colour }} />

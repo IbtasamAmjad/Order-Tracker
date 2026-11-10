@@ -1,38 +1,34 @@
 "use client";
 
 import { useState } from "react";
+import { colourName } from "@/lib/colour-name";
 import { normalizeHex } from "@/lib/items";
-import { input } from "./ui";
 
-/** A HEX color code box with a swatch beside it. Type a code like #1F69D1, or pick the color from the swatch. */
+/**
+ * A colour field: tap the swatch to pick a colour, and the colour is shown by its name ("Maroon"), never by a code.
+ * The picked colour is still saved exactly (as a HEX value) in a hidden box.
+ */
 export function ColorInput({ name, value }: { name: string; value: string }) {
-  const [text, setText] = useState(value);
-  const hex = normalizeHex(text);
-  const bad = text.trim() !== "" && !hex;
+  const start = normalizeHex(value);
+  const [hex, setHex] = useState(start);
+  const label = hex ? colourName(hex) : "Tap the circle to pick a colour";
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          aria-label="Pick a color"
-          value={hex || "#FFFFFF"}
-          onChange={(e) => setText(e.target.value.toUpperCase())}
-          className="h-12 w-14 shrink-0 cursor-pointer rounded-xl border border-rule-2 bg-paper-2 p-1"
-        />
-        <input
-          name={name}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="#1F69D1"
-          maxLength={7}
-          autoCapitalize="characters"
-          spellCheck={false}
-          aria-invalid={bad}
-          className={`${input} min-w-0 flex-1 font-mono`}
-        />
-      </div>
-      {bad && <p className="text-base font-medium text-thread">Use a HEX code like #1F69D1 (3 or 6 letters and numbers).</p>}
+    <div className="flex items-center gap-3">
+      <input name={name} type="hidden" value={hex} />
+      <input
+        type="color"
+        aria-label="Pick a colour"
+        value={hex || "#FFFFFF"}
+        onChange={(e) => setHex(e.target.value.toUpperCase())}
+        className="h-12 w-14 shrink-0 cursor-pointer rounded-xl border border-rule-2 bg-paper-2 p-1"
+      />
+      <span className={`min-w-0 flex-1 text-base ${hex ? "font-medium" : "text-muted"}`}>{label}</span>
+      {hex && (
+        <button type="button" onClick={() => setHex("")} className="btn btn-quiet h-auto min-h-10 px-3 py-1 text-sm">
+          Clear
+        </button>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { saveWorkflowAction } from "../actions";
 export default function NewWorkflow() {
   return (
     <div className="space-y-5">
-      <h1 className="page-title">New workflow</h1>
+      <h1 className="page-title">New steps</h1>
       <WorkflowEditor
         initialName=""
         initialSteps={[

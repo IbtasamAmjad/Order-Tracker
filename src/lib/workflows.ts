@@ -38,7 +38,7 @@ export function getWorkflow(id: number): WorkflowView | null {
 /** Why a workflow cannot be saved with this name, or null. Names are used once. */
 export function checkWorkflowName(name: string, ownId?: number): string | null {
   const n = name.trim();
-  if (!n) return "Give the workflow a name.";
+  if (!n) return "Give the steps a name.";
   const clash = db.select().from(workflows).all().find((w) => w.name.trim().toLowerCase() === n.toLowerCase() && w.id !== ownId);
   return clash ? `There is already a workflow called ${clash.name}.` : null;
 }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, lt, max } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, max, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments, stageEvents, type OrderStatus } from "@/db/schema";
 import { cleanValues, fieldProgress, isTextEditable, type ItemValues, type NewItem } from "./items";
@@ -390,7 +390,7 @@ export function masterComplete(masterId: number, orderId: number): CompleteResul
           .select({ itemId: shipmentItems.itemId })
           .from(shipmentItems)
           .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-          .where(eq(shipments.status, "submitted"))
+          .where(and(eq(shipments.status, "submitted"), isNull(shipmentItems.returnedAt)))
           .all()
           .map((r) => r.itemId),
       );
@@ -439,7 +439,7 @@ export function removeItem(orderId: number, itemId: number): RemoveItemResult {
       .select({ id: shipmentItems.itemId })
       .from(shipmentItems)
       .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-      .where(and(eq(shipmentItems.itemId, itemId), eq(shipments.status, "submitted")))
+      .where(and(eq(shipmentItems.itemId, itemId), and(eq(shipments.status, "submitted"), isNull(shipmentItems.returnedAt))))
       .get();
     if (sent) return { ok: false, reason: "shipped" } as const;
 
@@ -459,7 +459,7 @@ export function removeItem(orderId: number, itemId: number): RemoveItemResult {
           .select({ itemId: shipmentItems.itemId })
           .from(shipmentItems)
           .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-          .where(eq(shipments.status, "submitted"))
+          .where(and(eq(shipments.status, "submitted"), isNull(shipmentItems.returnedAt)))
           .all()
           .map((r) => r.itemId),
       );
@@ -523,7 +523,7 @@ export function unarchiveOrder(id: number): "completed" | "cancelled" | null {
         .select({ itemId: shipmentItems.itemId })
         .from(shipmentItems)
         .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-        .where(eq(shipments.status, "submitted"))
+        .where(and(eq(shipments.status, "submitted"), isNull(shipmentItems.returnedAt)))
         .all()
         .map((r) => r.itemId),
     );

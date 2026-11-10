@@ -105,7 +105,7 @@ export function AdminSidebar({
             ))}
           </div>
         )}
-        {item("/admin/workflows", "note", "Workflows", is("/admin/workflows"))}
+        {item("/admin/workflows", "note", "Steps", is("/admin/workflows"))}
         {item("/admin/masters", "masters", "Masters", is("/admin/masters"))}
 
         {divider()}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
+import { syncActiveItems } from "@/lib/item-sync";
 import { stagesFromBuilder } from "@/lib/templates";
 import { createWorkflow, deleteWorkflow, updateWorkflow, workflowFromTemplate } from "@/lib/workflows";
 
@@ -23,7 +24,8 @@ export async function saveWorkflowAction(_prev: WorkflowFormState, f: FormData):
     return { error: (e as Error).message };
   }
   revalidatePath("/admin", "layout");
-  redirect("/admin/workflows?saved=1");
+  const updated = syncActiveItems(); // customers in progress get the new steps too
+  redirect(`/admin/workflows?saved=1${updated > 0 ? `&synced=${updated}` : ""}`);
 }
 
 export async function deleteWorkflowAction(f: FormData) {
@@ -43,5 +45,6 @@ export async function saveStepsAsWorkflowAction(f: FormData) {
     redirect(`/admin/templates/${templateId}?wfError=${encodeURIComponent((e as Error).message)}`);
   }
   revalidatePath("/admin", "layout");
+  syncActiveItems({ templateId });
   redirect(`/admin/templates/${templateId}?wf=made`);
 }

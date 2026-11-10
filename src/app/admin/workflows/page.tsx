@@ -9,22 +9,22 @@ export const dynamic = "force-dynamic";
 const PHOTO = { none: "", optional: "image optional", upload: "image needed", required: "photo to approve" } as const;
 
 /** The reusable workflows: the steps each kind of item goes through. An item type can use one, or have its own steps. */
-export default async function Workflows({ searchParams }: { searchParams: Promise<{ saved?: string; deleted?: string }> }) {
-  const { saved, deleted } = await searchParams;
+export default async function Workflows({ searchParams }: { searchParams: Promise<{ saved?: string; deleted?: string; synced?: string }> }) {
+  const { saved, deleted, synced } = await searchParams;
   const list = listWorkflows();
   return (
     <div className="space-y-5">
-      <PageHeader title="Workflows" sub="The steps each kind of item goes through. Make one once, then use it for several items.">
+      <PageHeader title="Steps" sub="The steps each kind of item goes through. Make a set once, then use it for several items.">
         <Link href="/admin/workflows/new" className={btnPrimary}>
-          <Icon name="plus" className="h-4 w-4" /> New workflow
+          <Icon name="plus" className="h-4 w-4" /> New steps
         </Link>
       </PageHeader>
 
-      {saved && <Notice tone="success">Saved.</Notice>}
-      {deleted && <Notice tone="success">The workflow was deleted. The items that used it keep their steps.</Notice>}
+      {saved && <Notice tone="success">Saved.{Number(synced) > 0 && ` ${synced} customer item${Number(synced) === 1 ? "" : "s"} already in progress ${Number(synced) === 1 ? "was" : "were"} updated too.`}</Notice>}
+      {deleted && <Notice tone="success">The steps were deleted. The items that used them keep their steps.</Notice>}
 
       {list.length === 0 ? (
-        <EmptyState title="No workflows yet">Press New workflow to make the first one.</EmptyState>
+        <EmptyState title="No steps yet">Press New steps to make the first set.</EmptyState>
       ) : (
         <ul className="space-y-3">
           {list.map((w) => (
@@ -67,10 +67,10 @@ export default async function Workflows({ searchParams }: { searchParams: Promis
               </p>
 
               <details className="text-base">
-                <summary className="inline-flex min-h-10 cursor-pointer items-center text-muted underline">Delete this workflow</summary>
+                <summary className="inline-flex min-h-10 cursor-pointer items-center text-muted underline">Delete these steps</summary>
                 <form action={deleteWorkflowAction} className="mt-2 space-y-2">
                   <input type="hidden" name="id" value={w.id} />
-                  <p>The items that use it keep their steps, as their own. Customers are not changed.</p>
+                  <p>The items that use them keep their steps, as their own. Customers are not changed.</p>
                   <button className={btnDanger}>Delete {w.name}</button>
                 </form>
               </details>

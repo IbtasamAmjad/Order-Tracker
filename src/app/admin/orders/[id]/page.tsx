@@ -14,6 +14,9 @@ import type { FieldDef } from "@/db/schema";
 import { AdminItemExtras, INSTRUCTION_FORM, NOTE_FORM, REFRESH_FORM, STEP_FORM } from "@/components/AdminItemExtras";
 import { HistoryList } from "@/components/HistoryList";
 import { orderHistory } from "@/lib/history";
+import { remakeCount } from "@/lib/remake";
+import { syncActiveItems } from "@/lib/item-sync";
+import { RemakeBox } from "@/components/RemakeBox";
 import { ADD_ITEM_FORM, AddItemBox } from "@/components/AddItemBox";
 import { Icon } from "@/components/Icon";
 import { Notice, btnDanger, btnPrimary, btnSecondary, fmtDate, Field, textarea } from "@/components/ui";
@@ -26,6 +29,10 @@ const REFRESH_ERRORS: Record<string, string> = {
   "refresh-no-category": "This customer's item was deleted, so it cannot be updated from it.",
   "refresh-closed": "A finished or cancelled customer cannot be updated.",
   "refresh-not-found": "That item was not found.",
+  "remake-no-reason": "Write why it must be remade, then send it back again.",
+  "remake-no-items": "Tick at least one item to remake.",
+  "remake-cancelled": "A cancelled customer cannot be remade.",
+  "remake-not-found": "That customer was not found.",
 };
 
 /** "3 of 11 fields filled. Now: Stitching" for the closed card of an item. */
@@ -33,7 +40,8 @@ function itemSummary(i: { id: number; snapshot: { fields: FieldDef[] }; values: 
   const p = fieldProgress(i.snapshot.fields, i.values, referencePhotos(i.id).map((r) => r.fieldKey ?? ""));
   const now = itemTrack(i.id).find((s) => s.state === "current");
   const required = missingFields(i.snapshot.fields, i.values).length;
-  return `${p.filled} of ${p.total} fields filled${required > 0 ? `. ${required} still empty` : ""}${now ? `. Now: ${now.label}` : ". All done"}`;
+  const remade = remakeCount(i.id);
+  return `${p.filled} of ${p.total} fields filled${required > 0 ? `. ${required} still empty` : ""}${now ? `. Now: ${now.label}` : ". All done"}${remade > 0 ? `. Remade ${remade} time${remade === 1 ? "" : "s"}` : ""}`;
 }
 
 /** Fields filled out of all fields, for the little chip on an item's card. */
@@ -67,6 +75,8 @@ export default async function EditOrder({
   const { updated, removed, e } = await searchParams;
   const order = getOrder(Number((await params).id));
   if (!order) notFound();
+  // a customer that is behind its item (the item was changed) is brought up to date here, so nobody has to press a button
+  const caughtUp = order.status === "active" ? syncActiveItems({ orderId: order.id }) : 0;
   const assigned = assignedMasterIds(order.id);
   const masters = listMasters().filter((m) => m.active || assigned.includes(m.id));
   const active = order.status === "active";
@@ -87,6 +97,7 @@ export default async function EditOrder({
     photos: referencePhotos(i.id).map((r) => ({ id: r.id, fieldKey: r.fieldKey ?? "" })),
   }));
   const history = orderHistory(order.id);
+  const canRemake = order.status !== "cancelled" && !(order.status === "archived" && order.archivedFrom === "cancelled");
   const linked = linkedOrders(order.designNumber);
   const main = orderOfDesign(order.linkedDesignNumber);
   const templates = pickerGroups().flatMap((g) => g.items.map((t) => ({ ...t, group: g.name })));
@@ -140,6 +151,7 @@ export default async function EditOrder({
         </div>
       )}
       {updated && <Notice tone="success">Updated from the item. The master will see it was changed.</Notice>}
+      {caughtUp > 0 && <Notice tone="success">This customer was brought up to date with the latest form and steps. What was filled in is kept; check any new fields below.</Notice>}
       {removed && <Notice tone="success">The item was removed.</Notice>}
       {e && REFRESH_ERRORS[e] && <Notice tone="error">{REFRESH_ERRORS[e]}</Notice>}
       {shipments.length > 0 && (
@@ -147,7 +159,7 @@ export default async function EditOrder({
           <b>Shipments</b>
           {shipments.map((sh) => (
             <p key={sh.id}>
-              {fmtDate(sh.submittedAt)}: {sh.items.map((i) => i.label).join(", ")}{" "}
+              {fmtDate(sh.submittedAt)}: {sh.items.map((i) => (i.returned ? `${i.label} (sent back for a remake)` : i.label)).join(", ")}{" "}
               {sh.billPhotoId && (
                 <a href={`/api/admin/photos/${sh.billPhotoId}`} target="_blank" rel="noreferrer" className="link">
                   Open bill
@@ -157,6 +169,28 @@ export default async function EditOrder({
           ))}
         </div>
       )}
+      {/* Remake items and History side by side (one under the other on a phone) */}
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+        {canRemake && (
+          <RemakeBox orderId={order.id} items={items.map((i) => ({ id: i.id, label: i.label, sent: sentItems.has(i.id), times: remakeCount(i.id) }))} />
+        )}
+        <details className={`group rounded-2xl border border-rule bg-paper-2 shadow-sm ${canRemake ? "" : "md:col-span-2"}`}>
+          <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-5 py-3 text-base font-medium [&::-webkit-details-marker]:hidden">
+            <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-deep">
+              <Icon name="clock" className="h-5 w-5" />
+            </span>
+            <span className="flex-1">
+              History
+              <span className="block text-sm font-normal text-muted">Everything that happened on this customer</span>
+            </span>
+            <span className="rounded-full bg-paper-3 px-3 text-base">{history.length}</span>
+            <Icon name="chevron" className="h-4 w-4 text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="space-y-2 border-t border-rule px-5 py-4">
+            <HistoryList lines={history} />
+          </div>
+        </details>
+      </div>
       {order.masterEditedAt && (
         <div role="status" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-accent to-[#7C3AED] px-5 py-4 text-white shadow-sm">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/20">
@@ -271,19 +305,6 @@ export default async function EditOrder({
           )}
         </div>
       )}
-
-      <section className="panel">
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-xl font-medium [&::-webkit-details-marker]:hidden">
-            <span className="flex-1">History</span>
-            <span className="rounded-full bg-paper-3 px-3 text-base">{history.length}</span>
-            <Icon name="chevron" className="h-5 w-5 text-muted transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="mt-3">
-            <HistoryList lines={history} />
-          </div>
-        </details>
-      </section>
     </div>
   );
 }

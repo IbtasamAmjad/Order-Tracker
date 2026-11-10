@@ -86,12 +86,14 @@ export function itemStageViews(itemId: number): StageView[] {
   if (!item) return [];
   const defs = item.snapshot.stages ?? [];
   const rows = db.select().from(itemStages).where(eq(itemStages.itemId, itemId)).orderBy(asc(itemStages.position)).all();
+  const round = item.remadeAt?.getTime() ?? 0; // step photos from before a remake belong to the old round
   const stagePhotos = db
     .select()
     .from(photos)
     .where(and(eq(photos.itemId, itemId), eq(photos.type, "stage")))
     .orderBy(desc(photos.id))
-    .all();
+    .all()
+    .filter((p) => p.uploadedAt.getTime() >= round);
   const pictureKeys = pictureKeysOf(db, itemId);
   return rows.map((r) => {
     const def = defs.find((d) => d.key === r.stageKey);
@@ -198,14 +200,19 @@ export function completeStage(
         .from(photos)
         .where(and(eq(photos.itemId, itemId), eq(photos.stageKey, stageKey), eq(photos.type, "stage")))
         .orderBy(desc(photos.id))
-        .limit(1)
-        .get();
+        .all()
+        .find((p) => p.uploadedAt.getTime() >= (s.item.remadeAt?.getTime() ?? 0));
       if (latest?.status !== "approved") return { ok: false, reason: "needs-photo" } as const;
     }
 
     // a step that must have an image (no approval needed): at least one image has to be added
     if ((s.def?.photo ?? "none") === "upload" && !force) {
-      const any = tx.select({ id: photos.id }).from(photos).where(and(eq(photos.itemId, itemId), eq(photos.stageKey, stageKey), eq(photos.type, "stage"))).limit(1).get();
+      const any = tx
+        .select({ at: photos.uploadedAt })
+        .from(photos)
+        .where(and(eq(photos.itemId, itemId), eq(photos.stageKey, stageKey), eq(photos.type, "stage")))
+        .all()
+        .some((p) => p.at.getTime() >= (s.item.remadeAt?.getTime() ?? 0));
       if (!any) return { ok: false, reason: "needs-photo" } as const;
     }
 

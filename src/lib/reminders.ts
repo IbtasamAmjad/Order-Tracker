@@ -4,6 +4,7 @@ import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipmen
 import { daysUntil } from "./colour";
 import { REMINDER_DUE_DAYS, STALE_DAYS } from "./config";
 import { messages, waLink } from "./whatsapp";
+import { orderInfo } from "./order-info";
 
 const DAY = 86_400_000;
 
@@ -90,11 +91,12 @@ export function remindersList(now: Date = new Date()): Reminder[] {
     if (f.overdue) reasons.push(`Overdue by ${f.daysOverdue} day${f.daysOverdue === 1 ? "" : "s"}`);
     else if (f.dueSoon) reasons.push(f.daysLeft === 0 ? "Due today" : `Due in ${f.daysLeft} day${f.daysLeft === 1 ? "" : "s"}`);
     if (f.stale) reasons.push(`No update for ${f.idleDays} days`);
+    const info = orderInfo(o.id);
     const text = f.overdue
-      ? messages.overdue({ ...c, dueDate: o.karigarDueDate })
+      ? messages.overdue({ ...c, dueDate: o.karigarDueDate, days: f.daysOverdue, info })
       : f.stale
-        ? messages.stale({ ...c, days: f.idleDays })
-        : messages.dueSoon({ ...c, days: f.daysLeft });
+        ? messages.stale({ ...c, days: f.idleDays, info })
+        : messages.dueSoon({ ...c, days: f.daysLeft, info });
     out.push({
       orderId: o.id,
       orderNumber: o.orderNumber,

@@ -1,9 +1,11 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, shipmentItems, shipments } from "@/db/schema";
 import { mine, masterNames } from "./assign";
 import { isDisplayOnly } from "./items";
 import { itemStageViews, referencePhotos } from "./stages";
+import { shippableItems } from "./shipping";
+import { colourName } from "./colour-name";
 
 import { DUE_FILTERS, STATUS_FILTERS, STATUS_TEXT, type ItemStatus } from "./item-filter-options";
 
@@ -50,7 +52,7 @@ function shippedItemIds(): Set<number> {
       .select({ itemId: shipmentItems.itemId })
       .from(shipmentItems)
       .innerJoin(shipments, eq(shipmentItems.shipmentId, shipments.id))
-      .where(eq(shipments.status, "submitted"))
+      .where(and(eq(shipments.status, "submitted"), isNull(shipmentItems.returnedAt)))
       .all()
       .map((r) => r.itemId),
   );
@@ -85,7 +87,7 @@ export function itemRows(masterId?: number): ItemRow[] {
       designNumber: order.designNumber,
       itemName: item.snapshot.templateName,
       label: item.label,
-      colourText: colourField ? value(colourField) : "",
+      colourText: colourField ? value(colourField) : hexField ? colourName(value(hexField)) : "",
       colourHex: hexField ? value(hexField) : null,
       embroidery: embroideryField ? value(embroideryField) : "",
       photoIds: referencePhotos(item.id).map((r) => r.id),
@@ -99,7 +101,7 @@ export function itemRows(masterId?: number): ItemRow[] {
 
 /** What the search looks through: the customer, order and design number, the item, and everything written on its form. */
 function haystack(r: ItemRow, values: string): string {
-  return [`#${r.orderNumber}`, r.orderNumber, r.customerName, r.designNumber ?? "", r.itemName, r.label, r.colourText, r.colourHex ?? "", r.embroidery, values].join(" ").toLowerCase();
+  return [`#${r.orderNumber}`, r.orderNumber, r.customerName, r.designNumber ?? "", r.itemName, r.label, r.colourText, colourName(r.colourHex), r.embroidery, values].join(" ").toLowerCase();
 }
 
 export type ItemQuery = { q?: string; type?: string; status?: string; due?: string; design?: string };
@@ -184,4 +186,28 @@ export function pendingWork(masterId: number): PendingStep[] {
     });
   }
   return out.sort((a, b) => a.karigarDueDate.localeCompare(b.karigarDueDate) || a.orderNumber - b.orderNumber);
+}
+
+/** Where each item of one order stands, for the master: sent, finished and waiting in the cart, or still to make. */
+export type ItemState = { itemId: number; label: string; colour: string; state: "sent" | "ready" | "making"; stage: string | null };
+
+export function itemStatesOfOrder(orderId: number): ItemState[] {
+  const colours = new Map(db.select({ id: orderItems.id, snapshot: orderItems.snapshot }).from(orderItems).where(eq(orderItems.orderId, orderId)).all().map((i) => [i.id, i.snapshot.colour]));
+  return shippableItems(orderId).map((i) => {
+    const colour = colours.get(i.id) ?? "#64748b";
+    if (i.shippedIn !== null) return { itemId: i.id, label: i.label, colour, state: "sent", stage: null };
+    if (i.ready) return { itemId: i.id, label: i.label, colour, state: "ready", stage: null };
+    const now = itemStageViews(i.id).find((s) => s.status !== "done");
+    return { itemId: i.id, label: i.label, colour, state: "making", stage: now?.label ?? null };
+  });
+}
+
+/** One plain sentence: "1 of 2 items finished. 1 left to make." */
+export function itemStatesSummary(states: ItemState[]): string {
+  if (states.length === 0) return "";
+  const left = states.filter((x) => x.state === "making").length;
+  const done = states.length - left;
+  if (left === 0) return states.every((x) => x.state === "sent") ? "All items are sent." : "All items are finished.";
+  if (done === 0) return `${left} item${left === 1 ? "" : "s"} to make.`;
+  return `${done} of ${states.length} items finished. ${left} left to make.`;
 }

@@ -105,7 +105,7 @@ describe("workflows", () => {
     expect(t.getTemplate(k)!.workflowId).toBe(id);
 
     expect(() => w.createWorkflow("simple ITEM", steps("A"))).toThrow(/already a workflow/);
-    expect(() => w.createWorkflow("  ", steps("A"))).toThrow(/Give the workflow a name/);
+    expect(() => w.createWorkflow("  ", steps("A"))).toThrow(/Give the steps a name/);
     expect(w.checkWorkflowName("Simple item", id)).toBeNull(); // its own name is fine when editing it
   });
 });

@@ -160,5 +160,7 @@ export function describeEvent(h: HistoryLine): string {
       return `${h.who} added an image to ${h.stage ?? "a step"}${of}`;
     case "shipped":
       return `${h.who} sent ${h.item ?? "an item"}`;
+    case "remade":
+      return `${h.who} sent ${h.item ?? "an item"} back for a remake`;
   }
 }

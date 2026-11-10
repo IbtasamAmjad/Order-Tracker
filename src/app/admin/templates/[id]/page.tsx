@@ -13,11 +13,11 @@ export default async function CategoryBuilder({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; e?: string; wf?: string; wfError?: string }>;
+  searchParams: Promise<{ saved?: string; synced?: string; e?: string; wf?: string; wfError?: string }>;
 }) {
   const t = getTemplate(Number((await params).id));
   if (!t) notFound();
-  const { saved, e, wf, wfError } = await searchParams;
+  const { saved, synced, e, wf, wfError } = await searchParams;
 
   return (
     <div className="space-y-8">
@@ -33,11 +33,12 @@ export default async function CategoryBuilder({
       {e === "duplicate" && (
         <Notice tone="error">Two fields have the same name, so nothing was saved. Give each field its own name, then save again.</Notice>
       )}
-      {wf === "made" && <Notice tone="success">The workflow was made, and this item now uses it.</Notice>}
+      {wf === "made" && <Notice tone="success">The steps were saved, and this item now uses them.</Notice>}
       {wfError && <Notice tone="error">{wfError}</Notice>}
       {saved && (
         <p role="status" className="alert alert-success text-lg font-medium">
           Saved. New customers will use this form.
+          {Number(synced) > 0 && ` ${synced} customer item${Number(synced) === 1 ? "" : "s"} already in progress ${Number(synced) === 1 ? "was" : "were"} updated too.`}
         </p>
       )}
 
@@ -70,12 +71,12 @@ export default async function CategoryBuilder({
       {t.workflowId === null && t.stages.length > 0 && (
         <form action={saveStepsAsWorkflowAction} className="panel space-y-3">
           <input type="hidden" name="templateId" value={t.id} />
-          <h2 className="text-xl font-medium">Save these steps as a workflow</h2>
+          <h2 className="text-xl font-medium">Save these steps to use again</h2>
           <p className="text-base">
-            Make a workflow from this item&apos;s saved steps ({t.stages.map((s) => s.label).join(", ")}), so other items can use it too. This item will use it.
+            Keep this item&apos;s saved steps ({t.stages.map((s) => s.label).join(", ")}), so other items can use them too. This item will use them.
           </p>
-          <input name="name" required placeholder="Workflow name (for example Garment)" className={input} aria-label="Workflow name" />
-          <button className={btnSecondary}>Save as a workflow</button>
+          <input name="name" required placeholder="Name of the steps (for example Garment)" className={input} aria-label="Name of the steps" />
+          <button className={btnSecondary}>Save these steps</button>
         </form>
       )}
 

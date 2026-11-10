@@ -79,7 +79,11 @@ describe("flags and reminders", () => {
     expect(list.map((x) => x.customerName)).toEqual(["Late", "Soon"]); // earliest due first, "Fine" and cancelled left out
     expect(list[0]).toMatchObject({ orderId: late, hasNumber: true, reasons: ["Overdue by 3 days"] });
     expect(list[0].link).toContain("https://wa.me/92300111?text=");
-    expect(decodeURIComponent(list[0].link)).toContain("was due on");
+    const text = decodeURIComponent(list[0].link);
+    expect(text).toContain("This order is LATE.");
+    expect(text).toContain("Late by 3 days");
+    expect(text).toContain("Due date: "); // the Karigar due date, written out in words
+    expect(text).not.toMatch(/my due/i);
     expect(list[1].orderId).toBe(soon);
 
     // in ten days an untouched "Fine" order has gone stale
@@ -115,7 +119,8 @@ describe("notices", () => {
     const id = mk(master, "Cust", inDays(30));
     const [notice] = n.orderNotices("new", id);
     expect(notice).toMatchObject({ masterName: "Notice", hasNumber: true });
-    expect(decodeURIComponent(notice.link)).toContain("new order #");
+    expect(decodeURIComponent(notice.link)).toContain("You have a new order.");
+    expect(decodeURIComponent(notice.link)).toContain(`Order #`);
     expect(decodeURIComponent(n.orderNotices("cancelled", id)[0].link)).toContain("CANCELLED");
     expect(n.orderNotices("new", 999999)).toEqual([]);
     expect(n.photoNotice(999999)).toBeNull();
@@ -128,5 +133,38 @@ describe("notices", () => {
     const notices = n.orderNotices("updated", id);
     expect(notices.map((x) => x.masterName)).toEqual(["Two A", "Two B"]);
     expect(notices.map((x) => x.hasNumber)).toEqual([true, false]);
+  });
+});
+
+describe("what a reminder tells the master", () => {
+  it("says what is late, what is finished and what is left, in plain words", () => {
+    const info = {
+      design: "NS-206",
+      dueDate: "2026-11-05",
+      items: [
+        { label: "Sherwani", state: "making" as const, stage: "Cutting" },
+        { label: "Pants", state: "sent" as const, stage: null },
+        { label: "Shoes", state: "ready" as const, stage: null },
+      ],
+      summary: "2 of 3 items finished. 1 left to make.",
+    };
+    const c = { masterName: "Naseem", token: "tok", orderNumber: 18, customer: "Bilal" };
+    const text = messages.overdue({ ...c, dueDate: "2026-11-05", days: 5, info });
+    expect(text).toContain("Order #18 - Bilal (design NS-206)");
+    expect(text).toContain("Due date: 5 November 2026");
+    expect(text).toContain("Late by 5 days");
+    expect(text).toContain("Where it stands:");
+    expect(text).toContain("- Sherwani: still to make (now at Cutting)");
+    expect(text).toContain("\n\n"); // blank lines keep it easy to read in WhatsApp
+    const allDone = { ...info, items: info.items.map((i) => ({ ...i, state: "ready" as const, stage: null })), summary: "All items are finished." };
+    expect(messages.overdue({ ...c, dueDate: "2026-11-05", days: 5, info: allDone })).toContain("Please send it today (open your Cart)");
+    expect(text).toContain("- Pants: already sent");
+    expect(text).toContain("- Shoes: finished, ready to send");
+    expect(text).toContain("2 of 3 items finished. 1 left to make.");
+    expect(text).toContain("send me an update today");
+    expect(text).toContain(masterLink("tok"));
+    expect(messages.dueSoon({ ...c, days: 1, info })).toContain("This order is due in 1 day.");
+    expect(messages.dueSoon({ ...c, days: 0, info })).toContain("This order is due today.");
+    expect(messages.stale({ ...c, days: 4, info })).toContain("not had an update on this order for 4 days");
   });
 });

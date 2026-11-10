@@ -6,7 +6,7 @@ import { PositionTile, btnPrimary, card, chipAttention, fmtDay } from "@/compone
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
-import { pendingWork } from "@/lib/item-search";
+import { itemStatesOfOrder, itemStatesSummary, pendingWork } from "@/lib/item-search";
 import { cartCandidates } from "@/lib/shipping";
 
 export default async function MasterHome({
@@ -26,6 +26,14 @@ export default async function MasterHome({
   const master = (await requireMaster(token))!;
   const { active } = masterDashboard(master.id);
   const pending = pendingWork(master.id);
+  // when some items of an order are finished and others are not, say what is left (for example "1 of 2 items finished. 1 left to make.")
+  const sayLeft = (orderId: number) => {
+    const st = itemStatesOfOrder(orderId);
+    const done = st.filter((x) => x.state !== "making").length;
+    return st.length > 1 && done > 0 && done < st.length ? itemStatesSummary(st) : "";
+  };
+  const leftText = new Map(active.map((o) => [o.id, sayLeft(o.id)]));
+  const left = (orderId: number) => leftText.get(orderId) ?? "";
   const ready = cartCandidates(master.id).length; // finished items waiting to be sent
 
   return (
@@ -77,6 +85,7 @@ export default async function MasterHome({
                   <p className="text-base text-muted">
                     {o.itemLabels.length > 0 ? o.itemLabels.join(", ") : "No items yet"}
                   </p>
+                  {left(o.id) && <p className="text-base font-medium text-[#92400E]">{left(o.id)}</p>}
                 </Link>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className={`rounded-full px-3 py-1 text-sm font-medium text-white ${pill}`}>{status}</span>

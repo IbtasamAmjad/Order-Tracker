@@ -114,8 +114,8 @@ The database stores only the record; files live in file storage.
 | Field | Notes |
 |---|---|
 | id | |
-| order_id | |
-| master_id | |
+| order_id | only where the bill picture is filed (an open order of the master); a shipment can hold items of several orders |
+| master_id | the master's open `draft` is his cart; he has one at a time |
 | status | `draft` / `submitted` |
 | bill_photo_id | the uploaded bill/invoice (required to submit) |
 | package_photo_id | optional photo of the packed items (the "snapshot" Anas asked for) |
@@ -127,7 +127,7 @@ The database stores only the record; files live in file storage.
 | shipment_id, item_id | which items are in this drop-off |
 | checked | master ticked it as physically present |
 
-A bill can cover 5 or 10 garments, so a shipment holds many items. Partial shipments are allowed, but an item can belong to only **one submitted** shipment.
+A bill can cover many garments from many customers, so a shipment holds many items, each from its own order. Partial shipments are allowed, but an item can belong to only **one submitted** shipment.
 
 ### Notification (optional, later)
 | Field | Notes |

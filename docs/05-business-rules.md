@@ -14,7 +14,7 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 7. Admin can create, edit and delete categories (two levels: main > sub), fields and stages without a developer.
 8. Field types supported: text, number, date, picture, yes/no. This is "within reason".
 9. Each field is **required or optional**, set by Admin.
-10. If a required field is empty on save, the app **warns** (for example "You haven't given sleeve length") but Admin may **submit anyway**. The warning is a safeguard, not a hard block.
+10. Every item field must be filled in before an order is saved, new or old (pictures, headings and notes excepted). If something is empty the app lists what is missing (for example "You haven't given sleeve length") and saves nothing until it is filled. (Changed from "warn, then submit anyway".)
 11. Templates are **pre-created** so Anas never re-enters the same fields; an order takes 30-40 minutes today and this must shrink.
 12. Number of measurements can change over time (6 today, 9 later); templates must allow this.
 13. Editing a template must not break existing orders (orders keep a snapshot).
@@ -51,7 +51,7 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 ## Shipping
 33. The master builds a **checklist** of items being dropped off and confirms each is physically present (to avoid missing-item shipments that cost about $100 to resend).
 34. The master **cannot submit** the shipment until the **bill is uploaded**.
-35. One bill can cover many items (5 or 10 Sherwanis); the master chooses which items it covers.
+35. One bill covers all the finished items of all of a master's customers: they wait in the master's **cart**, he takes one bill photo and sends them together. He can take an item out of the shipment that day.
 36. Admin receives a copy of the bill.
 
 ## Printing
