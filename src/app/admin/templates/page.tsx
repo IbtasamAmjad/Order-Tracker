@@ -1,8 +1,7 @@
-import Link from "next/link";
+import { SortableCategories } from "@/components/SortableCategories";
 import { listCategoryTree } from "@/lib/templates";
 import { EmptyState, btnDanger, btnPrimary, btnSecondary, input } from "@/components/ui";
 import { createMainAction, createSubAction, deleteCategoryAction, updateCategoryAction } from "./actions";
-import { Icon } from "@/components/Icon";
 import { AddGroupBox } from "@/components/AddGroupBox";
 
 const colourInput = "h-12 w-14 shrink-0 cursor-pointer rounded-full border border-muted bg-paper p-1";
@@ -35,23 +34,17 @@ export default function Templates() {
             {main.subs.length === 0 ? (
               <p className="text-base text-muted">No items in {main.name} yet. Add the first one below.</p>
             ) : (
-              <ul className="space-y-2">
-                {main.subs.map((sub) => (
-                  <li key={sub.id}>
-                    <Link
-                      href={`/admin/templates/${sub.template.id}`}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-1 panel text-xl font-medium"
-                    >
-                      <span className="inline-block h-5 w-5 rounded-full" style={{ background: sub.colour }} />
-                      <span className="min-w-0 flex-1 basis-24 break-words">{sub.name}</span>
-                      <span className="flex items-center gap-2 text-base font-normal">
-                        {sub.template.fields.length} fields
-                        <Icon name="arrow" className="h-4 w-4" />
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <SortableCategories
+                key={main.subs.map((s) => s.id).join("-")}
+                parentId={main.id}
+                items={main.subs.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  colour: s.colour,
+                  templateId: s.template.id,
+                  fieldCount: s.template.fields.length,
+                }))}
+              />
             )}
 
             <form action={createSubAction} className="space-y-2">

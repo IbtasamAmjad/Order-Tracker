@@ -10,6 +10,7 @@ import {
   createSubCategory,
   deleteCategory,
   fieldsFromBuilder,
+  reorderCategories,
   saveTemplate,
   stagesFromBuilder,
   templateIdOf,
@@ -37,6 +38,12 @@ export async function createSubAction(f: FormData) {
     if (templateId) redirect(`/admin/templates/${templateId}`);
   }
   redirect("/admin/templates");
+}
+
+export async function reorderCategoriesAction(parentId: number | null, ids: number[]) {
+  await requireAdmin();
+  reorderCategories(parentId, ids.map(Number).filter(Number.isInteger));
+  revalidatePath("/admin", "layout");
 }
 
 export async function updateCategoryAction(f: FormData) {

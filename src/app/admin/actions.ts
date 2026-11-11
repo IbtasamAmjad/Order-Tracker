@@ -3,6 +3,8 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { cleanMasterIds } from "@/lib/assign";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { addOrderPdf, chosenPdfs, listOrderFiles, pdfProblem, removeOrderFile } from "@/lib/order-files";
 import { checkDesignNumbers,
   addItem,
   createOrder,
@@ -23,7 +25,7 @@ import { storeUpload } from "@/lib/photo-upload";
 import { addStageNote, setInstruction } from "@/lib/history";
 import { refreshItemFromCategory } from "@/lib/item-sync";
 import type { EditorState } from "@/lib/editor-state";
-import { createMaster, reissueLink, setActive, setPin } from "@/lib/masters";
+import { createMaster, deleteMaster, reissueLink, setActive, setPin } from "@/lib/masters";
 import { ORDER_STATUSES, type FieldDef, type OrderStatus } from "@/db/schema";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -91,6 +93,17 @@ ${v}` : v; // checkboxes send several
     return cleanValues(fields, raw);
   };
 
+  // PDF files chosen in the form: they must be real PDFs. With a PDF attached (new or already saved), the item fields may stay empty.
+  const pdfs = chosenPdfs(f);
+  for (const file of pdfs) {
+    const bad = await pdfProblem(file);
+    if (bad) return { nonce, missing: [], missingKeys: [], values, error: bad };
+  }
+  const hasPdf = pdfs.length > 0 || (orderId ? listOrderFiles(orderId).length > 0 : false);
+  const savePdfs = async (id: number) => {
+    for (const file of pdfs) await addOrderPdf(id, file);
+  };
+
   const missing: string[] = [];
   const missingKeys: string[] = [];
   if (orderId) {
@@ -98,13 +111,14 @@ ${v}` : v; // checkboxes send several
     for (const it of listItems(orderId)) {
       const vals = collect(String(it.id), it.snapshot.fields);
       itemValues.set(it.id, vals);
-      for (const m of missingFields(it.snapshot.fields, vals)) {
+      for (const m of hasPdf ? [] : missingFields(it.snapshot.fields, vals)) {
         missing.push(`${it.label}: ${m.label}`);
         missingKeys.push(`${it.id}:${m.key}`);
       }
     }
     if (missing.length) return { nonce, missing, missingKeys, values };
     updateOrder(orderId, input, itemValues);
+    await savePdfs(orderId);
     for (const it of listItems(orderId)) await savePictures(f, orderId, it.id, String(it.id), it.snapshot.fields);
   } else {
     const items: NewItem[] = [];
@@ -114,7 +128,7 @@ ${v}` : v; // checkboxes send several
       if (!tpl) continue;
       const label = String(f.get(`l:${key}`) ?? tpl.snapshot.templateName);
       const vals = collect(key, tpl.snapshot.fields);
-      for (const m of missingFields(tpl.snapshot.fields, vals)) {
+      for (const m of hasPdf ? [] : missingFields(tpl.snapshot.fields, vals)) {
         missing.push(`${label}: ${m.label}`);
         missingKeys.push(`${key}:${m.key}`);
       }
@@ -123,11 +137,19 @@ ${v}` : v; // checkboxes send several
     }
     if (missing.length) return { nonce, missing, missingKeys, values };
     const newId = createOrder(input, items);
+    await savePdfs(newId);
     const saved = listItems(newId); // in the same order as the items given
     for (const [n, key] of keys.entries()) await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
     redirect(`/admin/customers?notify=new:${newId}`);
   }
   redirect(orderId ? `/admin/customers?notify=updated:${orderId}` : "/admin/customers");
+}
+
+/** Takes a PDF off an order (the Remove button next to it). */
+export async function removeOrderFileAction(orderId: number, fileId: number) {
+  await requireAdmin();
+  await removeOrderFile(Number(orderId), Number(fileId));
+  revalidatePath(`/admin/orders/${orderId}`);
 }
 
 export async function addItemAction(f: FormData) {
@@ -210,6 +232,12 @@ export async function reissueLinkAction(f: FormData) {
   await requireAdmin();
   reissueLink(num(f, "id"));
   redirect("/admin/masters");
+}
+
+export async function deleteMasterAction(f: FormData) {
+  await requireAdmin();
+  const res = deleteMaster(num(f, "id"));
+  redirect(res === "deleted" ? "/admin/masters" : "/admin/masters?e=has-work");
 }
 
 export async function setMasterActiveAction(f: FormData) {

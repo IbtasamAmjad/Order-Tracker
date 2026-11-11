@@ -15,14 +15,34 @@ import {
 
 // ------------------------------------------------------------ categories
 
+/** One place after the last one, so a new category goes to the end of the list. */
+function nextPosition(parentId: number | null) {
+  const rows = db.select({ p: categories.position, parentId: categories.parentId }).from(categories).all();
+  return Math.max(0, ...rows.filter((r) => r.parentId === parentId).map((r) => r.p)) + 1;
+}
+
 export function createMainCategory(name: string, colour: string) {
-  return db.insert(categories).values({ name, colour, parentId: null }).returning({ id: categories.id }).get().id;
+  return db
+    .insert(categories)
+    .values({ name, colour, parentId: null, position: nextPosition(null) })
+    .returning({ id: categories.id })
+    .get().id;
+}
+
+/** Saves the order of the categories inside one group (or of the groups when parentId is null). */
+export function reorderCategories(parentId: number | null, ids: number[]) {
+  db.transaction((tx) => {
+    const own = new Set(
+      tx.select({ id: categories.id, parentId: categories.parentId }).from(categories).all().filter((c) => c.parentId === parentId).map((c) => c.id),
+    );
+    ids.filter((id) => own.has(id)).forEach((id, i) => tx.update(categories).set({ position: i + 1 }).where(eq(categories.id, id)).run());
+  });
 }
 
 /** Creating a sub-category also creates its (empty) template. */
 export function createSubCategory(parentId: number, name: string, colour: string) {
   return db.transaction((tx) => {
-    const id = tx.insert(categories).values({ name, colour, parentId }).returning({ id: categories.id }).get().id;
+    const id = tx.insert(categories).values({ name, colour, parentId, position: nextPosition(parentId) }).returning({ id: categories.id }).get().id;
     tx.insert(templates).values({ categoryId: id, fields: [], stages: [] }).run();
     return id;
   });
@@ -48,7 +68,7 @@ export function deleteCategory(id: number) {
 }
 
 export function listCategoryTree() {
-  const all = db.select().from(categories).orderBy(categories.name).all();
+  const all = db.select().from(categories).orderBy(categories.position, categories.name).all();
   const tpl = db.select().from(templates).all();
   const tplByCat = new Map(tpl.map((t) => [t.categoryId, t]));
   return all

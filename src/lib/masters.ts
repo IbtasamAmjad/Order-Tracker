@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { masters } from "@/db/schema";
+import { masters, orderMasters, orders, shipments, stageEvents } from "@/db/schema";
 import { hashPin, newToken } from "./pin";
 
 export function createMaster(input: { name: string; pin: string; whatsappNumber?: string }) {
@@ -37,4 +37,21 @@ export function reissueLink(id: number) {
 
 export function setActive(id: number, active: boolean) {
   db.update(masters).set({ active }).where(eq(masters.id, id)).run();
+}
+
+/** True when the master has never had any customer, shipment or history, so deleting him loses nothing. */
+export function masterIsUnused(id: number): boolean {
+  const used =
+    db.select({ x: orders.id }).from(orders).where(eq(orders.masterId, id)).get() ||
+    db.select({ x: orderMasters.orderId }).from(orderMasters).where(eq(orderMasters.masterId, id)).get() ||
+    db.select({ x: shipments.id }).from(shipments).where(eq(shipments.masterId, id)).get() ||
+    db.select({ x: stageEvents.id }).from(stageEvents).where(eq(stageEvents.masterId, id)).get();
+  return !used;
+}
+
+/** Deletes a master who has no work at all. One with customers or history is refused (Deactivate him instead). */
+export function deleteMaster(id: number): "deleted" | "has-work" {
+  if (!masterIsUnused(id)) return "has-work";
+  db.delete(masters).where(eq(masters.id, id)).run();
+  return "deleted";
 }

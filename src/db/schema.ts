@@ -125,6 +125,8 @@ export const categories = sqliteTable("categories", {
   parentId: integer("parent_id"),
   name: text("name").notNull(),
   colour: text("colour").notNull().default("#64748b"),
+  // the order Admin chose by dragging (0 = never moved, then by name)
+  position: integer("position").notNull().default(0),
   createdAt: ts("created_at")
     .notNull()
     .$defaultFn(() => new Date()),
@@ -224,6 +226,20 @@ export const photos = sqliteTable("photos", {
     .notNull()
     .$defaultFn(() => new Date()),
   reviewedAt: ts("reviewed_at"),
+});
+
+// PDF files attached to an order (for example the customer's own order form), so the details need not be typed in.
+export const orderFiles = sqliteTable("order_files", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => orders.id),
+  name: text("name").notNull(),
+  fileKey: text("file_key").notNull(),
+  bytes: integer("bytes").notNull(),
+  uploadedAt: ts("uploaded_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
 // ---------------------------------------------------------------- Phase 5

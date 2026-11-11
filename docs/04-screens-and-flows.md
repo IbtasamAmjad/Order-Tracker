@@ -105,3 +105,11 @@ Admin opens the customer, opens **Remake items**, ticks the items that must be m
 ### Customers list
 Filter chips (overdue, urgent, coming due, on time, work stages) plus **Sort by due date** (earliest Karigar due date first; the up/down arrows rest while it is on). The up/down arrows swap an order with the one next to it in the list, whatever its master. An overdue order's whole card turns red (red-tinted background and border, a glowing red dot), not only its due date box.
 
+
+## Items page order
+Admin can drag the categories of a group (Kurta, Pants...) into any order with the dots handle; the order is saved at once and also used in the sidebar and when choosing items for a customer.
+
+## Order PDF
+Customer form: "Order PDF" box under the masters (choose a PDF, saved with the customer; View and Remove for saved ones). Master order page: "Order PDF" with a View button per file.
+
+The Masters page shows each master as a card: name and status, progress (items, made, percent), his link with Copy, Send link on WhatsApp, Set PIN, New link, Deactivate, Delete.

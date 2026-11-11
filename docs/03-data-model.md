@@ -204,3 +204,9 @@ The accountant's invoice and the handover to the shipping company are handled by
 - SQLite file for records; files for images (see `06-tech-stack.md`).
 - Template definitions and filled values use JSON columns.
 - Keep `priority_position` unique among active orders and renumber on every move.
+
+## categories.position
+`categories.position` (integer, default 0) holds the order chosen by dragging on the Items page; lists sort by position, then name.
+
+## order_files
+`order_files` (id, order_id, name, file_key, bytes, uploaded_at): PDFs attached to an order; the file is in the uploads folder.

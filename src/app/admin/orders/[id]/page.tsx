@@ -8,6 +8,7 @@ import { orderShipments, shippableItems } from "@/lib/shipping";
 import { listMasters } from "@/lib/masters";
 import { pickerGroups } from "@/lib/templates";
 import type { EditorItem } from "@/lib/editor-state";
+import { listOrderFiles } from "@/lib/order-files";
 import { displayValue, fieldProgress, isDisplayOnly, missingFields } from "@/lib/items";
 import { itemTrack } from "@/lib/track";
 import type { FieldDef } from "@/db/schema";
@@ -220,6 +221,7 @@ export default async function EditOrder({
             orderId={order.id}
             submitLabel="Save changes"
             formId="order-form"
+            pdfs={listOrderFiles(order.id).map((p) => ({ id: p.id, name: p.name, bytes: p.bytes }))}
             designNumbers={listDesignNumbers(order.id).map((d) => ({ designNumber: d.designNumber, orderNumber: d.orderNumber, customerName: d.customerName }))}
             afterMasters={<AddItemBox orderId={order.id} options={templates.map((t) => ({ templateId: t.templateId, label: `${t.group} > ${t.name}` }))} />}
           />

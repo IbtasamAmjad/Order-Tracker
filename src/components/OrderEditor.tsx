@@ -10,6 +10,7 @@ import { FieldRow, isWideField } from "./FieldRow";
 import { MasterPicker } from "./MasterPicker";
 import { PictureStore } from "./PictureInput";
 import { RemoveItemButton } from "./RemoveItemButton";
+import { OrderPdfBox, type PdfRow } from "./OrderPdfBox";
 import { FieldProgress } from "./FieldProgress";
 import { Icon } from "./Icon";
 import { Field, RequiredMark, btnPrimary, input, textarea, card } from "./ui";
@@ -44,7 +45,9 @@ export function OrderEditor({
   formId,
   afterMasters,
   designNumbers = [],
+  pdfs = [],
 }: {
+  pdfs?: PdfRow[]; // PDFs already attached to this customer
   action: (prev: EditorState, f: FormData) => Promise<EditorState>;
   masters: Master[];
   base?: Base;
@@ -208,6 +211,8 @@ export function OrderEditor({
       </div>
 
       {afterMasters}
+
+      <OrderPdfBox orderId={orderId} files={pdfs} />
 
       {picker && (
         <section className="space-y-3">

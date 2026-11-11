@@ -14,6 +14,7 @@ import { completeOrderAction, confirmOrderAction } from "../../../actions";
 import { HistoryList } from "@/components/HistoryList";
 import { orderHistory } from "@/lib/history";
 import { Icon } from "@/components/Icon";
+import { listOrderFiles } from "@/lib/order-files";
 import { cartCandidates } from "@/lib/shipping";
 import { remakeCount } from "@/lib/remake";
 import { itemStatesOfOrder, itemStatesSummary } from "@/lib/item-search";
@@ -48,6 +49,8 @@ export default async function MasterOrder({
   const today = new Date();
   const [dy, dm, dd] = order.karigarDueDate.split("-").map(Number);
   const daysLeft = Math.round((new Date(dy, dm - 1, dd).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000);
+
+  const orderPdfs = listOrderFiles(order.id);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -120,6 +123,24 @@ export default async function MasterOrder({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {orderPdfs.length > 0 && (
+          <div className="space-y-2 border-t border-rule pt-4">
+            <p className="text-lg font-medium">Order PDF</p>
+            {orderPdfs.map((p) => (
+              <a
+                key={p.id}
+                href={`/api/m/${token}/orders/${order.id}/files/${p.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-12 items-center gap-2 rounded-xl border-2 border-accent bg-accent-soft px-3 text-lg font-medium text-accent-deep"
+              >
+                <Icon name="note" className="h-5 w-5 shrink-0" />
+                <span className="min-w-0 flex-1 break-words">View {p.name}</span>
+              </a>
+            ))}
           </div>
         )}
 
