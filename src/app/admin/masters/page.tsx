@@ -7,17 +7,28 @@ import { DeleteToggle } from "@/components/DeleteToggle";
 import { AddMasterBox } from "@/components/AddMasterBox";
 import { Icon } from "@/components/Icon";
 import { btnDanger, btnSecondary, input } from "@/components/ui";
-import { createMasterAction, deleteMasterAction, reissueLinkAction, setMasterActiveAction, setPinAction } from "../actions";
+import { officeWhatsapp } from "@/lib/settings";
+import { createMasterAction, saveOfficeWhatsappAction, deleteMasterAction, reissueLinkAction, setMasterActiveAction, setPinAction } from "../actions";
 
 const WHATSAPP_ICON =
   "M12 2a9.9 9.9 0 0 0-8.5 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.200 5.200 0 0 0 1.100 2.800 11.900 11.900 0 0 0 4.600 4.100c1.700.7 2.400.8 3.200.7a2.700 2.700 0 0 0 1.800-1.300 2.200 2.200 0 0 0 .2-1.300c-.1-.1-.2-.2-.5-.3Z";
 
-export default async function Masters({ searchParams }: { searchParams: Promise<{ e?: string }> }) {
-  const { e } = await searchParams;
+export default async function Masters({ searchParams }: { searchParams: Promise<{ e?: string; office?: string }> }) {
+  const { e, office } = await searchParams;
   const masters = listMasters();
   return (
     <div className="space-y-6">
       <AddMasterBox action={createMasterAction} startOpen={masters.length === 0} />
+
+      <form action={saveOfficeWhatsappAction} className="panel flex flex-wrap items-end gap-3 !p-4">
+        <label className="min-w-0 flex-1 basis-64">
+          <span className="mb-1 block text-base font-medium">Your WhatsApp number</span>
+          <input name="number" defaultValue={officeWhatsapp()} inputMode="tel" placeholder="e.g. 923001234567" className={input} />
+          <span className="mt-1 block text-sm text-muted">Masters send their questions about an order here, with the order already named.</span>
+        </label>
+        <button className={btnSecondary}>Save</button>
+        {office === "saved" && <span className="pb-3 text-base font-medium text-ok">Saved.</span>}
+      </form>
 
       {e === "has-work" && (
         <p role="alert" className="alert alert-warning text-base font-medium">

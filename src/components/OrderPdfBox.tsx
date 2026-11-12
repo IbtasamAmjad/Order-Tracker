@@ -25,15 +25,32 @@ export function OrderPdfBox({ orderId, files }: { orderId?: number; files: PdfRo
   }
 
   return (
-    <section className="rounded-3xl border border-rule bg-paper-2 p-5 shadow-sm">
-      <div className="flex items-center gap-3">
+    <section className="rounded-3xl border border-rule bg-paper-2 p-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-deep">
           <Icon name="note" className="h-5 w-5" />
         </span>
-        <div className="min-w-0">
-          <h2 className="text-xl font-medium leading-tight">Order PDF</h2>
-          <p className="text-sm text-muted">Attach the order as a PDF. With a PDF, the fields below may stay empty.</p>
+        <div className="min-w-0 flex-1 basis-56">
+          <h2 className="text-lg font-medium leading-tight">Order PDF</h2>
+          <p className="text-sm text-muted">With a PDF, the fields below may stay empty.</p>
         </div>
+        <label className="block min-w-0 flex-1 basis-64" title={list.length > 0 ? "Add another PDF" : "Choose a PDF"}>
+          <input
+            ref={input}
+            type="file"
+            name="orderPdf"
+            accept="application/pdf,.pdf"
+            multiple
+            aria-label={list.length > 0 ? "Add another PDF" : "Choose a PDF"}
+            className="file-input file-input-bordered file-input-sm w-full"
+            onChange={(e) => {
+              // more files are added to the ones already chosen
+              const more = Array.from(e.target.files ?? []);
+              const same = (a: File, b: File) => a.name === b.name && a.size === b.size;
+              setFiles([...chosen, ...more.filter((m) => !chosen.some((c) => same(c, m)))]);
+            }}
+          />
+        </label>
       </div>
 
       {list.length > 0 && (
@@ -65,23 +82,6 @@ export function OrderPdfBox({ orderId, files }: { orderId?: number; files: PdfRo
         </ul>
       )}
 
-      <label className="mt-3 block">
-        <span className="mb-1 block text-sm font-medium text-muted">{list.length > 0 ? "Add another PDF" : "Choose a PDF"}</span>
-        <input
-          ref={input}
-          type="file"
-          name="orderPdf"
-          accept="application/pdf,.pdf"
-          multiple
-          className="file-input file-input-bordered w-full"
-          onChange={(e) => {
-            // more files are added to the ones already chosen
-            const more = Array.from(e.target.files ?? []);
-            const same = (a: File, b: File) => a.name === b.name && a.size === b.size;
-            setFiles([...chosen, ...more.filter((m) => !chosen.some((c) => same(c, m)))]);
-          }}
-        />
-      </label>
       {chosen.length > 0 && (
         <div className="mt-2 space-y-2">
           <p className="text-sm text-muted">Saved when you press Save:</p>

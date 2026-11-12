@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { isDisplayOnly, parseOptions } from "./items";
+import { isAuto, isDisplayOnly, parseOptions } from "./items";
 import {
   categories,
   templates,
@@ -51,6 +51,37 @@ export function createSubCategory(parentId: number, name: string, colour: string
 /** The form (template) of a sub-category. */
 export function templateIdOf(categoryId: number): number | null {
   return db.select({ id: templates.id }).from(templates).where(eq(templates.categoryId, categoryId)).get()?.id ?? null;
+}
+
+/** A copy of one item (same group) with its form, steps and saved steps. Returns the new sub-category id. */
+function copySub(subId: number, parentId: number, name: string): number {
+  const sub = db.select().from(categories).where(eq(categories.id, subId)).get();
+  const tpl = db.select().from(templates).where(eq(templates.categoryId, subId)).get();
+  if (!sub) throw new Error("item not found");
+  const id = db.insert(categories).values({ name, colour: sub.colour, parentId, position: nextPosition(parentId) }).returning({ id: categories.id }).get().id;
+  db.insert(templates)
+    .values({ categoryId: id, fields: tpl?.fields ?? [], stages: tpl?.stages ?? [], workflowId: tpl?.workflowId ?? null })
+    .run();
+  return id;
+}
+
+/** Copy one item next to the original, named "<name> copy". */
+export function copyItem(subId: number): number | null {
+  const sub = db.select().from(categories).where(eq(categories.id, subId)).get();
+  if (!sub?.parentId) return null;
+  return db.transaction(() => copySub(subId, sub.parentId!, `${sub.name} copy`));
+}
+
+/** Copy a whole group with all its items (forms and steps), named "<name> copy". Returns the new group id. */
+export function copyGroup(mainId: number): number | null {
+  const main = db.select().from(categories).where(eq(categories.id, mainId)).get();
+  if (!main || main.parentId !== null) return null;
+  return db.transaction(() => {
+    const id = createMainCategory(`${main.name} copy`, main.colour);
+    const subs = db.select().from(categories).where(eq(categories.parentId, mainId)).orderBy(categories.position, categories.name).all();
+    for (const s of subs) copySub(s.id, id, s.name);
+    return id;
+  });
 }
 
 export function updateCategory(id: number, name: string, colour: string) {
@@ -195,7 +226,8 @@ export type BuilderRow = {
   unit: string;
   options?: string; // one choice per line
   who?: string; // "master" = the master can fill / change it
-  pictures?: boolean; // pictures can be added under it (text and long text only)
+  pictures?: boolean; // pictures can be added under it (text, long text and number)
+  short?: string; // short name for the tailor slip
 };
 
 /** Turn submitted builder rows into field definitions. Rows with no label are dropped. */
@@ -210,19 +242,27 @@ export function rowsToFields(rows: BuilderRow[]): FieldDef[] {
       key: r.key || uniqueKey(label, used),
       label,
       type,
-      required: r.required === "required" && !isDisplayOnly({ type }),
+      required: r.required === "required" && !isDisplayOnly({ type }) && !isAuto({ type }),
     };
     const unit = (r.unit ?? "").trim();
     if (unit && type === "number") def.unit = unit;
     if (type === "select" || type === "radio" || type === "checkboxes") def.options = parseOptions(r.options ?? "");
-    if (r.who === "master" && !isDisplayOnly({ type })) def.masterCanEdit = true;
-    if (r.pictures === true && (type === "text" || type === "longtext")) def.pictures = true;
+    if (r.who === "master" && !isDisplayOnly({ type }) && !isAuto({ type })) def.masterCanEdit = true;
+    if (r.pictures === true && (type === "text" || type === "longtext" || type === "number")) def.pictures = true;
+    const short = (r.short ?? "").trim().slice(0, 12);
+    if (short && (type === "text" || type === "number")) def.short = short;
     out.push(def);
   }
   return out;
 }
 
-export type StageRow = { key: string; label: string; photo: string; requires?: string[] };
+export type StageRow = { key: string; label: string; photo: string; requires?: string[]; days?: number | string };
+
+/** "5" / 5 -> 5; anything that is not a whole number of days from 1 to 365 -> undefined (no target). */
+export function cleanDays(v: unknown): number | undefined {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= 365 ? n : undefined;
+}
 
 /** Turn submitted stage rows into stage definitions. Rows with no label are dropped. */
 export function rowsToStages(rows: StageRow[]): StageDef[] {
@@ -233,7 +273,8 @@ export function rowsToStages(rows: StageRow[]): StageDef[] {
     if (!label) continue;
     const photo = (PHOTO_RULES as readonly string[]).includes(r.photo) ? (r.photo as PhotoRule) : "none";
     const requiresFields = [...new Set((r.requires ?? []).filter((k) => typeof k === "string" && k))];
-    out.push({ key: r.key || uniqueKey(label, used), label, photo, ...(requiresFields.length ? { requiresFields } : {}) });
+    const days = cleanDays(r.days);
+    out.push({ key: r.key || uniqueKey(label, used), label, photo, ...(days ? { days } : {}), ...(requiresFields.length ? { requiresFields } : {}) });
   }
   return out;
 }
@@ -248,10 +289,11 @@ export type BuilderField = {
   required?: boolean;
   masterCanEdit?: boolean;
   pictures?: boolean;
+  short?: string;
   unit?: string;
   options?: string; // one choice per line
 };
-export type BuilderStep = { key?: string; label?: string; photo?: string; needs?: unknown };
+export type BuilderStep = { key?: string; label?: string; photo?: string; needs?: unknown; days?: unknown };
 
 const asList = (json: string, max: number): unknown[] => {
   try {
@@ -275,6 +317,7 @@ export function fieldsFromBuilder(json: string): FieldDef[] {
       options: str(f?.options),
       who: f?.masterCanEdit === true ? "master" : "admin",
       pictures: f?.pictures === true,
+      short: str(f?.short),
     })),
   );
 }
@@ -284,6 +327,7 @@ export function stagesFromBuilder(json: string): StageDef[] {
       key: str(s?.key),
       label: str(s?.label),
       photo: str(s?.photo),
+      days: s?.days as number | string | undefined,
       requires: Array.isArray(s?.needs) ? s.needs.filter((k): k is string => typeof k === "string") : [],
     })));
 }

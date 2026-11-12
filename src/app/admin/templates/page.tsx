@@ -1,7 +1,7 @@
 import { SortableCategories } from "@/components/SortableCategories";
 import { listCategoryTree } from "@/lib/templates";
 import { EmptyState, btnDanger, btnPrimary, btnSecondary, input } from "@/components/ui";
-import { createMainAction, createSubAction, deleteCategoryAction, updateCategoryAction } from "./actions";
+import { copyGroupAction, createMainAction, createSubAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 import { AddGroupBox } from "@/components/AddGroupBox";
 
 const colourInput = "h-12 w-14 shrink-0 cursor-pointer rounded-full border border-muted bg-paper p-1";
@@ -56,6 +56,12 @@ export default function Templates() {
                 <button className={btnPrimary}>Add item</button>
               </div>
               <p className="text-sm text-muted">Next you will build its form.</p>
+            </form>
+
+            <form action={copyGroupAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="id" value={main.id} />
+              <button className={btnSecondary}>Copy this group with its items</button>
+              <span className="text-sm text-muted">Makes &quot;{main.name} copy&quot;.</span>
             </form>
 
             <details>

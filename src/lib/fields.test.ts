@@ -75,6 +75,9 @@ describe("field types", () => {
     expect(it_.missingRequired(fields, {}).map((f) => f.key)).toEqual(["fabric"]); // pictures and headings never warn
     expect(it_.displayValue(fields[1], "Lining\nPockets")).toBe("Lining, Pockets");
     expect(it_.displayValue(fields[4], "x")).toBe("");
+    // sending needs only the fields marked "warn if empty": an unmarked field may stay empty
+    expect(it_.missingFields(fields, {}).map((f) => f.key)).toEqual(["fabric"]);
+    expect(it_.missingFields(fields, { fabric: "Silk" })).toEqual([]);
   });
 });
 
@@ -242,15 +245,16 @@ describe("color code field", () => {
     expect(cleanValues([f], { c: "ff0000" })).toEqual({ c: "#FF0000" });
     expect(cleanValues([f], { c: "red" })).toEqual({});
   });
-  it("lets pictures be added under a text or long text field, and ignores the option on other types", () => {
+  it("lets pictures be added under a text, long text or number field", () => {
     const fields = t.fieldsFromBuilder(
       JSON.stringify([
         { key: "", label: "Embroidery details", type: "longtext", required: false, masterCanEdit: false, unit: "", options: "", pictures: true },
         { key: "", label: "Fabric", type: "text", required: false, masterCanEdit: false, unit: "", options: "", pictures: true },
         { key: "", label: "Chest", type: "number", required: false, masterCanEdit: false, unit: "inch", options: "", pictures: true },
         { key: "", label: "Notes", type: "longtext", required: false, masterCanEdit: false, unit: "", options: "" },
+        { key: "", label: "Colour", type: "yesno", required: false, masterCanEdit: false, unit: "", options: "", pictures: true },
       ]),
     );
-    expect(fields.map((f) => [f.label, !!f.pictures])).toEqual([["Embroidery details", true], ["Fabric", true], ["Chest", false], ["Notes", false]]);
+    expect(fields.map((f) => [f.label, !!f.pictures])).toEqual([["Embroidery details", true], ["Fabric", true], ["Chest", true], ["Notes", false], ["Colour", false]]);
   });
 });

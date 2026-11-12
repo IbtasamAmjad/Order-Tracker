@@ -15,8 +15,13 @@ const PATHS: Record<string, string> = {
   // field type icons (form builder)
   text: "M4 7h16M4 12h10M4 17h13",
   longtext: "M4 6h16M4 10.5h16M4 15h16M4 19.5h9",
+  notesline: "M4 6h16M4 10.5h16M4 15h16M4 19.5h9",
   number: "M9 4 7 20M17 4l-2 16M4 9h16M3.5 15h16",
   phone: "M6.5 4h3l1.5 4-2 1.5a11 11 0 0 0 5.5 5.5l1.5-2 4 1.5v3a2 2 0 0 1-2 2A15 15 0 0 1 4.5 6a2 2 0 0 1 2-2Z",
+  customername: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11.5a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z",
+  ordernumber: "M5 9h14M5 15h14M10 4 8 20M16 4l-2 16",
+  designnumber: "M5 9h14M5 15h14M10 4 8 20M16 4l-2 16",
+  deliverydate: "M4 6.5h16V20H4zM4 10.5h16M8 3.5v4M16 3.5v4",
   date: "M4 6.5h16V20H4zM4 10.5h16M8 3.5v4M16 3.5v4",
   time: "M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 7.5V12l3 2",
   select: "M4 7h16v10H4zM14 11l2 2 2-2",

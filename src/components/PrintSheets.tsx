@@ -80,6 +80,32 @@ export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoI
                     {pics(item.photoIds, h)}
                   </div>
                 )}
+                {item.slip && (
+                  <div className="mt-6" style={{ breakInside: "avoid" }}>
+                    <p className="border-t-2 border-dashed border-black pt-1 text-center text-[10px] uppercase tracking-widest">Cut here - tailor slip</p>
+                    <div className="border border-black p-1.5">
+                      <p className="text-sm font-medium leading-tight">
+                        #{data.orderNumber} {data.customerName} - {item.label}
+                      </p>
+                      <div className="mt-1 grid grid-cols-4 gap-px border border-black bg-black">
+                        {item.slip.cells.map((c, k) => (
+                          <div key={`${c.label}-${k}`} className="bg-white px-1.5 py-0.5">
+                            <p className="text-[9px] leading-tight">{c.label}</p>
+                            <p className="text-sm font-medium leading-tight">{c.value}</p>
+                          </div>
+                        ))}
+                        {Array.from({ length: (4 - (item.slip.cells.length % 4)) % 4 }, (_, k) => (
+                          <div key={`slip-pad-${k}`} className="bg-white" />
+                        ))}
+                      </div>
+                      {item.slip.notes.map((t, k) => (
+                        <p key={k} className="mt-0.5 whitespace-pre-wrap text-xs leading-snug">
+                          {t}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 

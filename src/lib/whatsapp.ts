@@ -74,13 +74,16 @@ export const messages = {
       `Your list: ${masterLink(c.token)}`,
     ),
   updated: (c: Ctx) =>
-    `Hello ${c.masterName}, order #${c.orderNumber} (${c.customer}) was changed. Please check it again. ${masterLink(c.token)}`,
+    `Hello ${c.masterName}, order #${c.orderNumber} (${c.customer}) was changed. Please check it again.
+${masterLink(c.token)}`,
   cancelled: (c: Ctx) =>
     `Hello ${c.masterName}, order #${c.orderNumber} (${c.customer}) is CANCELLED. Please stop work on it.`,
   photoApproved: (c: Ctx & { what: string }) =>
-    `Hello ${c.masterName}, your photo for order #${c.orderNumber} (${c.what}) is approved. You can mark it complete. ${masterLink(c.token)}`,
+    `Hello ${c.masterName}, your photo for order #${c.orderNumber} (${c.what}) is approved. You can mark it complete.
+${masterLink(c.token)}`,
   photoRejected: (c: Ctx & { what: string; comment: string }) =>
-    `Hello ${c.masterName}, your photo for order #${c.orderNumber} (${c.what}) was not accepted: ${c.comment}. Please send a new photo. ${masterLink(c.token)}`,
+    `Hello ${c.masterName}, your photo for order #${c.orderNumber} (${c.what}) was not accepted: ${c.comment}. Please send a new photo.
+${masterLink(c.token)}`,
   overdue: (c: Ctx & { dueDate: string; days?: number; info?: OrderInfo }) =>
     lines(
       `Hello ${c.masterName},`,
@@ -111,6 +114,29 @@ export const messages = {
       "",
       nothingToMake(c.info) ? `Please send it on time (open your Cart) and let me know.` : `Please finish it on time and send me an update.`,
       `Your list: ${masterLink(c.token)}`,
+    ),
+  lateStep: (c: Ctx & { step: string; days: number; info?: OrderInfo }) =>
+    lines(
+      `Hello ${c.masterName},`,
+      "",
+      `This step is taking longer than planned: ${c.step} (${days(c.days)} late).`,
+      header(c, c.info),
+      c.info && `Due date: ${plainDate(c.info.dueDate)}`,
+      "",
+      `Please open your list, update the work, and let me know.`,
+      `Your list: ${masterLink(c.token)}`,
+    ),
+  /** From the master to the office: says which order the question is about, with a link the office can tap. */
+  question: (c: { masterName: string; orderId: number; orderNumber: number; customer: string; info?: OrderInfo }) =>
+    lines(
+      `Question about order #${c.orderNumber} - ${c.customer}${c.info?.design ? ` (design ${c.info.design})` : ""}`,
+      c.info && c.info.items.length > 0 && `Items: ${c.info.items.map((i) => i.label).join(", ")}`,
+      c.info && `Due date: ${plainDate(c.info.dueDate)}`,
+      `From: ${c.masterName}`,
+      `Open the order: ${APP_URL}/admin/orders/${c.orderId}`,
+      "",
+      `My question:`,
+      "",
     ),
   stale: (c: Ctx & { days: number; info?: OrderInfo }) =>
     lines(

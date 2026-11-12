@@ -32,12 +32,29 @@ export type BField = {
   type: string;
   required: boolean;
   masterCanEdit: boolean;
-  pictures?: boolean; // text and long text: pictures can be added under the field
+  pictures?: boolean; // text, long text and number: pictures can be added under the field
   unit: string;
   options: string; // one choice per line (for a group of boxes: the names of the boxes, one per line)
-  sub?: string; // a group of boxes only: "number" or "text"
+  boxes?: BBox[]; // a group of boxes only: each box has its own name and kind
+  notes?: boolean; // a group only: add a notes line (a long text box) under its boxes
+  short?: string; // short name for the tailor slip
 };
-export type BStep = { uid: string; key: string; label: string; photo: string; needs: string[] };
+/** Inches, meters or none. A unit typed in an older form that is not in the list stays as an extra choice. */
+function UnitSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const known = ["", "inch", "meters", "cm"];
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={select} aria-label="Unit">
+      <option value="">No unit</option>
+      <option value="inch">Inches</option>
+      <option value="meters">Meters</option>
+      <option value="cm">Centimetres</option>
+      {!known.includes(value) && <option value={value}>{value}</option>}
+    </select>
+  );
+}
+
+export type BBox = { name: string; type: "text" | "number"; pictures?: boolean; short?: string };
+export type BStep = { uid: string; key: string; label: string; photo: string; days?: string; needs: string[] };
 
 type PaletteItem = { type: string; name: string; hint: string; label: string };
 
@@ -47,7 +64,9 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
     items: [
       { type: "text", name: "Text box", hint: "One line, like a design number", label: "Text box" },
       { type: "color", name: "Colour", hint: "Pick a colour; it is shown by its name", label: "Colour" },
+      { type: "longtext", name: "Paragraph", hint: "Free writing for details and notes, with pictures ready to add", label: "Details and notes" },
       { type: "number", name: "Number", hint: "A measurement or a number", label: "Number" },
+      { type: "notesline", name: "Notes line", hint: "One or two short comments under a section", label: "Notes" },
       { type: "group", name: "Group of boxes", hint: "A title with several boxes under it, like Measurements", label: "Measurements" },
     ],
   },
@@ -71,11 +90,21 @@ const PALETTE: { group: string; items: PaletteItem[] }[] = [
       { type: "note", name: "Note", hint: "A line of instructions", label: "Write a note here" },
     ],
   },
+  {
+    group: "From the order",
+    items: [
+      { type: "customername", name: "Customer name", hint: "Starts with the order's customer name; can be changed", label: "Customer" },
+      { type: "ordernumber", name: "Order number", hint: "Starts with the order number; can be changed", label: "Order number" },
+      { type: "designnumber", name: "Design number", hint: "Starts with the design number of the customer; can be changed", label: "Design number" },
+      { type: "deliverydate", name: "Delivery date", hint: "Starts with the Karigar due date; can be changed. Put it apart so a screenshot can leave it out", label: "Delivery date" },
+    ],
+  },
 ];
 const ALL = PALETTE.flatMap((g) => g.items);
 const NAME = Object.fromEntries(ALL.map((i) => [i.type, i.name]));
 const CHOICE = ["select", "radio", "checkboxes"];
-const DISPLAY_ONLY = ["heading", "note"];
+const DISPLAY_ONLY = ["heading", "note", "customername", "deliverydate", "ordernumber", "designnumber"]; // nothing to answer
+const AUTO = ["customername", "deliverydate", "ordernumber", "designnumber"]; // filled in from the order
 
 /**
  * A group of boxes is only a convenience in the builder: when the form is saved it becomes a bold heading followed by
@@ -85,21 +114,25 @@ function expandGroups(rows: BField[]): BField[] {
   return rows.flatMap((f) => {
     if (f.type !== "group") return [f];
     const heading: BField = { uid: f.uid, key: "", label: f.label, type: "heading", required: false, masterCanEdit: false, unit: "", options: "" };
-    const boxes = f.options
-      .split("\n")
-      .map((n) => n.trim())
-      .filter(Boolean)
-      .map((name, n): BField => ({
+    const boxes = (f.boxes ?? [])
+      .map((b, n): BField => ({
         uid: `${f.uid}-${n}`,
         key: "",
-        label: name,
-        type: f.sub === "text" ? "text" : "number",
+        label: b.name.trim(),
+        type: b.type,
         required: f.required,
         masterCanEdit: f.masterCanEdit,
-        unit: f.sub === "text" ? "" : f.unit,
+        pictures: !!b.pictures,
+        short: b.short?.trim() || undefined,
+        unit: b.type === "number" ? f.unit : "",
         options: "",
-      }));
-    return [heading, ...boxes];
+      }))
+      .filter((b) => b.label);
+    // an optional notes line under the boxes: one to two short comments
+    const notes: BField[] = f.notes
+      ? [{ uid: `${f.uid}-notes`, key: "", label: `${f.label.trim() || "Measurements"} notes`, type: "longtext", required: false, masterCanEdit: f.masterCanEdit, unit: "", options: "" }]
+      : [];
+    return [heading, ...boxes, ...notes];
   });
 }
 
@@ -167,7 +200,8 @@ function FieldCard({
   onMove: (dir: -1 | 1) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.uid });
-  const displayOnly = DISPLAY_ONLY.includes(f.type);
+  const displayOnly = DISPLAY_ONLY.includes(f.type) && !AUTO.includes(f.type);
+  const auto = AUTO.includes(f.type);
 
   return (
     <div
@@ -196,7 +230,7 @@ function FieldCard({
             <span className="flex flex-wrap gap-1 pt-0.5 text-xs font-medium">
               <span className="opacity-60">
                 {NAME[f.type]}
-                {f.type === "group" && ` - ${f.options.split("\n").filter((x) => x.trim()).length} boxes`}
+                {f.type === "group" && ` - ${(f.boxes ?? []).filter((b) => b.name.trim()).length} boxes`}
               </span>
               {duplicate && <span className="rounded bg-error/15 px-1.5 text-error">Same name as another field</span>}
               {f.required && f.type !== "picture" && <span className="rounded bg-error/15 px-1.5 text-error">Warns if empty</span>}
@@ -220,7 +254,12 @@ function FieldCard({
             {duplicate && <span className="mt-1 block text-sm font-medium text-error">Another field has this name. Use a different name.</span>}
           </label>
 
-          {!displayOnly && (
+          {auto && (
+            <p className="text-sm opacity-70">
+              {f.type === "customername" ? "Starts with the customer's name." : f.type === "ordernumber" ? "Starts with the order number." : f.type === "designnumber" ? "Starts with the design number of the customer." : "Starts with the Karigar due date (never My due date)."} The office can change it on the customer form.
+            </p>
+          )}
+          {!displayOnly && !auto && (
             <>
               {f.type === "picture" ? (
                 <p className="text-sm opacity-70">Pictures are added on the order form. They are not compulsory.</p>
@@ -231,39 +270,89 @@ function FieldCard({
                 </>
               )}
               <Toggle label="The master can fill this in" checked={f.masterCanEdit} onChange={(v) => onChange({ masterCanEdit: v })} />
-              {(f.type === "text" || f.type === "longtext") && (
+              {(f.type === "text" || f.type === "longtext" || f.type === "number") && (
                 <Toggle label="Pictures can be added under it" checked={!!f.pictures} onChange={(v) => onChange({ pictures: v })} />
               )}
             </>
+          )}
+
+          {(f.type === "text" || f.type === "number" || f.type === "longtext") && (
+            <label className="block">
+              <span className="mb-1 block text-base font-medium">What can be typed</span>
+              <select value={f.type} onChange={(e) => onChange({ type: e.target.value })} className={select} aria-label="What can be typed">
+                <option value="text">Words or numbers (one line)</option>
+                <option value="longtext">Long writing</option>
+                <option value="number">Measurement (with a unit)</option>
+              </select>
+            </label>
+          )}
+          {f.type === "number" && (
+            <label className="block">
+              <span className="mb-1 block text-base font-medium">Unit</span>
+              <UnitSelect value={f.unit} onChange={(unit) => onChange({ unit })} />
+            </label>
+          )}
+          {(f.type === "text" || f.type === "number") && (
+            <label className="block">
+              <span className="mb-1 block text-base font-medium">Short name for the tailor slip (optional)</span>
+              <input value={f.short ?? ""} onChange={(e) => onChange({ short: e.target.value })} maxLength={12} placeholder="For example Ch" className={input} />
+            </label>
           )}
 
           {f.type === "group" && (
             <div className="space-y-3">
               <div className="space-y-2">
                 <span className="block text-base font-medium">Boxes under it</span>
-                {f.options.split("\n").map((name, n, all) => (
-                  <div key={n} className="flex items-center gap-2">
-                    <input
-                      value={name}
-                      onChange={(e) => onChange({ options: all.map((x, i) => (i === n ? e.target.value.replace(/\n/g, " ") : x)).join("\n") })}
-                      placeholder={n === 0 ? "For example Length" : "For example Chest"}
-                      aria-label={`Box ${n + 1}`}
-                      className={input}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onChange({ options: all.filter((_, i) => i !== n).join("\n") })}
-                      className={`${btnSecondary} !min-h-12 shrink-0 !px-4`}
-                      aria-label={`Remove box ${n + 1}`}
-                    >
-                      <Icon name="close" />
-                    </button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => onChange({ options: `${f.options}\n` })} className={`${btnSecondary} !min-h-12 w-full gap-2`}>
+                {(f.boxes ?? []).map((b, n, all) => {
+                  const setBox = (p: Partial<BBox>) => onChange({ boxes: all.map((x, i) => (i === n ? { ...x, ...p } : x)) });
+                  return (
+                    <div key={n} className="space-y-2 rounded-2xl border border-rule bg-white p-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={b.name}
+                          onChange={(e) => setBox({ name: e.target.value })}
+                          placeholder={n === 0 ? "For example Length" : "For example Sleeve"}
+                          aria-label={`Box ${n + 1} name`}
+                          className={input}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onChange({ boxes: all.filter((_, i) => i !== n) })}
+                          className={`${btnSecondary} !min-h-12 shrink-0 !px-4`}
+                          aria-label={`Remove box ${n + 1}`}
+                        >
+                          <Icon name="close" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <select value={b.type} onChange={(e) => setBox({ type: e.target.value as BBox["type"] })} className={`${select} !w-auto`} aria-label={`Box ${n + 1} kind`}>
+                          <option value="text">Words or numbers (no unit)</option>
+                          <option value="number">Measurement (with a unit)</option>
+                        </select>
+                        <label className="flex min-h-12 cursor-pointer items-center gap-2 text-base">
+                          <input type="checkbox" className="checkbox checkbox-primary" checked={!!b.pictures} onChange={(e) => setBox({ pictures: e.target.checked })} />
+                          Pictures next to it
+                        </label>
+                        <input value={b.short ?? ""} onChange={(e) => setBox({ short: e.target.value })} maxLength={12} placeholder="Short name" aria-label={`Box ${n + 1} short name for the tailor slip`} className={`${input} !w-32`} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => onChange({ boxes: [...(f.boxes ?? []), { name: "", type: "text" }] })}
+                  className={`${btnSecondary} !min-h-12 w-full gap-2`}
+                >
                   <Icon name="plus" /> Add another box
                 </button>
               </div>
+              <Toggle label="Add a notes line under the boxes" checked={!!f.notes} onChange={(v) => onChange({ notes: v })} />
+              {(f.boxes ?? []).some((b) => b.type === "number") && (
+                <label className="block">
+                  <span className="mb-1 block text-base font-medium">Unit for the measurement boxes</span>
+                  <UnitSelect value={f.unit} onChange={(unit) => onChange({ unit })} />
+                </label>
+              )}
               <p className="text-sm opacity-70">On save, the title becomes a heading and each box its own field.</p>
             </div>
           )}
@@ -337,14 +426,17 @@ export function FormBuilder({
   initialSteps,
   workflows = [],
   initialWorkflowId = null,
+  copySources = [],
   action,
 }: {
   id: number;
   initialFields: Omit<BField, "uid">[];
   initialSteps: Omit<BStep, "uid">[];
   /** the reusable workflows this item can use for its steps */
-  workflows?: { id: number; name: string; steps: { key: string; label: string; photo: string }[] }[];
+  workflows?: { id: number; name: string; steps: { key: string; label: string; photo: string; days?: string }[] }[];
   initialWorkflowId?: number | null;
+  /** other items whose fields can be copied into this form */
+  copySources?: { id: number; name: string; fields: Omit<BField, "uid">[] }[];
   action: (f: FormData) => Promise<void>;
 }) {
   const [fields, setFields] = useState<BField[]>(() => initialFields.map((f, i) => ({ ...f, uid: `f${i}` })));
@@ -376,16 +468,20 @@ export function FormBuilder({
 
   function add(type: string, at?: number) {
     const item = ALL.find((i) => i.type === type)!;
+    const realType = type === "notesline" ? "longtext" : type; // a notes line is a small long-text box
     const field: BField = {
       uid: `n${counter.current++}`,
       key: "",
       label: item.label,
-      type,
+      type: realType,
       required: false,
       masterCanEdit: false,
       unit: "",
-      options: CHOICE.includes(type) ? "Option 1\nOption 2" : type === "group" ? "Length\nChest" : "",
-      ...(type === "group" ? { sub: "number", unit: "inch" } : {}),
+      options: CHOICE.includes(type) ? "Option 1\nOption 2" : "",
+      ...(type === "longtext" ? { pictures: true } : {}), // a paragraph has its picture area ready; no switch to find
+      ...(type === "group"
+        ? { unit: "inch", boxes: [{ name: "Length", type: "number" as const }, { name: "Chest", type: "number" as const }, { name: "Sleeve", type: "text" as const }] }
+        : {}),
     };
     setFields((rows) => {
       const next = [...rows];
@@ -394,6 +490,21 @@ export function FormBuilder({
     });
     setSelected(field.uid);
   }
+
+  const [copyFrom, setCopyFrom] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+  function copyFields() {
+    const src = copySources.find((c) => String(c.id) === copyFrom);
+    if (!src) return;
+    setFields((rows) => [...rows, ...src.fields.map((f) => ({ ...f, key: "", uid: `c${counter.current++}` }))]);
+    setCopied(`${src.fields.length} fields copied from ${src.name}. Change them, then save.`);
+    setCopyFrom("");
+  }
+
+  // one switch for every field at once (headings and notes have nothing to fill; a picture has no "warn if empty")
+  const answerable = (f: BField, key: "required" | "masterCanEdit") => !DISPLAY_ONLY.includes(f.type) && !(key === "required" && f.type === "picture");
+  const setAll = (key: "required" | "masterCanEdit", v: boolean) => setFields((rows) => rows.map((r) => (answerable(r, key) ? { ...r, [key]: v } : r)));
+  const countOn = (key: "required" | "masterCanEdit") => ({ on: fields.filter((f) => answerable(f, key) && f[key]).length, all: fields.filter((f) => answerable(f, key)).length });
 
   const patch = (uid: string, p: Partial<BField>) => setFields((rows) => rows.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const remove = (uid: string) => {
@@ -434,7 +545,7 @@ export function FormBuilder({
     setWorkflowId(wf ? wf.id : null);
     if (!wf) return; // back to custom steps: the list stays as it is and can be changed
     setSteps((rows) =>
-      wf.steps.map((s, i) => ({ uid: `w${i}`, key: s.key, label: s.label, photo: s.photo, needs: rows.find((r) => r.key === s.key)?.needs ?? [] })),
+      wf.steps.map((s, i) => ({ uid: `w${i}`, key: s.key, label: s.label, photo: s.photo, days: s.days ?? "", needs: rows.find((r) => r.key === s.key)?.needs ?? [] })),
     );
   }
   const moveStep = (i: number, dir: -1 | 1) => setSteps((rows) => (i + dir < 0 || i + dir >= rows.length ? rows : arrayMove(rows, i, i + dir)));
@@ -456,6 +567,44 @@ export function FormBuilder({
                 Drag a field into the form, or tap it to add. Drag the dots to reorder. Tap a field to edit it.
               </p>
             </div>
+
+            {fields.length > 1 && (
+              <div className="rounded-2xl border border-rule bg-paper-2 px-4 py-3">
+                <h3 className="text-base font-medium">All fields at once</h3>
+                <div className="mt-1 divide-y divide-rule">
+                  {(
+                    [
+                      ["required", "Warn if empty"],
+                      ["masterCanEdit", "Master can fill"],
+                    ] as const
+                  ).map(([key, name]) => {
+                    const c = countOn(key);
+                    const allOn = c.all > 0 && c.on === c.all;
+                    const allOff = c.on === 0;
+                    const seg = (active: boolean) =>
+                      `min-h-9 px-4 text-sm font-medium transition-colors ${active ? "bg-accent text-white" : "bg-paper text-ink hover:bg-paper-3"}`;
+                    return (
+                      <div key={key} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="text-base">{name}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${allOn ? "bg-ok-soft text-ok" : "bg-paper-3 text-muted"}`}>
+                            {c.on} of {c.all}
+                          </span>
+                        </div>
+                        <div role="group" aria-label={name} className="inline-flex overflow-hidden rounded-full border border-rule-2">
+                          <button type="button" onClick={() => setAll(key, true)} aria-pressed={allOn} aria-label={`${name}: turn on for all fields`} className={seg(allOn)}>
+                            All on
+                          </button>
+                          <button type="button" onClick={() => setAll(key, false)} aria-pressed={allOff} aria-label={`${name}: turn off for all fields`} className={`${seg(allOff)} border-l border-rule-2`}>
+                            All off
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <Canvas>
               <SortableContext items={fields.map((f) => f.uid)} strategy={verticalListSortingStrategy}>
@@ -484,6 +633,23 @@ export function FormBuilder({
 
           {/* the field list (palette) */}
           <aside aria-label="Fields you can add" className="order-first space-y-4 lg:sticky lg:top-4 lg:order-none lg:self-start">
+            {copySources.length > 0 && (
+              <div className="panel space-y-2">
+                <h2 className="text-xl font-medium">Copy fields from another item</h2>
+                <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)} className={select} aria-label="Item to copy fields from">
+                  <option value="">Choose an item...</option>
+                  {copySources.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={copyFields} disabled={!copyFrom} className={`${btnSecondary} w-full`}>
+                  <Icon name="copy" className="h-4 w-4" /> Add its fields to this form
+                </button>
+                {copied && <p className="text-sm font-medium text-ok">{copied}</p>}
+              </div>
+            )}
             <div className="panel space-y-4">
               <h2 className="text-xl font-medium">Add a field</h2>
               {PALETTE.map((g) => (
@@ -554,6 +720,22 @@ export function FormBuilder({
                 <option value="required">Work photo: required, you approve it</option>
               </select>
             </div>
+            <label className="flex items-center gap-2 text-base">
+              Should take
+              <input
+                type="number"
+                min={1}
+                max={365}
+                inputMode="numeric"
+                value={s.days ?? ""}
+                onChange={(e) => patchStep(s.uid, { days: e.target.value })}
+                placeholder="-"
+                aria-label={`Step ${i + 1}: days it should take once started`}
+                className={`${input} !w-24`}
+                disabled={!!workflow}
+              />
+              days once started
+            </label>
             {!workflow && (
               <div className="flex gap-2">
                 <button type="button" onClick={() => moveStep(i, -1)} disabled={i === 0} className={`${btnSecondary} !min-h-12 flex-1`} aria-label="Move step up">
@@ -572,7 +754,7 @@ export function FormBuilder({
         {!workflow && (
           <button
             type="button"
-            onClick={() => setSteps((rows) => [...rows, { uid: `t${counter.current++}`, key: "", label: "", photo: "none", needs: [] }])}
+            onClick={() => setSteps((rows) => [...rows, { uid: `t${counter.current++}`, key: "", label: "", photo: "none", days: "", needs: [] }])}
             className={btnSecondary}
           >
             <Icon name="plus" /> Add a step

@@ -5,7 +5,7 @@ import { rowsToStages, stagesFromWorkflow, type StageRow } from "./templates";
 
 /** The steps of a workflow: a name and a photo rule for each. (Which form fields a step waits for belongs to each item type.) */
 export function cleanWorkflowStages(rows: StageRow[]): StageDef[] {
-  return rowsToStages(rows.map((r) => ({ key: r.key, label: r.label, photo: r.photo }))).map((s) => ({ key: s.key, label: s.label, photo: s.photo }));
+  return rowsToStages(rows.map((r) => ({ key: r.key, label: r.label, photo: r.photo, days: r.days }))).map((s) => ({ key: s.key, label: s.label, photo: s.photo, ...(s.days ? { days: s.days } : {}) }));
 }
 
 export type WorkflowView = {
@@ -94,7 +94,7 @@ export function assignWorkflow(templateId: number, workflowId: number | null): v
 export function workflowFromTemplate(templateId: number, name: string): number {
   const t = db.select().from(templates).where(eq(templates.id, templateId)).get();
   if (!t) throw new Error("That item was not found.");
-  const id = createWorkflow(name, t.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo })));
+  const id = createWorkflow(name, t.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, days: s.days })));
   assignWorkflow(templateId, id);
   return id;
 }

@@ -61,7 +61,7 @@ Design goal: the **only built-in order fields** are the order number (auto), the
   "order": 4
 }
 ```
-Allowed `type`: `text` (short), `longtext` (comments), `number`, `phone`, `date`, `time`, `select` (dropdown), `radio` (choose one), `checkboxes` (choose many), `yesno`, `picture`, `heading` (a note, no answer). Choice types carry `options`. Any field can be `required` and can be marked `masterCanEdit` (the master may fill it: comments, pictures, choices). A `text` or `longtext` field can also have `pictures: true`: the office can add pictures right under it (stored in `photos` with that field's key).
+Allowed `type`: `text` (short), `longtext` (comments), `number`, `phone`, `date`, `time`, `select` (dropdown), `radio` (choose one), `checkboxes` (choose many), `yesno`, `picture`, `heading` (a note, no answer). Choice types carry `options`. Any field can be `required` and can be marked `masterCanEdit` (the master may fill it: comments, pictures, choices). A `text`, `longtext` or `number` field can also have `pictures: true`: the office can add pictures right under it (stored in `photos` with that field's key).
 
 **Stage definition (JSON)**
 ```json
@@ -210,3 +210,10 @@ The accountant's invoice and the handover to the shipping company are handled by
 
 ## order_files
 `order_files` (id, order_id, name, file_key, bytes, uploaded_at): PDFs attached to an order; the file is in the uploads folder.
+
+- `orders.sent_at` (timestamp, nullable): empty = a draft that only the office sees; set when the office presses Send to master. Migration 0014 sets it to `created_at` for every older order.
+
+## Added 13 Nov 2026
+- `item_stages.started_at`: when the step became the one being worked on (the expected days count from it). `StageDef.days` (in templates, workflows and item snapshots): expected days, optional.
+- `app_settings(key, value)`: small office settings; `office_whatsapp` is the number masters send questions to.
+- New field types `customername`, `ordernumber`, `designnumber`, `deliverydate`: start with the order's value (name; number; design number; Karigar due date), stored in the item's values like any text.

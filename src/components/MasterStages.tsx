@@ -99,6 +99,8 @@ export function MasterStages({
                     {s.status === "done" ? <Icon name="check" className="mr-1 inline h-5 w-5" /> : s.status === "locked" ? <Icon name="lock" className="mr-1 inline h-5 w-5" /> : null}
                     {n + 1}. {s.label}
                   </div>
+                  {/* only the number of days, never a date */}
+                  {s.days && s.status !== "done" && <p className="text-base text-muted">Should take {s.days} day{s.days === 1 ? "" : "s"}.</p>}
 
                   {instructions.get(s.key) && (
                     <div className="rounded-xl border border-accent/30 bg-white/80 px-3 py-2">

@@ -22,7 +22,7 @@ export function createStageRows(d: DbLike, itemId: number, stages: StageDef[]) {
   stages.forEach((s, i) =>
     d
       .insert(itemStages)
-      .values({ itemId, stageKey: s.key, position: i + 1, status: i === 0 ? "open" : "locked" })
+      .values({ itemId, stageKey: s.key, position: i + 1, status: i === 0 ? "open" : "locked", startedAt: i === 0 ? new Date() : null })
       .run(),
   );
 }
@@ -46,7 +46,16 @@ export type StageView = {
   requiredFields: RequiredField[];
   /** every mandatory field is filled in */
   fieldsOk: boolean;
+  /** how many days the step should take once started (null = no target) */
+  days: number | null;
+  /** when the step started and when it should be finished (only for the open step with a target) */
+  startedAt: Date | null;
+  dueAt: Date | null;
+  /** whole days past the target (0 = not late) */
+  lateDays: number;
 };
+
+const DAY_MS = 86_400_000;
 
 export type RequiredField = { key: string; label: string; masterCanEdit: boolean; filled: boolean };
 
@@ -81,7 +90,7 @@ function pictureKeysOf(d: DbLike, itemId: number): Set<string> {
   );
 }
 
-export function itemStageViews(itemId: number): StageView[] {
+export function itemStageViews(itemId: number, now: Date = new Date()): StageView[] {
   const item = db.select().from(orderItems).where(eq(orderItems.id, itemId)).get();
   if (!item) return [];
   const defs = item.snapshot.stages ?? [];
@@ -100,6 +109,9 @@ export function itemStageViews(itemId: number): StageView[] {
     const latest = stagePhotos.find((p) => p.stageKey === r.stageKey) ?? null;
     const rule = def?.photo ?? "none";
     const requiredFields = stageRequirements(item, def, pictureKeys);
+    const days = def?.days && def.days > 0 ? def.days : null;
+    const dueAt = days && r.status === "open" && r.startedAt ? new Date(r.startedAt.getTime() + days * DAY_MS) : null;
+    const lateDays = dueAt && now.getTime() > dueAt.getTime() ? Math.max(1, Math.floor((now.getTime() - dueAt.getTime()) / DAY_MS)) : 0; // late today counts as 1
     return {
       key: r.stageKey,
       label: def?.label ?? r.stageKey,
@@ -114,8 +126,22 @@ export function itemStageViews(itemId: number): StageView[] {
       photoOk: rule === "required" ? latest?.status === "approved" : rule === "upload" ? stagePhotos.some((p) => p.stageKey === r.stageKey) : true,
       requiredFields,
       fieldsOk: requiredFields.every((x) => x.filled),
+      days,
+      startedAt: r.status === "open" ? r.startedAt : null,
+      dueAt,
+      lateDays,
     };
   });
+}
+
+/** The started steps of an active customer that have taken longer than their expected days. */
+export function lateSteps(orderId: number, now: Date = new Date()): { itemLabel: string; step: string; lateDays: number }[] {
+  const items = db.select().from(orderItems).where(eq(orderItems.orderId, orderId)).all();
+  const out: { itemLabel: string; step: string; lateDays: number }[] = [];
+  for (const it of items) {
+    for (const s of itemStageViews(it.id, now)) if (s.lateDays > 0) out.push({ itemLabel: it.label, step: s.label, lateDays: s.lateDays });
+  }
+  return out;
 }
 
 /** "3/10 stages" for an order, across all its items. */
@@ -222,7 +248,7 @@ export function completeStage(
       .where(eq(itemStages.id, s.row.id))
       .run();
     tx.update(itemStages)
-      .set({ status: "open" })
+      .set({ status: "open", startedAt: now }) // the next step starts now: its expected days count from here
       .where(and(eq(itemStages.itemId, itemId), eq(itemStages.position, s.row.position + 1)))
       .run();
     tx.update(orders).set({ updatedAt: now }).where(eq(orders.id, s.order.id)).run();

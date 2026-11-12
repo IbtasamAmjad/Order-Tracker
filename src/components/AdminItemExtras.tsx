@@ -52,18 +52,39 @@ export function AdminItemExtras({
           <p className="text-base text-muted">
             {shipping.ready ? "Shipping: approved, the master can send it." : `Shipping: waiting. ${shipping.blockers.join("; ")}`}
           </p>
-          <ol className="space-y-2">
+          {/* the steps side by side, one box each; a box that is opened (notes, "Cannot finish it?") takes the whole row */}
+          <ol className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
             {stages.map((s, n) => (
-              <li key={s.key} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-paper-3 p-4">
-                <div className="min-w-0 flex-1 basis-56">
-                  <div className="text-lg font-medium">
-                    {n + 1}. {s.label}
+              <li
+                key={s.key}
+                className={`flex min-w-0 flex-col gap-3 rounded-2xl border-t-4 bg-paper-3 p-3 has-[details[open]]:col-span-full ${
+                  s.status === "done" ? "border-t-ok" : s.status === "open" ? "border-t-accent" : "border-t-rule-2"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2 text-lg font-medium leading-snug">
+                    <span
+                      aria-hidden
+                      className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm ${
+                        s.status === "done" ? "bg-ok text-white" : s.status === "open" ? "bg-accent text-accent-ink" : "bg-paper-2 text-muted shadow-[inset_0_0_0_1.5px_var(--color-muted)]"
+                      }`}
+                    >
+                      {n + 1}
+                    </span>
+                    <span className="min-w-0 break-words">{s.label}</span>
                   </div>
-                  <div className="text-base">
+                  <div className="mt-1 text-base">
                     {STATUS[s.status]}
                     {s.photo !== "none" && `, ${{ optional: "photo optional", upload: "photo must be added", required: "photo must be approved" }[s.photo]}`}
                     {s.photo === "required" ? s.latestPhoto && `, latest photo ${s.latestPhoto.status}` : s.status === "done" && s.allPhotos.length > 0 && ", image added"}
                   </div>
+                  {s.days && s.status !== "done" && (
+                    <div className={`text-base ${s.lateDays > 0 ? "font-medium text-bad" : "text-muted"}`}>
+                      Should take {s.days} day{s.days === 1 ? "" : "s"}
+                      {s.dueAt && ` (by ${s.dueAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })})`}
+                      {s.lateDays > 0 && `. Late by ${s.lateDays} day${s.lateDays === 1 ? "" : "s"}`}
+                    </div>
+                  )}
                   {s.status === "open" && s.requiredFields.length > 0 && (
                     <div className="text-base">
                       {s.fieldsOk
@@ -128,13 +149,13 @@ export function AdminItemExtras({
                   </details>
                 </div>
                 {s.status === "open" && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <button
                       type="submit"
                       form={STEP_FORM}
                       name="step"
                       value={`${item.id}:${s.key}`}
-                      className={btnSecondary}
+                      className={`${btnSecondary} w-full`}
                       disabled={!s.photoOk || !s.fieldsOk}
                     >
                       Mark done

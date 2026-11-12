@@ -113,3 +113,36 @@ Admin can drag the categories of a group (Kurta, Pants...) into any order with t
 Customer form: "Order PDF" box under the masters (choose a PDF, saved with the customer; View and Remove for saved ones). Master order page: "Order PDF" with a View button per file.
 
 The Masters page shows each master as a card: name and status, progress (items, made, percent), his link with Copy, Send link on WhatsApp, Set PIN, New link, Deactivate, Delete.
+
+## Item builder additions (12 Nov 2026)
+- Group of boxes: per box a name, "Words or numbers" / "Numbers only", and "Pictures next to it". A plain field has a "What can be typed" box.
+- "Copy fields from another item" in the builder; "Make a copy" at the bottom of an item page; "Copy this group with its items" on the Items page.
+
+## Drafts and Send (12 Nov 2026)
+- New customer: "Save, send later" (draft) or "Save and send to master". A draft opens its page with a note; there, "Save draft" and "Send to master". The Customers list tags drafts "Draft, not sent" and has a Drafts chip.
+
+## Notes pictures and Paragraph (12 Nov 2026)
+- Under "Extra notes for this customer" there is always a picture box; saved pictures can be removed. The master sees them under the notes.
+- The item builder has a "Paragraph" tile (free writing, pictures switched on from the start).
+
+- Fields that allow pictures show a small + at the end of the box (same row); chosen pictures appear below it. Ctrl+V works in the box.
+
+## Compact customer form (12 Nov 2026)
+- Customer details three to a row, Order PDF on one row, the item picker one row per group, item fields in a grid (numbers four to a row, text three, long writing two). The notes box shares its row with the picture +.
+
+- Admin customer page: an item's steps are shown side by side as numbered boxes with a status colour on top; an opened box takes the whole row.
+
+- Item builder: "All fields at once" switches Warn if empty and Master can fill on or off for every field. Only fields with Warn if empty get a red * on the customer form and block sending.
+
+- Measurement fields accept words as well as numbers; the unit (No unit, Inches, Meters, Centimetres) is chosen per field in the item builder.
+- Picture fields on the customer form have a dashed spot: on a phone press and hold, then tap Paste; on a computer click and press Ctrl+V; or drop a file on it.
+- A picture pasted into any text or number box on the customer form stays under that box (also for the master and in print). A sent customer's page has the WhatsApp buttons to tell each master about the new or changed order.
+- On the customer form a field with pictures is framed, with its pictures right under its own box.
+- Steps have a "Should take N days once started" box (item builder custom steps and the saved steps editor). The office sees the finish date and "Late by N days"; the master sees only the days.
+- Masters page: "Your WhatsApp number" box. Master order page: "Ask the office a question" button (also the customer name) opens WhatsApp to the office with the order named and a link.
+- Item builder: "From the order" tiles Customer name, Order number, Design number and Delivery date (start filled from the order; the office can change them).
+- Master order page: empty fields are hidden; a "Warn if empty" field that is empty shows its name with a blank box.
+- Master home: the whole order card opens the order (no Open order button).
+- A text box takes several lines (Enter = new line; pasted lines stay apart) and the master sees each line on its own line.
+- The printed measurements table holds number and word boxes together in form order; a unit is added only after a plain number.
+- Printed sheet / PDF: each item ends with a "Cut here - tailor slip" box (customer name, order number, measurements in short names, notes, no dates). Builder: short name per measurement box, a Notes line tile, and a notes line option on a group of boxes.

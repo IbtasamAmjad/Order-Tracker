@@ -1,15 +1,18 @@
-import { eq, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { masters, orderMasters, orders } from "@/db/schema";
 
 type Tx = Pick<typeof db, "select" | "insert" | "delete">;
 
-/** SQL condition: this master is one of the order's masters (the main one on the order, or one added to the list). */
-export const mine = (masterId: number) =>
+/** SQL condition: this master is one of the order's masters (the main one on the order, or one added to the list). Drafts count: for the office's lists. */
+export const assignedTo = (masterId: number) =>
   or(
     eq(orders.masterId, masterId),
     sql`exists (select 1 from ${orderMasters} where ${orderMasters.orderId} = ${orders.id} and ${orderMasters.masterId} = ${masterId})`,
   )!;
+
+/** SQL condition for everything a master sees: his order, and the office has SENT it (a draft is invisible to him). */
+export const mine = (masterId: number) => and(assignedTo(masterId), isNotNull(orders.sentAt))!;
 
 /** Every master of an order: the main one first, then the others. */
 export function assignedMasterIds(orderId: number, tx: Tx = db): number[] {
@@ -20,7 +23,8 @@ export function assignedMasterIds(orderId: number, tx: Tx = db): number[] {
 }
 
 export function isAssigned(masterId: number, orderId: number, tx: Tx = db): boolean {
-  return assignedMasterIds(orderId, tx).includes(masterId);
+  const sent = tx.select({ s: orders.sentAt }).from(orders).where(eq(orders.id, orderId)).get()?.s;
+  return !!sent && assignedMasterIds(orderId, tx).includes(masterId);
 }
 
 /** Replace an order's master list. The first id stays the order's main master (the one the lists group it under). */

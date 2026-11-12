@@ -15,7 +15,7 @@ export default async function EditWorkflow({ params }: { params: Promise<{ id: s
         key={`${w.id}-${w.stages.map((s) => s.key).join(",")}`}
         id={w.id}
         initialName={w.name}
-        initialSteps={w.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo }))}
+        initialSteps={w.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, days: s.days ? String(s.days) : "" }))}
         usedBy={w.usedBy}
         action={saveWorkflowAction}
       />

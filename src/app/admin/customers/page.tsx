@@ -20,7 +20,8 @@ export default async function Customers({
   const notices = kind && nid ? orderNotices(kind as OrderNoticeKind, Number(nid)) : [];
   const masterId = Number(master) || undefined;
   syncActiveItems(); // keeps customers in progress up to date with their items
-  const everyone = listAdminOrders({ masterId, view: "active" });
+  const everyone = listAdminOrders({ masterId, view: "active", withDrafts: true });
+  const drafts = everyone.filter((r) => !r.sentAt);
   const masters = listMasters();
 
   // the filter chips: all live orders, overdue ones, and one chip for each work stage the orders are at
@@ -35,7 +36,9 @@ export default async function Customers({
   const picked =
     show === "overdue"
       ? overdue
-      : show?.startsWith("band:")
+      : show === "draft"
+        ? drafts
+        : show?.startsWith("band:")
         ? everyone.filter((r) => r.band === show.slice(5))
         : show?.startsWith("stage:")
           ? everyone.filter((r) => r.stage === show.slice(6))
@@ -90,6 +93,11 @@ export default async function Customers({
             </Link>
           );
         })}
+        {drafts.length > 0 && (
+          <Link href={href("draft")} className={chip(show === "draft")} aria-current={show === "draft" ? "page" : undefined}>
+            Drafts, not sent {count(drafts.length, show === "draft")}
+          </Link>
+        )}
         {stages.map(([label, n]) => {
           const on = show === `stage:${label}`;
           return (
@@ -171,7 +179,7 @@ export default async function Customers({
                     <span className="rounded-lg bg-accent-soft px-2 py-0.5 text-base text-accent-deep">#{o.orderNumber}</span>
                     <span className="break-words group-hover:underline">{o.customerName}</span>
                     {o.designNumber && <span className="rounded-lg border border-rule bg-paper-3/60 px-2 py-0.5 text-sm font-medium text-ink-2">{o.designNumber}</span>}
-                    {o.linkedDesignNumber && <span className="rounded-lg border border-accent/20 bg-accent-soft/60 px-2 py-0.5 text-sm text-accent-deep">Linked to {o.linkedDesignNumber}</span>}
+                    {!o.sentAt && <span className="rounded-lg bg-amber-100 px-2 py-0.5 text-sm font-medium text-amber-800">Draft, not sent</span>}
                   </p>
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
                     {o.itemLabels.length > 0 ? (

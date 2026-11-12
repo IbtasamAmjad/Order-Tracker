@@ -91,4 +91,26 @@ describe("templates", () => {
     o.updateOrder(id, { customerName: "B", myDueDate: "2099-01-01", karigarDueDate: "2099-01-01", masterId: master, details: "" }, new Map([[itemId, { waist: "34" }]]));
     expect(o.masterDashboard(master).active[0].badge).toBe("Updated");
   });
+
+  it("copies one item with its form and steps, and a whole group with its items", () => {
+    const g = t.createMainCategory("CopyGroup", "#123456");
+    const sub = t.createSubCategory(g, "Kurta", "#abcdef");
+    const tplId = t.templateIdOf(sub)!;
+    t.saveTemplate(tplId, t.rowsToFields([row("Sleeve", "text", "required", "")]), t.rowsToStages([{ key: "", label: "Cutting", photo: "none" }]));
+
+    const copyId = t.copyItem(sub)!;
+    const copy = t.getTemplate(t.templateIdOf(copyId)!)!;
+    expect(copy.sub.name).toBe("Kurta copy");
+    expect(copy.sub.parentId).toBe(g);
+    expect(copy.fields.map((f) => f.label)).toEqual(["Sleeve"]);
+    expect(copy.stages.map((s) => s.label)).toEqual(["Cutting"]);
+    expect(t.getTemplate(tplId)!.fields).toHaveLength(1); // the original is untouched
+    expect(t.copyItem(g)).toBeNull(); // a group is not an item
+
+    const newGroup = t.copyGroup(g)!;
+    const subs = t.listCategoryTree().find((x) => x.id === newGroup)!;
+    expect(subs.name).toBe("CopyGroup copy");
+    expect(subs.subs.map((x) => x.name).sort()).toEqual(["Kurta", "Kurta copy"]);
+    expect(subs.subs.every((x) => x.template.fields.length === 1)).toBe(true);
+  });
 });

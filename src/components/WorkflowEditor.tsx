@@ -6,7 +6,7 @@ import type { WorkflowFormState } from "@/app/admin/workflows/actions";
 import { Icon } from "./Icon";
 import { Notice, btnDanger, btnPrimary, btnSecondary, input, select } from "./ui";
 
-type Step = { uid: string; key: string; label: string; photo: string };
+type Step = { uid: string; key: string; label: string; photo: string; days: string };
 
 /**
  * Make or change a workflow: a name and the steps in order, each with a rule for the work image the master sends
@@ -21,13 +21,13 @@ export function WorkflowEditor({
 }: {
   id?: number;
   initialName: string;
-  initialSteps: { key: string; label: string; photo: string }[];
+  initialSteps: { key: string; label: string; photo: string; days?: string }[];
   usedBy: { templateId: number; name: string }[];
   action: (prev: WorkflowFormState, f: FormData) => Promise<WorkflowFormState>;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [name, setName] = useState(initialName);
-  const [steps, setSteps] = useState<Step[]>(() => initialSteps.map((s, i) => ({ ...s, uid: `s${i}` })));
+  const [steps, setSteps] = useState<Step[]>(() => initialSteps.map((s, i) => ({ ...s, days: s.days ?? "", uid: `s${i}` })));
   const [next, setNext] = useState(1000);
 
   const patch = (uid: string, p: Partial<Step>) => setSteps((rows) => rows.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
@@ -39,7 +39,7 @@ export function WorkflowEditor({
       [copy[i], copy[j]] = [copy[j], copy[i]];
       return copy;
     });
-  const stagesJson = JSON.stringify(steps.map(({ key, label, photo }) => ({ key, label, photo, needs: [] })));
+  const stagesJson = JSON.stringify(steps.map(({ key, label, photo, days }) => ({ key, label, photo, days, needs: [] })));
 
   return (
     <form action={formAction} className="space-y-4">
@@ -74,6 +74,20 @@ export function WorkflowEditor({
               <option value="upload">Work image: must add one</option>
               <option value="required">Work photo: you approve it</option>
             </select>
+            <label className="flex items-center gap-1.5 text-base">
+              <input
+                type="number"
+                min={1}
+                max={365}
+                inputMode="numeric"
+                value={s.days}
+                onChange={(e) => patch(s.uid, { days: e.target.value })}
+                placeholder="-"
+                aria-label={`Step ${i + 1}: days it should take`}
+                className={`${input} !w-20`}
+              />
+              days
+            </label>
             <div className="flex gap-1">
               <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className={`${btnSecondary} !min-h-10 !px-3`} aria-label="Move step up">
                 <Icon name="up" />
@@ -90,7 +104,7 @@ export function WorkflowEditor({
         <button
           type="button"
           onClick={() => {
-            setSteps((rows) => [...rows, { uid: `t${next}`, key: "", label: "", photo: "optional" }]);
+            setSteps((rows) => [...rows, { uid: `t${next}`, key: "", label: "", photo: "optional", days: "" }]);
             setNext(next + 1);
           }}
           className={btnSecondary}

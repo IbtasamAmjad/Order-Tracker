@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders, shipmentItems, shipments } from "@/db/schema";
 import { mine, masterNames } from "./assign";
@@ -40,7 +40,7 @@ function itemsToList(masterId?: number) {
     .select({ item: orderItems, order: orders })
     .from(orderItems)
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
-    .where(and(inArray(orders.status, ["active", "completed"]), masterId ? mine(masterId) : undefined))
+    .where(and(inArray(orders.status, ["active", "completed"]), isNotNull(orders.sentAt), masterId ? mine(masterId) : undefined))
     .orderBy(orders.orderNumber, orderItems.position)
     .all();
 }

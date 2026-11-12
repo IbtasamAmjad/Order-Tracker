@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { PinForm } from "@/components/PinForm";
 import { StageTrack } from "@/components/StageTrack";
-import { PositionTile, TitleIcon, btnPrimary, card, chipAttention, fmtDay } from "@/components/ui";
+import { PositionTile, TitleIcon, card, chipAttention, fmtDay } from "@/components/ui";
 import { BAND_CLASS, BAND_LABEL } from "@/lib/colour";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterDashboard } from "@/lib/orders";
@@ -77,10 +77,10 @@ export default async function MasterHome({
           const status = late ? `Late by ${o.flags.daysOverdue} day${o.flags.daysOverdue === 1 ? "" : "s"}` : BAND_LABEL[o.band].text;
           const pill = late || o.band === "red" ? "bg-thread" : o.band === "green" ? "bg-leaf" : "bg-cloth";
           return (
-            <li key={o.id} className={`${card} space-y-3 border-l-4 ${late ? "border-l-thread" : BAND_CLASS[o.band]}`}>
+            <li key={o.id} className={`${card} relative space-y-3 border-l-4 transition-colors hover:bg-paper-3/50 active:bg-paper-3 ${late ? "border-l-thread" : BAND_CLASS[o.band]}`}>
               <div className="flex items-start gap-3">
                 <PositionTile n={i + 1} />
-                <Link href={`/m/${token}/orders/${o.id}`} className="group min-w-0 flex-1" aria-label={`Open order ${o.orderNumber}, ${o.customerName}`}>
+                <Link href={`/m/${token}/orders/${o.id}`} className="group min-w-0 flex-1 after:absolute after:inset-0 after:content-['']" aria-label={`Open order ${o.orderNumber}, ${o.customerName}`}>
                   <p className="break-words text-xl font-medium leading-snug group-hover:underline">
                     #{o.orderNumber} - {o.customerName}
                   </p>
@@ -106,10 +106,6 @@ export default async function MasterHome({
               </div>
               <StageTrack steps={o.track} />
               {o.flags.stale && <p className="text-base font-medium text-thread">Please send an update</p>}
-
-              <Link href={`/m/${token}/orders/${o.id}`} className={`${btnPrimary} w-full`}>
-                Open order
-              </Link>
             </li>
           );
         })}

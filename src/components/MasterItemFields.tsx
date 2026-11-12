@@ -1,6 +1,7 @@
 import type { FieldDef, ItemSnapshot } from "@/db/schema";
 import { saveMasterFieldsAction } from "@/app/m/actions";
 import { displayValue, isDisplayOnly, isTextEditable } from "@/lib/items";
+import { referencePhotos } from "@/lib/stages";
 import { FieldPictures } from "./DesignPictures";
 import { FieldRow } from "./FieldRow";
 import { PhotoUpload } from "./PhotoUpload";
@@ -29,9 +30,13 @@ export function MasterItemFields({
   const fields = snapshot.fields;
   const isReadOnly = (f: (typeof fields)[number]) => !(canEdit && f.masterCanEdit) && f.type !== "picture" && !isDisplayOnly(f);
   // everything the master reads, in the order Admin built the form (headings and notes included)
+  // An empty field is left out, so the master never sees an empty box he cannot use. Two exceptions: a field the office
+  // marked "warn if empty" stays, as an empty box under its name, so it is clear something was not given; and a field
+  // that has pictures stays.
+  const withPictures = new Set(referencePhotos(itemId).map((r) => r.fieldKey ?? ""));
   const flow = fields
     .map((f) => ({ f, v: isReadOnly(f) ? displayValue(f, values[f.key]) : "" }))
-    .filter((x) => isDisplayOnly(x.f) || x.v);
+    .filter((x) => isDisplayOnly(x.f) || x.v || (isReadOnly(x.f) && (x.f.required || withPictures.has(x.f.key))));
   const mine = canEdit ? fields.filter((f) => f.masterCanEdit) : [];
   const mineText = mine.filter(isTextEditable);
   const minePictures = mine.filter((f) => f.type === "picture");
@@ -77,8 +82,8 @@ export function MasterItemFields({
                     return (
                       <div key={f.key} className="rounded-2xl bg-paper-3 p-3">
                         <p className="text-base text-muted">{f.label}</p>
-                        <p className="text-3xl font-medium leading-tight">{big.main}</p>
-                        {big.note && <p className="text-base leading-snug text-ink-2">{big.note}</p>}
+                        {v ? <p className="whitespace-pre-wrap break-words text-3xl font-medium leading-tight">{big.main}</p> : <EmptyBox />}
+                        {big.note && <p className="whitespace-pre-wrap text-base leading-snug text-ink-2">{big.note}</p>}
                       </div>
                     );
                   })}
@@ -94,9 +99,9 @@ export function MasterItemFields({
                         {f.type === "color" && (
                           <span aria-hidden className="inline-block h-7 w-7 shrink-0 rounded-full border border-rule-2" style={{ background: values[f.key] }} />
                         )}
-                        {v}
+                        {v || <EmptyBox />}
                       </dd>
-                      {f.pictures && <FieldPictures token={token} itemId={itemId} fieldKey={f.key} label={f.label} />}
+                      {<FieldPictures token={token} itemId={itemId} fieldKey={f.key} label={f.label} />}
                     </div>
                   ))}
                 </dl>
@@ -142,4 +147,9 @@ export function MasterItemFields({
 function splitNumber(v: string): { main: string; note: string } {
   const m = /^\s*(\d+(?:[.,/]\d+)?)\s*(.*)$/.exec(v);
   return m ? { main: m[1], note: m[2].trim() } : { main: v, note: "" };
+}
+
+/** A blank box for a required field the office has not filled in yet. */
+function EmptyBox() {
+  return <span role="img" aria-label="Not given yet" className="block h-10 w-full rounded-xl border border-dashed border-rule-2 bg-white" />;
 }

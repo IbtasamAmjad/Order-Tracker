@@ -30,6 +30,14 @@ const s = StyleSheet.create({
   cellLabel: { fontSize: 8 },
   cellValue: { fontSize: 13, fontFamily: "Helvetica-Bold" },
   photos: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
+  cutLine: { marginTop: 14, paddingTop: 2, borderTopWidth: 1.5, borderTopStyle: "dashed", borderTopColor: "#000", textAlign: "center", fontSize: 7, letterSpacing: 1.5, textTransform: "uppercase" },
+  slip: { borderWidth: 1, borderColor: "#000", padding: 4 },
+  slipTitle: { fontFamily: "Helvetica-Bold", fontSize: 10 },
+  slipGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 3, borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#000" },
+  slipCell: { width: "25%", paddingVertical: 2, paddingHorizontal: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#000" },
+  slipLabel: { fontSize: 7 },
+  slipValue: { fontSize: 11, fontFamily: "Helvetica-Bold" },
+  slipNote: { fontSize: 9, marginTop: 2 },
   galleryHead: { fontFamily: "Helvetica-Bold", fontSize: 9, letterSpacing: 1, textTransform: "uppercase", marginTop: 12, borderBottomWidth: 1.5, borderBottomColor: "#000", paddingBottom: 2 },
   notes: { marginTop: 10, paddingTop: 6, borderTopWidth: 1.5, borderTopColor: "#000" },
 });
@@ -128,6 +136,29 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
                     <View wrap={false}>
                       <Text style={s.galleryHead}>Pictures</Text>
                       {pics(item.photoIds, h)}
+                    </View>
+                  )}
+                  {item.slip && (
+                    <View wrap={false}>
+                      <Text style={s.cutLine}>Cut here - tailor slip</Text>
+                      <View style={s.slip}>
+                        <Text style={s.slipTitle}>
+                          #{data.orderNumber} {data.customerName} - {item.label}
+                        </Text>
+                        <View style={s.slipGrid}>
+                          {item.slip.cells.map((c, k) => (
+                            <View key={`${c.label}-${k}`} style={s.slipCell}>
+                              <Text style={s.slipLabel}>{c.label}</Text>
+                              <Text style={s.slipValue}>{c.value}</Text>
+                            </View>
+                          ))}
+                        </View>
+                        {item.slip.notes.map((t, k) => (
+                          <Text key={k} style={s.slipNote}>
+                            {t}
+                          </Text>
+                        ))}
+                      </View>
                     </View>
                   )}
                 </View>

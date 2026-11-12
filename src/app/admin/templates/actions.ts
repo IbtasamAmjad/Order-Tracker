@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createMainCategory,
+  copyGroup,
+  copyItem,
   createSubCategory,
   deleteCategory,
   fieldsFromBuilder,
@@ -73,4 +75,21 @@ export async function saveCategoryAction(f: FormData) {
   saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")), workflowId);
   const updated = syncActiveItems({ templateId: id }); // customers already in progress get the change too, nobody has to press a button
   redirect(`/admin/templates/${id}?saved=1${updated > 0 ? `&synced=${updated}` : ""}`);
+}
+
+/** Make a copy of an item (its form and steps) in the same group, then open the copy. */
+export async function copyItemAction(f: FormData) {
+  await requireAdmin();
+  revalidatePath("/admin", "layout");
+  const newId = copyItem(Number(f.get("id")));
+  const templateId = newId ? templateIdOf(newId) : null;
+  redirect(templateId ? `/admin/templates/${templateId}?copied=1` : "/admin/templates");
+}
+
+/** Make a copy of a whole group with all its items. */
+export async function copyGroupAction(f: FormData) {
+  await requireAdmin();
+  revalidatePath("/admin", "layout");
+  copyGroup(Number(f.get("id")));
+  redirect("/admin/templates");
 }

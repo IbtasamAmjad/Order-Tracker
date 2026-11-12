@@ -1,10 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments } from "@/db/schema";
 import { daysUntil } from "./colour";
 import { REMINDER_DUE_DAYS, STALE_DAYS } from "./config";
 import { messages, waLink } from "./whatsapp";
 import { orderInfo } from "./order-info";
+import { lateSteps } from "./stages";
 
 const DAY = 86_400_000;
 
@@ -79,22 +80,26 @@ export function remindersList(now: Date = new Date()): Reminder[] {
     .select({ o: orders, m: masters })
     .from(orders)
     .innerJoin(masters, eq(orders.masterId, masters.id))
-    .where(eq(orders.status, "active"))
+    .where(and(eq(orders.status, "active"), isNotNull(orders.sentAt)))
     .all();
 
   const out: (Reminder & { due: string })[] = [];
   for (const { o, m } of rows) {
     const f = orderFlags(o.karigarDueDate, lastActivityAt(o.id), now);
-    if (!needsReminder(f)) continue;
+    const late = lateSteps(o.id, now);
+    if (!needsReminder(f) && late.length === 0) continue;
     const c = { masterName: m.name, token: m.token, orderNumber: o.orderNumber, customer: o.customerName };
     const reasons: string[] = [];
     if (f.overdue) reasons.push(`Overdue by ${f.daysOverdue} day${f.daysOverdue === 1 ? "" : "s"}`);
     else if (f.dueSoon) reasons.push(f.daysLeft === 0 ? "Due today" : `Due in ${f.daysLeft} day${f.daysLeft === 1 ? "" : "s"}`);
     if (f.stale) reasons.push(`No update for ${f.idleDays} days`);
+    for (const l of late) reasons.push(`${l.itemLabel}: ${l.step} is ${l.lateDays} day${l.lateDays === 1 ? "" : "s"} late`);
     const info = orderInfo(o.id);
     const text = f.overdue
       ? messages.overdue({ ...c, dueDate: o.karigarDueDate, days: f.daysOverdue, info })
-      : f.stale
+      : !f.stale && !f.dueSoon && late.length > 0
+        ? messages.lateStep({ ...c, step: `${late[0].itemLabel}: ${late[0].step}`, days: late[0].lateDays, info })
+        : f.stale
         ? messages.stale({ ...c, days: f.idleDays, info })
         : messages.dueSoon({ ...c, days: f.daysLeft, info });
     out.push({

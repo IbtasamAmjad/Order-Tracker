@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormBuilder } from "@/components/FormBuilder";
 import { Notice, btnDanger, btnSecondary, input } from "@/components/ui";
-import { getTemplate } from "@/lib/templates";
-import { deleteCategoryAction, saveCategoryAction, updateCategoryAction } from "../actions";
+import { getTemplate, listCategoryTree } from "@/lib/templates";
+import { copyItemAction, deleteCategoryAction, saveCategoryAction, updateCategoryAction } from "../actions";
 import { Icon } from "@/components/Icon";
 import { listWorkflows } from "@/lib/workflows";
 import { saveStepsAsWorkflowAction } from "../../workflows/actions";
@@ -13,11 +13,11 @@ export default async function CategoryBuilder({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; synced?: string; e?: string; wf?: string; wfError?: string }>;
+  searchParams: Promise<{ saved?: string; synced?: string; e?: string; wf?: string; wfError?: string; copied?: string }>;
 }) {
   const t = getTemplate(Number((await params).id));
   if (!t) notFound();
-  const { saved, synced, e, wf, wfError } = await searchParams;
+  const { saved, synced, e, wf, wfError, copied } = await searchParams;
 
   return (
     <div className="space-y-8">
@@ -33,6 +33,7 @@ export default async function CategoryBuilder({
       {e === "duplicate" && (
         <Notice tone="error">Two fields have the same name. Nothing was saved. Rename one and save again.</Notice>
       )}
+      {copied && <Notice tone="success">This is a copy. Change its name and details, then press Save item.</Notice>}
       {wf === "made" && <Notice tone="success">The steps were saved, and this item now uses them.</Notice>}
       {wfError && <Notice tone="error">{wfError}</Notice>}
       {saved && (
@@ -61,12 +62,32 @@ export default async function CategoryBuilder({
           required: f.required,
           masterCanEdit: !!f.masterCanEdit,
           pictures: !!f.pictures,
+          short: f.short ?? "",
           unit: f.unit ?? "",
           options: (f.options ?? []).join("\n"),
         }))}
-        initialSteps={t.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, needs: s.requiresFields ?? [] }))}
-        workflows={listWorkflows().map((w) => ({ id: w.id, name: w.name, steps: w.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo })) }))}
+        initialSteps={t.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, days: s.days ? String(s.days) : "", needs: s.requiresFields ?? [] }))}
+        workflows={listWorkflows().map((w) => ({ id: w.id, name: w.name, steps: w.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, days: s.days ? String(s.days) : "" })) }))}
         initialWorkflowId={t.workflowId}
+        copySources={listCategoryTree().flatMap((m) =>
+          m.subs
+            .filter((x) => x.template.id !== t.id && x.template.fields.length > 0)
+            .map((x) => ({
+              id: x.template.id,
+              name: `${m.name} > ${x.name}`,
+              fields: x.template.fields.map((f) => ({
+                key: "",
+                label: f.label,
+                type: f.type,
+                required: f.required,
+                masterCanEdit: !!f.masterCanEdit,
+                pictures: !!f.pictures,
+                short: f.short ?? "",
+                unit: f.unit ?? "",
+                options: (f.options ?? []).join("\n"),
+              })),
+            })),
+        )}
       />
 
       {t.workflowId === null && t.stages.length > 0 && (
@@ -80,6 +101,15 @@ export default async function CategoryBuilder({
           <button className={btnSecondary}>Save these steps</button>
         </form>
       )}
+
+      <form action={copyItemAction} className="panel space-y-2">
+        <input type="hidden" name="id" value={t.sub.id} />
+        <h2 className="text-xl font-medium">Copy this whole item</h2>
+        <p className="text-base text-muted">Makes a new item in {t.main?.name} with the same form and steps. Then change the details.</p>
+        <button className={btnSecondary}>
+          <Icon name="copy" className="h-4 w-4" /> Make a copy
+        </button>
+      </form>
 
       <details className="group">
         <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full border border-thread/40 px-5 py-2 text-base font-medium text-thread transition-colors hover:bg-thread/10 group-open:bg-thread/10 [&::-webkit-details-marker]:hidden">

@@ -28,7 +28,7 @@ export function remakeItems(orderId: number, itemIds: number[], reason: string):
       const steps = tx.select().from(itemStages).where(eq(itemStages.itemId, item.id)).orderBy(asc(itemStages.position)).all();
       steps.forEach((s, i) => {
         tx.update(itemStages)
-          .set({ status: i === 0 ? "open" : "locked", completedAt: null, completedBy: null, ...(i === 0 ? { instruction: `Remake: ${why}` } : {}) })
+          .set({ status: i === 0 ? "open" : "locked", completedAt: null, completedBy: null, startedAt: i === 0 ? now : null, ...(i === 0 ? { instruction: `Remake: ${why}` } : {}) })
           .where(eq(itemStages.id, s.id))
           .run();
       });

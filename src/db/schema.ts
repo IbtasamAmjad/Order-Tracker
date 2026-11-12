@@ -47,6 +47,8 @@ export const orders = sqliteTable("orders", {
   changedForMasterAt: ts("changed_for_master_at"),
   movedUpAt: ts("moved_up_at"),
   closedAt: ts("closed_at"), // when completed / cancelled
+  // when the office pressed "Send to master". Empty = a draft: only the office can see it, the master cannot.
+  sentAt: ts("sent_at"),
   // what the order was before it was archived, so it can come back out of the archive as the same thing
   archivedFrom: text("archived_from", { enum: ["completed", "cancelled"] }),
   // the master pressed "I have seen this order" (the first step, Order received)
@@ -93,6 +95,10 @@ export const FIELD_TYPES = [
   "picture", // photo upload
   "heading", // not an input: a bold heading
   "note", // not an input: a plain line of text / instruction
+  "customername", // not an input: the customer's name, filled in from the order
+  "deliverydate", // not an input: the Karigar due date, filled in from the order (never My due date)
+  "ordernumber", // starts with the order number
+  "designnumber", // starts with the order's design number
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
@@ -105,6 +111,7 @@ export type StageDef = {
   key: string;
   label: string;
   photo: PhotoRule; // is a photo needed before the stage can be completed?
+  days?: number; // how many days the step should take once it has started (empty = no target)
   requiresFields?: string[]; // keys of form fields that must be filled in before the stage can be completed
 };
 
@@ -116,6 +123,7 @@ export type FieldDef = {
   unit?: string; // free text, e.g. "inch" or "cm" (number fields)
   options?: string[]; // choices for select / radio / checkboxes
   masterCanEdit?: boolean; // the master may fill or change this field (comments, pictures...)
+  short?: string; // a short name (Ch for Chest) used on the tailor slip at the bottom of the printed page
   pictures?: boolean; // text and long text only: the office can add pictures right under this field (for example Embroidery details)
 };
 
@@ -200,6 +208,8 @@ export const itemStages = sqliteTable("item_stages", {
   status: text("status", { enum: STAGE_STATUSES }).notNull().default("locked"),
   completedAt: ts("completed_at"),
   completedBy: text("completed_by", { enum: ["master", "admin"] }),
+  // when the step became the one being worked on (the previous step finished); the expected days count from here
+  startedAt: ts("started_at"),
   // what the office wants done at this step, for this customer's item (the master sees it on the step)
   instruction: text("instruction"),
 });
@@ -299,4 +309,10 @@ export const stageEvents = sqliteTable("stage_events", {
   createdAt: ts("created_at")
     .notNull()
     .$defaultFn(() => new Date()),
+});
+
+// Small settings the office sets once (key / value text), for example the office WhatsApp number masters send questions to.
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
 });

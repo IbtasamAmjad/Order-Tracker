@@ -1,7 +1,9 @@
+import { WhatsAppNotice } from "@/components/WhatsAppNotice";
+import { orderNotices } from "@/lib/notify";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderEditor } from "@/components/OrderEditor";
-import { getOrder, linkedOrders, listDesignNumbers, listItems, orderOfDesign } from "@/lib/orders";
+import { getOrder, listItems } from "@/lib/orders";
 import { assignedMasterIds } from "@/lib/assign";
 import { referencePhotos } from "@/lib/stages";
 import { orderShipments, shippableItems } from "@/lib/shipping";
@@ -9,6 +11,8 @@ import { listMasters } from "@/lib/masters";
 import { pickerGroups } from "@/lib/templates";
 import type { EditorItem } from "@/lib/editor-state";
 import { listOrderFiles } from "@/lib/order-files";
+import { notePhotos } from "@/lib/order-notes";
+import { NotePictures } from "@/components/NotePictures";
 import { displayValue, fieldProgress, isDisplayOnly, missingFields } from "@/lib/items";
 import { itemTrack } from "@/lib/track";
 import type { FieldDef } from "@/db/schema";
@@ -71,9 +75,9 @@ export default async function EditOrder({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ updated?: string; removed?: string; e?: string }>;
+  searchParams: Promise<{ updated?: string; removed?: string; e?: string; draft?: string }>;
 }) {
-  const { updated, removed, e } = await searchParams;
+  const { updated, removed, e, draft } = await searchParams;
   const order = getOrder(Number((await params).id));
   if (!order) notFound();
   // a customer that is behind its item (the item was changed) is brought up to date here, so nobody has to press a button
@@ -99,8 +103,6 @@ export default async function EditOrder({
   }));
   const history = orderHistory(order.id);
   const canRemake = order.status !== "cancelled" && !(order.status === "archived" && order.archivedFrom === "cancelled");
-  const linked = linkedOrders(order.designNumber);
-  const main = orderOfDesign(order.linkedDesignNumber);
   const templates = pickerGroups().flatMap((g) => g.items.map((t) => ({ ...t, group: g.name })));
 
   return (
@@ -124,31 +126,15 @@ export default async function EditOrder({
           <Icon name="note" className="h-4 w-4" /> Print / PDF
         </Link>
       </header>
-      {(order.linkedDesignNumber || linked.length > 0) && (
-        <div className="space-y-1 rounded-2xl border border-rule bg-paper-2 px-5 py-3 text-base shadow-sm">
-          {order.linkedDesignNumber && (
-            <p>
-              Linked to design number <b className="font-medium">{order.linkedDesignNumber}</b>
-              {main && (
-                <>
-                  {": "}
-                  <Link href={`/admin/orders/${main.id}`} className="link font-medium">
-                    #{main.orderNumber} {main.customerName}
-                  </Link>
-                </>
-              )}
-            </p>
-          )}
-          {linked.length > 0 && (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span>Linked orders:</span>
-              {linked.map((l) => (
-                <Link key={l.id} href={`/admin/orders/${l.id}`} className="link font-medium">
-                  #{l.orderNumber} {l.customerName}
-                </Link>
-              ))}
-            </p>
-          )}
+      {active && !order.sentAt && (
+        <Notice tone="warning">
+          {draft ? "Saved as a draft. " : ""}This customer is a draft: the master cannot see it yet. Press Send to master when it is ready.
+        </Notice>
+      )}
+      {active && order.sentAt && (
+        <div className="space-y-2">
+          <WhatsAppNotice notices={orderNotices("new", order.id)} />
+          <WhatsAppNotice notices={orderNotices("updated", order.id)} />
         </div>
       )}
       {updated && <Notice tone="success">Updated from the item. The master will see it was changed.</Notice>}
@@ -205,7 +191,9 @@ export default async function EditOrder({
       )}
       <p className="flex items-center gap-2 text-sm text-muted">
         <Icon name="clock" className="h-4 w-4 shrink-0" />
-        {order.masterSeenAt
+        {!order.sentAt
+          ? "Not sent to the master yet."
+          : order.masterSeenAt
           ? `Master first opened it ${fmtDate(order.masterSeenAt)}; last ${fmtDate(order.masterLastSeenAt)}.`
           : "Master has not opened it yet."}
         {order.confirmedAt ? ` Confirmed he has seen it on ${fmtDate(order.confirmedAt)}.` : " Has not confirmed yet."}
@@ -222,14 +210,18 @@ export default async function EditOrder({
             submitLabel="Save changes"
             formId="order-form"
             pdfs={listOrderFiles(order.id).map((p) => ({ id: p.id, name: p.name, bytes: p.bytes }))}
-            designNumbers={listDesignNumbers(order.id).map((d) => ({ designNumber: d.designNumber, orderNumber: d.orderNumber, customerName: d.customerName }))}
             afterMasters={<AddItemBox orderId={order.id} options={templates.map((t) => ({ templateId: t.templateId, label: `${t.group} > ${t.name}` }))} />}
           />
 
 
           {/* last on the page, but part of the customer form above (form="order-form"), so Save changes saves it */}
           <Field label="Extra notes for this customer">
-            <textarea name="details" form="order-form" rows={5} defaultValue={order.details} className={textarea} />
+            <NotePictures
+              orderId={order.id}
+              saved={notePhotos(order.id)}
+              form="order-form"
+              inline={<textarea name="details" form="order-form" rows={2} defaultValue={order.details} className={textarea} aria-label="Extra notes for this customer" />}
+            />
           </Field>
 
           {/* the controls of "Add another item" sit in the form above, under the masters, and send to this empty form */}
@@ -253,9 +245,20 @@ export default async function EditOrder({
           </form>
 
           <div className="flex flex-wrap gap-3">
-            <button type="submit" form="order-form" className={btnPrimary}>
-              Save changes
-            </button>
+            {order.sentAt ? (
+              <button type="submit" form="order-form" className={btnPrimary}>
+                Save changes
+              </button>
+            ) : (
+              <>
+                <button type="submit" form="order-form" name="intent" value="draft" className={btnSecondary}>
+                  Save draft
+                </button>
+                <button type="submit" form="order-form" name="intent" value="send" className={btnPrimary}>
+                  Send to master
+                </button>
+              </>
+            )}
             <form action={setStatusAction}>
               <input type="hidden" name="id" value={order.id} />
               <input type="hidden" name="status" value="completed" />
@@ -298,6 +301,14 @@ export default async function EditOrder({
             </div>
           ))}
           <p className="whitespace-pre-wrap">{order.details}</p>
+          <div className="flex flex-wrap gap-2">
+            {notePhotos(order.id).map((p) => (
+              <a key={p.id} href={`/api/admin/photos/${p.id}`} target="_blank" rel="noreferrer" className="block h-20 w-20 overflow-hidden rounded-xl border border-rule">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/admin/photos/${p.id}?thumb=1`} alt="Picture under the notes" className="h-full w-full object-cover" />
+              </a>
+            ))}
+          </div>
           {order.status !== "archived" && (
             <form action={setStatusAction}>
               <input type="hidden" name="id" value={order.id} />

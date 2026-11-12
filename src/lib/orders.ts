@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, gt, inArray, lt, max, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, lt, max, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { itemStages, masters, orderItems, orders, photos, shipmentItems, shipments, stageEvents, type OrderStatus } from "@/db/schema";
-import { cleanValues, fieldProgress, isTextEditable, type ItemValues, type NewItem } from "./items";
+import { cleanValues, fieldProgress, isTextEditable, withAutoValues, type ItemValues, type NewItem } from "./items";
 import { createStageRows, orderProgress, referencePhotos } from "./stages";
 import { orderStage, orderTrack } from "./track";
-import { assignedMasterIds, cleanMasterIds, masterNames, mine, setAssignedMasters } from "./assign";
+import { assignedMasterIds, assignedTo, cleanMasterIds, masterNames, mine, setAssignedMasters } from "./assign";
 import { lastActivityAt, orderFlags } from "./reminders";
 import { colourBand, type Band } from "./colour";
 import { CLOSED_VISIBLE_DAYS } from "./config";
@@ -17,7 +17,6 @@ export type OrderInput = {
   masterIds?: number[]; // every master of the order, main one first; leave out for just masterId
   details: string;
   designNumber?: string; // this order's own Design Number (kept in capitals, never used twice)
-  linkedDesignNumber?: string; // for an accessory ordered on its own: the Design Number of its main Sherwani or Bridal
 };
 
 /** A Design Number as it is stored: no spaces at the ends, in capitals. Empty means none. */
@@ -25,63 +24,34 @@ export const cleanDesignNumber = (v: string | null | undefined): string | null =
 
 /**
  * Why these design numbers cannot be saved, or null when they are fine. A Design Number belongs to one order only.
- * The linked one must be the Design Number of another order (the main Sherwani or Bridal). `ownId` is the order being edited.
+ * `ownId` is the order being edited.
  */
-export function checkDesignNumbers(input: { designNumber?: string | null; linkedDesignNumber?: string | null }, ownId?: number): string | null {
+export function checkDesignNumbers(input: { designNumber?: string | null }, ownId?: number): string | null {
   const mine = cleanDesignNumber(input.designNumber);
-  const linked = cleanDesignNumber(input.linkedDesignNumber);
   if (mine) {
     const clash = db.select({ id: orders.id, n: orders.orderNumber }).from(orders).where(eq(orders.designNumber, mine)).get();
     if (clash && clash.id !== ownId) return `Design number ${mine} is already used by order #${clash.n}. Each order needs its own.`;
   }
-  if (linked) {
-    if (linked === mine) return "An order cannot be linked to its own design number.";
-    const main = db.select({ id: orders.id }).from(orders).where(eq(orders.designNumber, linked)).get();
-    if (!main) return `No order has design number ${linked}. Link to the design number of the main Sherwani or Bridal.`;
-  }
   return null;
-}
-
-/** Design numbers already in use, for the "linked to" suggestions. */
-export function listDesignNumbers(exceptId?: number) {
-  return db
-    .select({ id: orders.id, designNumber: orders.designNumber, orderNumber: orders.orderNumber, customerName: orders.customerName })
-    .from(orders)
-    .all()
-    .filter((r): r is typeof r & { designNumber: string } => !!r.designNumber && r.id !== exceptId)
-    .sort((a, b) => a.designNumber.localeCompare(b.designNumber));
-}
-
-/** Orders linked to a design number (accessories and single items of that main design). */
-export function linkedOrders(designNumber: string | null) {
-  if (!designNumber) return [];
-  return db
-    .select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName, status: orders.status })
-    .from(orders)
-    .where(eq(orders.linkedDesignNumber, designNumber))
-    .orderBy(asc(orders.orderNumber))
-    .all();
-}
-
-/** The order that owns a design number, if any. */
-export function orderOfDesign(designNumber: string | null) {
-  if (!designNumber) return null;
-  return db.select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName }).from(orders).where(eq(orders.designNumber, designNumber)).get() ?? null;
 }
 
 /** Split the input into the columns of the order and the full list of masters. */
 function splitMasters(input: OrderInput) {
-  const { masterIds: given, designNumber, linkedDesignNumber, ...rest } = input;
+  const { masterIds: given, designNumber, ...rest } = input;
   const ids = cleanMasterIds(given?.length ? given : [input.masterId]);
   return {
-    cols: { ...rest, masterId: ids[0] ?? input.masterId, designNumber: cleanDesignNumber(designNumber), linkedDesignNumber: cleanDesignNumber(linkedDesignNumber) },
+    cols: { ...rest, masterId: ids[0] ?? input.masterId, designNumber: cleanDesignNumber(designNumber) },
     ids: ids.length ? ids : [input.masterId],
   };
 }
 
 // ---------------------------------------------------------------- admin
 
-export function createOrder(input: OrderInput, items: NewItem[] = []): number {
+/**
+ * `draft: true` saves the order for the office only; the master sees it after sendOrder(). Without it the order is
+ * sent at once (what the older code and tests expect).
+ */
+export function createOrder(input: OrderInput, items: NewItem[] = [], opts: { draft?: boolean } = {}): number {
   const { cols, ids } = splitMasters(input);
   const bad = checkDesignNumbers(cols);
   if (bad) throw new Error(bad);
@@ -96,20 +66,30 @@ export function createOrder(input: OrderInput, items: NewItem[] = []): number {
         ...cols,
         orderNumber: (row?.n ?? 0) + 1,
         priorityPosition: (row?.p ?? 0) + 1, // joins the end of the sequence
+        sentAt: opts.draft ? null : new Date(),
       })
-      .returning({ id: orders.id })
+      .returning({ id: orders.id, orderNumber: orders.orderNumber })
       .get();
     setAssignedMasters(tx, res.id, ids);
     items.forEach((it, i) => {
       const itemId = tx
         .insert(orderItems)
-        .values({ orderId: res.id, ...it, position: i + 1 })
+        .values({ orderId: res.id, ...it, values: withAutoValues(it.snapshot.fields, it.values, { ...cols, orderNumber: res.orderNumber }), position: i + 1 })
         .returning({ id: orderItems.id })
         .get().id;
       createStageRows(tx, itemId, it.snapshot.stages ?? []);
     });
     return res.id;
   });
+}
+
+/** Makes a draft visible to its master(s). Returns false if it is not a live draft. */
+export function sendOrder(id: number): boolean {
+  const o = db.select().from(orders).where(eq(orders.id, id)).get();
+  if (!o || o.status !== "active" || o.sentAt) return false;
+  const now = new Date();
+  db.update(orders).set({ sentAt: now, updatedAt: now, masterSeenAt: null, masterLastSeenAt: null }).where(eq(orders.id, id)).run();
+  return true;
 }
 
 /** itemValues: new values per existing item id. */
@@ -149,6 +129,11 @@ export function updateOrder(id: number, input: OrderInput, itemValues: Map<numbe
       .where(eq(orders.id, id))
       .run();
     setAssignedMasters(tx, id, ids);
+    // the customer name and delivery date fields follow the order
+    for (const item of tx.select().from(orderItems).where(eq(orderItems.orderId, id)).all()) {
+      const values = withAutoValues(item.snapshot.fields, item.values, { ...cols, orderNumber: old.orderNumber }, old);
+      if (JSON.stringify(values) !== JSON.stringify(item.values)) tx.update(orderItems).set({ values }).where(eq(orderItems.id, item.id)).run();
+    }
   });
 }
 
@@ -232,7 +217,7 @@ export function getOrder(id: number) {
  * The admin's lists: the live orders; the finished ones (completed or cancelled, not yet put away);
  * and the archive (put away, like WhatsApp's Archived chats: out of the main list but kept).
  */
-export function listAdminOrders(opts: { masterId?: number; view: "active" | "finished" | "archived" }) {
+export function listAdminOrders(opts: { masterId?: number; view: "active" | "finished" | "archived"; withDrafts?: boolean }) {
   const rows = db
     .select({ order: orders, masterName: masters.name })
     .from(orders)
@@ -244,7 +229,8 @@ export function listAdminOrders(opts: { masterId?: number; view: "active" | "fin
           : opts.view === "archived"
             ? eq(orders.status, "archived")
             : inArray(orders.status, ["completed", "cancelled"]),
-        opts.masterId ? mine(opts.masterId) : undefined,
+        opts.masterId ? assignedTo(opts.masterId) : undefined,
+        opts.view !== "active" || opts.withDrafts ? undefined : isNotNull(orders.sentAt), // drafts are only listed where asked (the Customers page)
       ),
     )
     .orderBy(opts.view === "active" ? asc(orders.priorityPosition) : desc(orders.closedAt))
@@ -270,7 +256,6 @@ const masterColumns = {
   orderNumber: orders.orderNumber,
   customerName: orders.customerName,
   designNumber: orders.designNumber,
-  linkedDesignNumber: orders.linkedDesignNumber,
   karigarDueDate: orders.karigarDueDate,
   details: orders.details,
   status: orders.status,

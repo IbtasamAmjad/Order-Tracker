@@ -1,9 +1,21 @@
 import type { FieldDef } from "@/db/schema";
 import { splitMulti } from "@/lib/items";
+import { AutoText } from "./AutoText";
 import { ColorInput } from "./ColorInput";
 import { PictureInput } from "./PictureInput";
 import { Icon } from "./Icon";
 import { RequiredMark, input, select, textarea } from "./ui";
+
+/**
+ * How much of the row a field takes on the office form (a 12-column grid from tablet width up; two columns on a phone):
+ * numbers and dates four to a row, short text and lists three, long writing two, everything else the whole row; short fields sit two to a row on a phone 340 px or wider.
+ */
+export function fieldSpan(f: FieldDef): string {
+  if (["number", "date", "time", "phone", "ordernumber"].includes(f.type)) return "md:col-span-3";
+  if (["text", "select", "yesno", "color", "customername", "deliverydate", "designnumber"].includes(f.type)) return "col-span-full min-[340px]:col-span-1 md:col-span-4";
+  if (f.type === "longtext") return "col-span-full md:col-span-6";
+  return "col-span-full";
+}
 
 /** Fields that need the whole row (long writing, pictures, choices, headings); the rest can sit two to a row. */
 export function isWideField(f: FieldDef): boolean {
@@ -43,16 +55,16 @@ export function FieldRow({
     <>
       {f.label}
       {unit}
-      {<RequiredMark />}
+      {f.required && <RequiredMark />}
     </>
   ) : (
     `${f.label}${unit}${f.required ? " (please fill in)" : ""}`
   );
-  const labelClass = compact ? "mb-1 block text-base font-medium" : "mb-1 block text-lg font-medium";
+  const labelClass = compact ? "mb-0.5 block text-sm font-medium text-ink-2" : "mb-1 block text-lg font-medium";
   const options = f.options ?? [];
 
   if (f.type === "heading") {
-    return <h3 className={compact ? "border-b border-rule pb-1 pt-1 text-lg font-medium" : "border-b-2 border-base-300 pb-1 pt-2 text-xl font-medium"}>{f.label}</h3>;
+    return <h3 className={compact ? "border-b border-rule pb-0.5 pt-2 text-base font-semibold" : "border-b-2 border-base-300 pb-1 pt-2 text-xl font-medium"}>{f.label}</h3>;
   }
   if (f.type === "note") {
     return <p className={`whitespace-pre-wrap opacity-80 ${compact ? "text-sm" : "text-base"}`}>{f.label}</p>;
@@ -72,7 +84,7 @@ export function FieldRow({
     return (
       <div>
         <span className={labelClass}>{label}</span>
-        <ColorInput name={name} value={value} />
+        <ColorInput name={name} value={value} compact={compact} />
       </div>
     );
   }
@@ -104,44 +116,65 @@ export function FieldRow({
     );
   }
 
+  const withPictures = !!f.pictures && (f.type === "text" || f.type === "longtext" || f.type === "number") && !pictureNote;
+  const control =
+    f.type === "longtext" ? (
+      <textarea name={name} rows={compact ? 2 : 4} defaultValue={value} className={textarea} aria-label={withPictures ? f.label : undefined} aria-invalid={missing || undefined} />
+    ) : f.type === "select" ? (
+      <select name={name} defaultValue={value} className={select} aria-invalid={missing || undefined}>
+        <option value="">-</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    ) : f.type === "yesno" ? (
+      <select name={name} defaultValue={value} className={select} aria-invalid={missing || undefined}>
+        <option value="">-</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    ) : f.type === "text" ? (
+      // a text box takes several lines: Enter starts a new line and pasted lines stay apart
+      <AutoText name={name} defaultValue={value} ariaLabel={withPictures ? f.label : undefined} invalid={missing} />
+    ) : (
+      <input
+        name={name}
+        type={f.type === "date" ? "date" : f.type === "time" ? "time" : f.type === "phone" ? "tel" : "text"} // a "number" box takes words too (the unit still shows)
+        inputMode={f.type === "phone" ? "tel" : undefined}
+        defaultValue={value}
+        placeholder={["customername", "deliverydate", "ordernumber", "designnumber"].includes(f.type) ? "Filled in from the order" : undefined}
+        className={input}
+        aria-label={withPictures ? f.label : undefined}
+        aria-invalid={missing || undefined}
+      />
+    );
+
   return (
-    <div>
-      <label className="block">
-        <span className={labelClass}>{label}</span>
-        {f.type === "longtext" ? (
-          <textarea name={name} rows={compact ? 3 : 4} defaultValue={value} className={textarea} aria-invalid={missing || undefined} />
-        ) : f.type === "select" ? (
-          <select name={name} defaultValue={value} className={select} aria-invalid={missing || undefined}>
-            <option value="">-</option>
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        ) : f.type === "yesno" ? (
-          <select name={name} defaultValue={value} className={select} aria-invalid={missing || undefined}>
-            <option value="">-</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        ) : (
-          <input
-            name={name}
-            type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : f.type === "phone" ? "tel" : "text"}
-            step={f.type === "number" ? "any" : undefined}
-            inputMode={f.type === "number" ? "decimal" : f.type === "phone" ? "tel" : undefined}
-            defaultValue={value}
-            className={input}
-            aria-invalid={missing || undefined}
-          />
-        )}
-      </label>
-      {f.pictures && (f.type === "text" || f.type === "longtext") && (
-        <div className="mt-2">
+    // a field that has pictures gets a soft frame, so the pictures clearly belong to this box
+    <div className={compact ? "rounded-2xl has-[img]:border has-[img]:border-accent/25 has-[img]:bg-accent-soft/30 has-[img]:p-2.5" : undefined}>
+      {withPictures ? (
+        <>
+          <span className={labelClass}>{label}</span>
+          {/* the small + sits at the end of the box, in the same row; the pictures sit under the box */}
+          <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={[name]} inline={control} tall={f.type === "longtext"} />
           {saved && <SavedPictures photos={saved.photos} label={f.label} itemId={saved.itemId} />}
-          {!pictureNote && <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={[name]} />}
-        </div>
+        </>
+      ) : (
+        <>
+          <label className="block">
+            <span className={labelClass}>{label}</span>
+            {control}
+          </label>
+          {/* any text or number box keeps a picture pasted into it, shown right under that box */}
+          {compact && (f.type === "text" || f.type === "longtext" || f.type === "number") && !pictureNote && (
+            <>
+              {saved && <SavedPictures photos={saved.photos} label={f.label} itemId={saved.itemId} />}
+              <PictureInput name={name.replace(/^v:/, "pic:")} pasteInto={[name]} pasteOnly />
+            </>
+          )}
+        </>
       )}
       {missing && (
         <p role="alert" className="mt-1 flex items-center gap-1.5 text-sm font-medium text-bad">
@@ -159,39 +192,30 @@ export function FieldRow({
  */
 function SavedPictures({ photos, label, itemId }: { photos: { id: number }[]; label: string; itemId: number }) {
   if (photos.length === 0) return null;
+  const many = photos.length > 1;
   return (
-    <div className="mb-2 space-y-2">
-      {photos.length > 1 && (
+    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-rule pt-2">
+      {photos.map((p) => (
         <a
-          href={`/api/admin/items/${itemId}/pictures?ids=${photos.map((p) => p.id).join(",")}`}
-          download
-          className="btn btn-quiet h-auto min-h-9 gap-2 px-3 py-1 text-sm"
+          key={p.id}
+          href={`/api/admin/photos/${p.id}`}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open this picture"
+          className="block h-11 w-11 overflow-hidden rounded-lg border border-rule bg-paper-3 shadow-sm"
         >
-          <Icon name="download" className="h-4 w-4" />
-          Download all ({photos.length})
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={label} className="h-full w-full object-cover" />
         </a>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {photos.map((p) => (
-          <div key={p.id} className="relative h-20 w-20 overflow-hidden rounded-xl border border-rule bg-paper-3">
-            <a href={`/api/admin/photos/${p.id}`} target="_blank" rel="noreferrer" className="block h-full w-full" aria-label="Open this picture">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={label} className="h-full w-full object-cover" />
-            </a>
-            {photos.length === 1 && (
-              <a
-                href={`/api/admin/photos/${p.id}?download=1`}
-                download
-                aria-label="Download this picture"
-                title="Download"
-                className="absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full bg-white/95 text-ink shadow"
-              >
-                <Icon name="download" className="h-4 w-4" />
-              </a>
-            )}
-          </div>
-        ))}
-      </div>
+      ))}
+      <a
+        href={many ? `/api/admin/items/${itemId}/pictures?ids=${photos.map((p) => p.id).join(",")}` : `/api/admin/photos/${photos[0].id}?download=1`}
+        download
+        className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-accent-deep hover:bg-accent-soft"
+      >
+        <Icon name="download" className="h-4 w-4" />
+        {many ? `Download all (${photos.length})` : "Download"}
+      </a>
     </div>
   );
 }

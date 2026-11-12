@@ -4,6 +4,7 @@ import { PinForm } from "@/components/PinForm";
 import { TitleIcon, btnPrimary, fmtDay } from "@/components/ui";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { markSeen, masterItems, masterOrder } from "@/lib/orders";
+import { notePhotos } from "@/lib/order-notes";
 import { MasterStages } from "@/components/MasterStages";
 import { MasterItemFields } from "@/components/MasterItemFields";
 import { StageTrack } from "@/components/StageTrack";
@@ -18,6 +19,9 @@ import { listOrderFiles } from "@/lib/order-files";
 import { cartCandidates } from "@/lib/shipping";
 import { remakeCount } from "@/lib/remake";
 import { itemStatesOfOrder, itemStatesSummary } from "@/lib/item-search";
+import { officeWhatsapp } from "@/lib/settings";
+import { messages, waLink } from "@/lib/whatsapp";
+import { orderInfo } from "@/lib/order-info";
 
 export default async function MasterOrder({
   params,
@@ -38,6 +42,7 @@ export default async function MasterOrder({
   if (!order) notFound();
   markSeen(master.id, order.id);
   const items = masterItems(order.id);
+  const notePics = notePhotos(order.id);
   const states = itemStatesOfOrder(order.id);
   const readyItems = new Set(cartCandidates(master.id).map((c) => c.itemId)); // finished items that can go in the cart
   const history = orderHistory(order.id);
@@ -51,6 +56,8 @@ export default async function MasterOrder({
   const daysLeft = Math.round((new Date(dy, dm - 1, dd).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000);
 
   const orderPdfs = listOrderFiles(order.id);
+  // a question to the office: WhatsApp opens with the order named, the items, the due date and a link to the order
+  const ask = waLink(officeWhatsapp(), messages.question({ masterName: master.name, orderId: order.id, orderNumber: order.orderNumber, customer: order.customerName, info: orderInfo(order.id) }));
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -80,7 +87,11 @@ export default async function MasterOrder({
         <dl className="space-y-1.5 border-t border-rule pt-4 text-xl">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-muted">Customer</dt>
-            <dd className="text-right font-medium">{order.customerName}</dd>
+            <dd className="text-right font-medium">
+              <a href={ask} target="_blank" rel="noreferrer" className="link" title="Ask the office a question about this order">
+                {order.customerName}
+              </a>
+            </dd>
           </div>
           {design && (
             <div className="flex items-baseline justify-between gap-4">
@@ -93,6 +104,10 @@ export default async function MasterOrder({
             <dd className="text-right font-medium">{fmtDay(order.karigarDueDate)}</dd>
           </div>
         </dl>
+
+        <a href={ask} target="_blank" rel="noreferrer" className="btn btn-quiet inline-flex min-h-12 items-center gap-2 text-lg">
+          Ask the office a question
+        </a>
 
         {order.status === "active" && (
           <span
@@ -246,7 +261,21 @@ export default async function MasterOrder({
           )}
         </section>
       ))}
-      {order.details && <p className="panel whitespace-pre-wrap text-lg">{order.details}</p>}
+      {(order.details || notePics.length > 0) && (
+        <div className="panel space-y-3">
+          {order.details && <p className="whitespace-pre-wrap text-lg">{order.details}</p>}
+          {notePics.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {notePics.map((p) => (
+                <a key={p.id} href={`/api/m/${token}/photos/${p.id}`} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-2xl border border-rule bg-paper-3" aria-label="Open the picture full size">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/m/${token}/photos/${p.id}?thumb=1`} alt="Picture with the notes" className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {e === "note-empty" && <p role="alert" className="alert alert-error text-lg font-medium">Write something in the note first.</p>}
       {e === "not-confirmed" && <p role="alert" className="alert alert-error text-lg font-medium">Press &quot;I have seen this order&quot; first.</p>}

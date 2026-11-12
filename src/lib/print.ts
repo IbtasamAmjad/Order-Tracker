@@ -1,4 +1,4 @@
-import { displayValue, isDisplayOnly } from "./items";
+import { displayValue, isAuto, isDisplayOnly } from "./items";
 import { getOrder, listItems } from "./orders";
 import { referencePhotos } from "./stages";
 
@@ -7,9 +7,12 @@ export type SheetItem = {
   colour: string;
   // in the order of the form; headings and notes are printed too (kind) and have no value.
   // photoIds: the pictures added under this field, printed right under it.
-  details: { label: string; value: string; kind?: "heading" | "note"; photoIds?: number[] }[];
+  // measure: a number box (with a unit). It sits in the measurements table at its place in the form.
+  details: { label: string; value: string; kind?: "heading" | "note"; photoIds?: number[]; measure?: boolean }[];
   measures: { label: string; value: string }[];
   photoIds: number[]; // the item's other pictures (picture fields), printed at the end
+  // the tailor slip: the measurements of this item again, in short names, to cut off and hand to the karigar. No dates.
+  slip?: { cells: { label: string; value: string }[]; notes: string[] };
 };
 
 /** One printed page: one item type (or a group of item types that share a page). */
@@ -47,25 +50,40 @@ export function buildPrintData(orderId: number): PrintData | null {
     // pictures added under a field are printed under that field; the rest go at the end
     const pics = referencePhotos(item.id);
     const under = (key: string) => pics.filter((r) => r.fieldKey === key).map((r) => r.id);
-    const attachedKeys = new Set(item.snapshot.fields.filter((f) => f.pictures).map((f) => f.key));
+    const attachedKeys = new Set(item.snapshot.fields.filter((f) => f.type !== "picture").map((f) => f.key)); // under any text or number box
 
     const flow = item.snapshot.fields
       .filter((f) => f.type !== "picture")
-      .map((f) => ({ f, value: displayValue(f, item.values[f.key]), photoIds: f.pictures ? under(f.key) : [] }))
+      .map((f) => ({ f, value: displayValue(f, item.values[f.key]), photoIds: under(f.key) }))
       .filter((x) => isDisplayOnly(x.f) || x.value || x.photoIds.length > 0);
+    // the tailor slip: everything under a Measurements heading (the notes under it go below the table)
+    const slipCells: { label: string; value: string }[] = [];
+    const slipNotes: string[] = [];
+    let inMeasure = false;
+    for (const f of item.snapshot.fields) {
+      if (f.type === "heading") {
+        inMeasure = /measure/i.test(f.label);
+        continue;
+      }
+      if (!inMeasure || f.type === "picture" || isDisplayOnly(f) || isAuto(f)) continue;
+      const v = displayValue(f, item.values[f.key]);
+      if (!v) continue;
+      if (f.type === "longtext" || v.includes("\n") || v.length > 24) slipNotes.push(v);
+      else slipCells.push({ label: f.short?.trim() || f.label, value: v });
+    }
     sheet.items.push({
       label: item.label,
       colour: item.snapshot.colour,
-      details: flow
-        .filter((x) => x.f.type !== "number")
-        .map((x) => ({
-          label: x.f.label,
-          value: x.value,
-          kind: isDisplayOnly(x.f) ? (x.f.type as "heading" | "note") : undefined,
-          ...(x.photoIds.length > 0 ? { photoIds: x.photoIds } : {}),
-        })),
+      details: flow.map((x) => ({
+        label: x.f.label,
+        value: x.value,
+        kind: isDisplayOnly(x.f) ? (x.f.type as "heading" | "note") : undefined,
+        ...(x.photoIds.length > 0 ? { photoIds: x.photoIds } : {}),
+        ...(x.f.type === "number" ? { measure: true } : {}),
+      })),
       measures: flow.filter((x) => x.f.type === "number").map((x) => ({ label: x.f.label, value: x.value })),
       photoIds: pics.filter((r) => !attachedKeys.has(r.fieldKey ?? "")).map((r) => r.id),
+      ...(slipCells.length > 0 ? { slip: { cells: slipCells, notes: slipNotes } } : {}),
     });
   }
 
@@ -120,7 +138,7 @@ export function layoutDetails(details: SheetItem["details"], measures: SheetItem
       out.push({ type: "heading", label: d.label });
     } else if (d.kind === "note") {
       if (!inMeasure) out.push({ type: "note", label: d.label });
-    } else if (inMeasure && !(d.photoIds?.length) && d.value.length <= 24 && !d.value.includes("\n")) {
+    } else if ((inMeasure || d.measure) && !(d.photoIds?.length) && d.value.length <= 24 && !d.value.includes("\n")) {
       cells.push({ label: d.label, value: d.value });
     } else {
       flush();
@@ -128,6 +146,7 @@ export function layoutDetails(details: SheetItem["details"], measures: SheetItem
     }
   }
   flush();
-  if (measures.length > 0) out.push({ type: "grid", cells: measures });
+  // older data (number boxes only in `measures`): they go in a table at the end
+  if (measures.length > 0 && !details.some((d) => d.measure)) out.push({ type: "grid", cells: measures });
   return out;
 }

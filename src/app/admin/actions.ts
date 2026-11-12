@@ -4,13 +4,16 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { cleanMasterIds } from "@/lib/assign";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { addNotePictures, removeNotePicture } from "@/lib/order-notes";
 import { addOrderPdf, chosenPdfs, listOrderFiles, pdfProblem, removeOrderFile } from "@/lib/order-files";
 import { checkDesignNumbers,
   addItem,
   createOrder,
+  getOrder,
   listItems,
   moveOrder,
   removeItem,
+  sendOrder,
   setAllowOutOfSequence,
   setStatus,
   unarchiveOrder,
@@ -18,6 +21,7 @@ import { checkDesignNumbers,
   type OrderInput,
 } from "@/lib/orders";
 import { remakeItems } from "@/lib/remake";
+import { setSetting } from "@/lib/settings";
 import { cleanValues, itemLabel, missingFields, type NewItem } from "@/lib/items";
 import { templateForItem } from "@/lib/templates";
 import { addReferencePhoto, completeStage, reviewPhoto } from "@/lib/stages";
@@ -42,7 +46,6 @@ function parseOrder(f: FormData): OrderInput {
     masterIds,
     details: str(f, "details"),
     designNumber: str(f, "designNumber"),
-    linkedDesignNumber: str(f, "linkedDesignNumber"),
   };
   if (!input.customerName || !input.designNumber || !DATE.test(input.myDueDate) || !DATE.test(input.karigarDueDate) || !input.masterId) {
     throw new Error("Please fill customer name, design number, both due dates and choose at least one master.");
@@ -53,7 +56,7 @@ function parseOrder(f: FormData): OrderInput {
 /** Stores the pictures chosen in the form for each picture field of one item, as reference pictures. A bad file is skipped. */
 async function savePictures(f: FormData, orderId: number, itemId: number, key: string, fields: FieldDef[]) {
   for (const fd of fields) {
-    if (fd.type !== "picture" && fd.type !== "longtext" && !fd.pictures) continue;
+    if (!["picture", "text", "longtext", "number"].includes(fd.type)) continue; // a picture pasted into any text or number box is kept under it
     for (const file of f.getAll(`pic:${key}:${fd.key}`)) {
       if (!(file instanceof File) || file.size === 0) continue;
       const saved = await storeUpload(orderId, file);
@@ -81,6 +84,10 @@ ${v}` : v; // checkboxes send several
   }
 
   const orderId = Number(f.get("orderId")) || 0;
+  // "Send to master" makes the order visible to him; "Save" on a draft keeps it private, so incomplete work can be saved.
+  const send = str(f, "intent") === "send";
+  const wasSent = orderId ? !!getOrder(orderId)?.sentAt : false;
+  const draftSave = !send && !wasSent; // saving an unsent order: the fields may stay empty
   // a design number is used once; a link must point at another order's design number
   const designProblem = checkDesignNumbers(input, orderId || undefined);
   if (designProblem) return { nonce, missing: [], missingKeys: [], values, error: designProblem };
@@ -111,7 +118,7 @@ ${v}` : v; // checkboxes send several
     for (const it of listItems(orderId)) {
       const vals = collect(String(it.id), it.snapshot.fields);
       itemValues.set(it.id, vals);
-      for (const m of hasPdf ? [] : missingFields(it.snapshot.fields, vals)) {
+      for (const m of hasPdf || draftSave ? [] : missingFields(it.snapshot.fields, vals)) {
         missing.push(`${it.label}: ${m.label}`);
         missingKeys.push(`${it.id}:${m.key}`);
       }
@@ -119,7 +126,12 @@ ${v}` : v; // checkboxes send several
     if (missing.length) return { nonce, missing, missingKeys, values };
     updateOrder(orderId, input, itemValues);
     await savePdfs(orderId);
+    await addNotePictures(orderId, f.getAll("pic:notes").filter((x): x is File => x instanceof File));
     for (const it of listItems(orderId)) await savePictures(f, orderId, it.id, String(it.id), it.snapshot.fields);
+    if (!wasSent) {
+      if (send && sendOrder(orderId)) redirect(`/admin/customers?notify=new:${orderId}`);
+      redirect(`/admin/orders/${orderId}?draft=1`);
+    }
   } else {
     const items: NewItem[] = [];
     const keys: string[] = [];
@@ -128,7 +140,7 @@ ${v}` : v; // checkboxes send several
       if (!tpl) continue;
       const label = String(f.get(`l:${key}`) ?? tpl.snapshot.templateName);
       const vals = collect(key, tpl.snapshot.fields);
-      for (const m of hasPdf ? [] : missingFields(tpl.snapshot.fields, vals)) {
+      for (const m of hasPdf || draftSave ? [] : missingFields(tpl.snapshot.fields, vals)) {
         missing.push(`${label}: ${m.label}`);
         missingKeys.push(`${key}:${m.key}`);
       }
@@ -136,13 +148,21 @@ ${v}` : v; // checkboxes send several
       keys.push(key);
     }
     if (missing.length) return { nonce, missing, missingKeys, values };
-    const newId = createOrder(input, items);
+    const newId = createOrder(input, items, { draft: !send });
     await savePdfs(newId);
+    await addNotePictures(newId, f.getAll("pic:notes").filter((x): x is File => x instanceof File));
     const saved = listItems(newId); // in the same order as the items given
     for (const [n, key] of keys.entries()) await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
-    redirect(`/admin/customers?notify=new:${newId}`);
+    redirect(send ? `/admin/customers?notify=new:${newId}` : `/admin/orders/${newId}?draft=1`);
   }
   redirect(orderId ? `/admin/customers?notify=updated:${orderId}` : "/admin/customers");
+}
+
+/** Takes one picture off the notes of a customer (the cross next to it). */
+export async function removeNotePictureAction(orderId: number, photoId: number) {
+  await requireAdmin();
+  await removeNotePicture(Number(orderId), Number(photoId));
+  revalidatePath(`/admin/orders/${orderId}`);
 }
 
 /** Takes a PDF off an order (the Remove button next to it). */
@@ -210,6 +230,14 @@ export async function allowOutOfSequenceAction(f: FormData) {
   await requireAdmin();
   setAllowOutOfSequence(num(f, "id"), str(f, "allow") === "1");
   redirect(`/admin/orders/${num(f, "id")}`);
+}
+
+/** The office WhatsApp number masters send their questions to (digits only; empty clears it). */
+export async function saveOfficeWhatsappAction(f: FormData) {
+  await requireAdmin();
+  setSetting("office_whatsapp", str(f, "number").replace(/\D/g, ""));
+  revalidatePath("/admin/masters");
+  redirect("/admin/masters?office=saved");
 }
 
 export async function createMasterAction(f: FormData) {

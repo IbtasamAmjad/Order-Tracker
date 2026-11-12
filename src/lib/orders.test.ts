@@ -118,14 +118,6 @@ describe("orders", () => {
     // an order may keep its own number when it is edited
     expect(() => o.updateOrder(second, { ...input(a, "Second", "2099-02-02"), designNumber: "NS-207" })).not.toThrow();
 
-    // an accessory is linked to the design number of a main order, which has to exist
-    const shoes = o.createOrder({ ...input(a, "Shoes"), designNumber: "SH-1", linkedDesignNumber: "ns-206" });
-    expect(o.getOrder(shoes)!.linkedDesignNumber).toBe("NS-206");
-    expect(o.linkedOrders("NS-206").map((r) => r.id)).toEqual([shoes]);
-    expect(o.orderOfDesign("NS-206")!.id).toBe(main);
-    expect(() => o.createOrder({ ...input(a, "Lost"), designNumber: "X-1", linkedDesignNumber: "NOPE" })).toThrow(/No order has design number NOPE/);
-    expect(() => o.createOrder({ ...input(a, "Self"), designNumber: "Y-1", linkedDesignNumber: "Y-1" })).toThrow(/own design number/);
-
     // older orders without a number can still exist side by side
     expect(() => [o.createOrder(input(a, "Old 1")), o.createOrder(input(a, "Old 2"))]).not.toThrow();
   });
@@ -172,5 +164,24 @@ describe("orders", () => {
     expect(o.setStatus(id, "archived")).toBe(true);
     expect(o.masterOrder(a, id)).toBeNull();
     expect(o.setStatus(id, "active" as never)).toBe(false); // no way back, no delete
+  });
+
+  it("keeps a draft away from the master until it is sent", () => {
+    const a = m.createMaster({ name: "DraftMaster", pin: "4321A" });
+    const draft = o.createOrder(input(a, "Not ready"), [], { draft: true });
+    const sentAtOnce = o.createOrder(input(a, "Ready"));
+
+    // the office sees both; the master only the one that was sent
+    expect(o.listAdminOrders({ view: "active", withDrafts: true }).map((x) => x.id)).toContain(draft);
+    expect(o.listAdminOrders({ view: "active" }).map((x) => x.id)).not.toContain(draft); // home, live board and the rest leave drafts out
+    expect(o.listAdminOrders({ view: "active", masterId: a, withDrafts: true }).map((x) => x.id)).toContain(draft);
+    expect(o.masterDashboard(a).active.map((x) => x.customerName)).toEqual(["Ready"]);
+    expect(o.masterOrder(a, draft)).toBeNull();
+    expect(o.masterOrder(a, sentAtOnce)).not.toBeNull();
+
+    expect(o.sendOrder(draft)).toBe(true);
+    expect(o.sendOrder(draft)).toBe(false); // already sent
+    expect(o.masterDashboard(a).active.map((x) => x.customerName).sort()).toEqual(["Not ready", "Ready"]);
+    expect(o.masterOrder(a, draft)).not.toBeNull();
   });
 });

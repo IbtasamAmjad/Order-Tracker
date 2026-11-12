@@ -14,10 +14,10 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 7. Admin can create, edit and delete categories (two levels: main > sub), fields and stages without a developer.
 8. Field types supported: text, number, date, picture, yes/no. This is "within reason".
 9. Each field is **required or optional**, set by Admin.
-10. Every item field must be filled in before an order is saved, new or old (pictures, headings and notes excepted). If something is empty the app lists what is missing (for example "You haven't given sleeve length") and saves nothing until it is filled. (Changed from "warn, then submit anyway".)
+10. Every item field marked **"Warn if empty"** must be filled in before an order is **sent to the master** (a field without the flag may stay empty; pictures, headings and notes are excepted; an attached PDF also counts). If something is empty the app lists what is missing (for example "You haven't given sleeve length") and sends nothing until it is filled. A draft can be saved with fields empty (rule 70). (Changed from "warn, then submit anyway", then from "every field" to "marked fields only" on 12 Nov 2026.)
 11. Templates are **pre-created** so Anas never re-enters the same fields; an order takes 30-40 minutes today and this must shrink.
 12. Number of measurements can change over time (6 today, 9 later); templates must allow this.
-13. Editing a template must not break existing orders. Finished, cancelled and archived customers keep their own snapshot. Customers **in progress** follow the item automatically when it (or its steps) is saved: what is filled in stays, finished steps stay, the master sees "Updated", and a new field appears empty and must be filled before that customer can be saved. (Changed from "orders keep a snapshot, press Update from the item".)
+13. Editing a template must not break existing orders. Finished, cancelled and archived customers keep their own snapshot. Customers **in progress** follow the item automatically when it (or its steps) is saved: what is filled in stays, finished steps stay, the master sees "Updated", and a new field appears empty (if it is marked "Warn if empty" it must be filled before that customer is sent). (Changed from "orders keep a snapshot, press Update from the item".)
 
 ## Priority
 14. New orders are numbered in the sequence they are added (1, 2, 3...).
@@ -93,11 +93,27 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 60. A colour is shown by its **name** (for example "Maroon"), never as a code, on every screen and in print; the exact colour is still stored.
 61. The WhatsApp reminders to a master say in plain words which order it is, the Karigar due date, how late it is, and which items are finished, sent or still to make. They never contain My due date.
 62. The master sees, for each order, which items are sent, finished (waiting in the cart) and still to make.
-63. A text or long text field can allow pictures right under it (for example Embroidery details): Admin switches it on per field in the item form; the office adds the pictures on the customer form and the master sees them as small pictures under that field. The text is still compulsory; a picture does not replace it.
+63. A text, long text or number field can allow pictures right under it (for example Embroidery details): Admin switches it on per field in the item form; the office adds the pictures on the customer form and the master sees them as small pictures under that field. The text is still needed if marked "Warn if empty"; a picture does not replace it.
 64. The printed order sheet and the PDF are the same: a header with the order, customer, design number and due date in words (never My due date), a divider under every row, measurements in a ruled grid, pictures added under a field printed right under that field, and the item's other pictures small at the end.
 
 ## Order PDF
-65. The office can attach a PDF (for example the customer's own order form) to an order instead of typing every detail. With a PDF attached, the item fields may stay empty; without one, every field is still compulsory (rule 10).
+65. The office can attach a PDF (for example the customer's own order form) to an order instead of typing every detail. With a PDF attached, the item fields may stay empty; without one, the "Warn if empty" fields are still needed (rule 10).
 66. The master can only view the PDF, never add or remove it, and only on his own orders. It is not part of the printed sheet.
 
 67. A master can be deleted only if he never had a customer, shipment or history; otherwise he is deactivated (his link stops, the record stays).
+
+68. In a group of boxes (for example Measurements) each box is either a text box (words or numbers, such as "24 ready") or a number-only box, and can have pictures next to it.
+69. Admin can copy the fields of another item into a form, copy a whole item, or copy a whole group with its items; a copy is separate from the original.
+
+70. Saving a customer makes a **draft**: only the office sees it. The master sees it only after the office presses **Send to master**, and then it shows as New. A draft is left out of the master's lists, pending work, items, cart and reminders, and out of the Live board and Home counts. Older orders count as already sent.
+
+71. The notes box of a customer can have pictures (always available, no switch). The master sees them once the order is sent; they are not printed.
+
+72. A picture pasted into a text or number box of an item belongs to that box and is shown next to it for the office and the master and in print; it never moves to another field.
+
+73. A step can have an expected number of days, counted from when the step starts (the step before it is finished). The office sees the finish date and a late flag, and late steps appear on the Reminders page. **The master sees only the number of days, never a date.**
+74. A master can send the office a question about an order from the order page: WhatsApp opens with the order number, customer, design, items, Karigar due date and a link to the order already written. It never contains My due date.
+75. The customer name, order number, design number and delivery date (the Karigar due date, never My due date) can be put on an item form as automatic fields. They start with the order's value, follow the order until the office changes them, can be edited by the office, are never required, and the date is separate from the name so a forwarded screenshot can leave it out.
+76. On the master's screen an empty field is hidden unless it is marked "Warn if empty" (then only its name and a blank box show, so it is clear nothing was given) or it has pictures. Fields the master is allowed to fill still show their box.
+
+77. The printed order has a tailor slip at the bottom of each item with the measurements again (short names) and their notes, to cut off and give to the karigar so nobody copies them by hand. The slip never carries a date or price.

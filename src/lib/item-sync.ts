@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { itemStages, orderItems, orders, type ItemSnapshot } from "@/db/schema";
 import { templateForItem } from "./templates";
+import { withAutoValues } from "./items";
 
 /**
  * An order keeps its own copy of its category's form and steps, so editing the category never changes it.
@@ -31,7 +32,7 @@ export function refreshItemFromCategory(itemId: number): RefreshResult {
     const tpl = templateForItem(item.templateId);
     if (!tpl) return "no-category";
 
-    tx.update(orderItems).set({ snapshot: tpl.snapshot }).where(eq(orderItems.id, itemId)).run();
+    tx.update(orderItems).set({ snapshot: tpl.snapshot, values: withAutoValues(tpl.snapshot.fields, item.values, order) }).where(eq(orderItems.id, itemId)).run();
 
     const defs = tpl.snapshot.stages;
     const rows = tx.select().from(itemStages).where(eq(itemStages.itemId, itemId)).orderBy(asc(itemStages.position)).all();
@@ -50,7 +51,7 @@ export function refreshItemFromCategory(itemId: number): RefreshResult {
       if (r.status === "done") continue;
       const status = opened ? "locked" : "open";
       opened = true;
-      if (r.status !== status) tx.update(itemStages).set({ status }).where(and(eq(itemStages.id, r.id))).run();
+      if (r.status !== status) tx.update(itemStages).set({ status, ...(status === "open" ? { startedAt: new Date() } : {}) }).where(and(eq(itemStages.id, r.id))).run();
     }
 
     const at = new Date();
