@@ -217,3 +217,13 @@ The accountant's invoice and the handover to the shipping company are handled by
 - `item_stages.started_at`: when the step became the one being worked on (the expected days count from it). `StageDef.days` (in templates, workflows and item snapshots): expected days, optional.
 - `app_settings(key, value)`: small office settings; `office_whatsapp` is the number masters send questions to.
 - New field types `customername`, `ordernumber`, `designnumber`, `deliverydate`: start with the order's value (name; number; design number; Karigar due date), stored in the item's values like any text.
+
+## Design library (13 Nov 2026)
+- `designs`: id, name (the design number, unique ignoring capitals), notes, active, created_at (`template_id` exists but is unused). `design_photos`: id, design_id, file_key, thumb_key, bytes (files under `designs/<id>/`).
+- `order_items.design_id`: the design whose pictures were copied onto that item. `photos.from_design_id`: set on the reference pictures that were copied from a design (they have no `field_key`). Migration 0016.
+
+## Measurement notes and rows (13 Nov 2026)
+- `FieldDef.perRow` (a heading: boxes in one printed row, 1 to 10) and `FieldDef.newRow` (a text or number box: starts a new printed row) live in the field JSON. The small note under a measurement box is stored in `order_items.values` as `<fieldKey>__note`. No migration.
+
+## Print layout (14 Nov 2026)
+- `templates.print_layout` (JSON `{ slip: tailor|karigar|both|none, karigarRows: string[][] }` of field keys; null = tailor slip only; migration 0017). It is copied into `order_items.snapshot.print`.

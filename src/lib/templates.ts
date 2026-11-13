@@ -6,10 +6,13 @@ import {
   templates,
   workflows,
   FIELD_TYPES,
+  SLIP_STYLES,
   PHOTO_RULES,
   type FieldDef,
   type FieldType,
   type PhotoRule,
+  type PrintLayout,
+  type SlipStyle,
   type StageDef,
 } from "@/db/schema";
 
@@ -60,7 +63,7 @@ function copySub(subId: number, parentId: number, name: string): number {
   if (!sub) throw new Error("item not found");
   const id = db.insert(categories).values({ name, colour: sub.colour, parentId, position: nextPosition(parentId) }).returning({ id: categories.id }).get().id;
   db.insert(templates)
-    .values({ categoryId: id, fields: tpl?.fields ?? [], stages: tpl?.stages ?? [], workflowId: tpl?.workflowId ?? null })
+    .values({ categoryId: id, fields: tpl?.fields ?? [], stages: tpl?.stages ?? [], workflowId: tpl?.workflowId ?? null, printLayout: tpl?.printLayout ?? null })
     .run();
   return id;
 }
@@ -136,6 +139,7 @@ export function templateForItem(id: number) {
       version: t.version,
       fields: t.fields,
       stages: t.stages,
+      ...(t.printLayout ? { print: t.printLayout } : {}),
     },
   };
 }
@@ -181,16 +185,44 @@ export function stagesFromWorkflow(workflowStages: StageDef[], current: StageDef
  * Save an item type's form and steps. `workflowId`: a number = use that workflow (its steps win; only the "must be
  * filled in" ticks of `rawStages` are kept); null = the item's own custom steps; left out = keep the link it has.
  */
-export function saveTemplate(id: number, fields: FieldDef[], rawStages: StageDef[], workflowId?: number | null) {
+/** The boxes that can go on the karigar paper: text and number boxes of the form (not automatic ones, not long writing), by key. */
+export function karigarFieldKeys(fields: FieldDef[]): Set<string> {
+  return new Set(fields.filter((f) => (f.type === "text" || f.type === "number") && f.key).map((f) => f.key));
+}
+
+/** What the builder sent for "Printed slips", made safe: a known style, and rows holding each existing box once. */
+export function cleanPrintLayout(raw: unknown, fields: FieldDef[]): PrintLayout {
+  const o = (raw && typeof raw === "object" ? raw : {}) as { slip?: unknown; karigarRows?: unknown };
+  const slip = (SLIP_STYLES as readonly string[]).includes(o.slip as string) ? (o.slip as SlipStyle) : "tailor";
+  const ok = karigarFieldKeys(fields);
+  const seen = new Set<string>();
+  const rows: string[][] = [];
+  for (const row of Array.isArray(o.karigarRows) ? o.karigarRows.slice(0, 12) : []) {
+    if (!Array.isArray(row)) continue;
+    const keys: string[] = [];
+    for (const k of row) {
+      if (typeof k === "string" && ok.has(k) && !seen.has(k) && keys.length < 10) {
+        seen.add(k); // each box once, in the whole layout
+        keys.push(k);
+      }
+    }
+    if (keys.length) rows.push(keys);
+  }
+  return rows.length ? { slip, karigarRows: rows } : { slip };
+}
+
+export function saveTemplate(id: number, fields: FieldDef[], rawStages: StageDef[], workflowId?: number | null, rawPrint?: unknown) {
   const old = db.select().from(templates).where(eq(templates.id, id)).get();
   if (!old) return;
   const link = workflowId === undefined ? old.workflowId : workflowId;
   const wf = link ? db.select().from(workflows).where(eq(workflows.id, link)).get() : null;
   const stages = wf ? stagesFromWorkflow(wf.stages, rawStages, fields) : cleanStageRequirements(fields, rawStages);
   const newLink = wf ? wf.id : null;
+  // the print layout: left out = keep what is saved; the tailor slip only is the default and is stored as nothing
+  const print = rawPrint === undefined ? old.printLayout : (() => { const p = cleanPrintLayout(rawPrint, fields); return p.slip === "tailor" && !p.karigarRows ? null : p; })();
   const changed = JSON.stringify([old.fields, old.stages, old.workflowId]) !== JSON.stringify([fields, stages, newLink]);
   db.update(templates)
-    .set({ fields, stages, workflowId: newLink, version: changed ? old.version + 1 : old.version, updatedAt: new Date() })
+    .set({ fields, stages, workflowId: newLink, printLayout: print ?? null, version: changed ? old.version + 1 : old.version, updatedAt: new Date() })
     .where(eq(templates.id, id))
     .run();
 }
@@ -228,6 +260,8 @@ export type BuilderRow = {
   who?: string; // "master" = the master can fill / change it
   pictures?: boolean; // pictures can be added under it (text, long text and number)
   short?: string; // short name for the tailor slip
+  perRow?: number | string; // a heading: boxes in one printed row
+  newRow?: boolean; // a text or number box starts a new printed row
 };
 
 /** Turn submitted builder rows into field definitions. Rows with no label are dropped. */
@@ -251,6 +285,9 @@ export function rowsToFields(rows: BuilderRow[]): FieldDef[] {
     if (r.pictures === true && (type === "text" || type === "longtext" || type === "number")) def.pictures = true;
     const short = (r.short ?? "").trim().slice(0, 12);
     if (short && (type === "text" || type === "number")) def.short = short;
+    const per = Number(r.perRow);
+    if (type === "heading" && Number.isInteger(per) && per >= 1 && per <= 10) def.perRow = per;
+    if (r.newRow === true && (type === "text" || type === "number")) def.newRow = true;
     out.push(def);
   }
   return out;
@@ -290,6 +327,8 @@ export type BuilderField = {
   masterCanEdit?: boolean;
   pictures?: boolean;
   short?: string;
+  perRow?: number | string;
+  newRow?: boolean;
   unit?: string;
   options?: string; // one choice per line
 };
@@ -318,6 +357,8 @@ export function fieldsFromBuilder(json: string): FieldDef[] {
       who: f?.masterCanEdit === true ? "master" : "admin",
       pictures: f?.pictures === true,
       short: str(f?.short),
+      perRow: f?.perRow,
+      newRow: f?.newRow === true,
     })),
   );
 }

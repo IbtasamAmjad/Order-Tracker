@@ -1,6 +1,8 @@
 import type { FieldDef } from "@/db/schema";
 import { splitMulti } from "@/lib/items";
 import { AutoText } from "./AutoText";
+import { DesignNumberSelect, type DesignOption } from "./DesignPicker";
+import { SavedPictures } from "./SavedPictures";
 import { ColorInput } from "./ColorInput";
 import { PictureInput } from "./PictureInput";
 import { Icon } from "./Icon";
@@ -25,6 +27,7 @@ export function FieldRow({
   pasteFrom = [],
   compact = false,
   missing = false,
+  designs = [],
 }: {
   f: FieldDef;
   name: string;
@@ -37,6 +40,8 @@ export function FieldRow({
   compact?: boolean;
   /** the form was saved with this required field empty: mark it and say so right here */
   missing?: boolean;
+  /** the office's design library: a Design number box becomes a dropdown of it */
+  designs?: DesignOption[];
 }) {
   const unit = f.unit && f.type === "number" ? ` (${f.unit})` : "";
   // the master reads "(please fill in)"; Admin gets a clear red * instead, and the form says once what it means
@@ -124,6 +129,8 @@ export function FieldRow({
         <option value="yes">Yes</option>
         <option value="no">No</option>
       </select>
+    ) : f.type === "designnumber" && designs.length > 0 ? (
+      <DesignNumberSelect name={name} value={value} designs={designs} label={f.label} missing={missing} />
     ) : f.type === "text" ? (
       // a text box takes several lines: Enter starts a new line and pasted lines stay apart
       <AutoText name={name} defaultValue={value} ariaLabel={withPictures ? f.label : undefined} invalid={missing} />
@@ -171,40 +178,6 @@ export function FieldRow({
           Please fill in {f.label}
         </p>
       )}
-    </div>
-  );
-}
-
-/**
- * The pictures already saved on a field: small pictures to tap and open full size, and one "Download all" button
- * (a single picture keeps its own small download icon).
- */
-function SavedPictures({ photos, label, itemId }: { photos: { id: number }[]; label: string; itemId: number }) {
-  if (photos.length === 0) return null;
-  const many = photos.length > 1;
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-rule pt-2">
-      {photos.map((p) => (
-        <a
-          key={p.id}
-          href={`/api/admin/photos/${p.id}`}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Open this picture"
-          className="block h-11 w-11 overflow-hidden rounded-lg border border-rule bg-paper-3 shadow-sm"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/admin/photos/${p.id}?thumb=1`} alt={label} className="h-full w-full object-cover" />
-        </a>
-      ))}
-      <a
-        href={many ? `/api/admin/items/${itemId}/pictures?ids=${photos.map((p) => p.id).join(",")}` : `/api/admin/photos/${photos[0].id}?download=1`}
-        download
-        className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-accent-deep hover:bg-accent-soft"
-      >
-        <Icon name="download" className="h-4 w-4" />
-        {many ? `Download all (${photos.length})` : "Download"}
-      </a>
     </div>
   );
 }

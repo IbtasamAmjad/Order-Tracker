@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { OrderEditor, type CategoryPicker } from "@/components/OrderEditor";
 import { btnPrimary, PageTitle } from "@/components/ui";
+import { listDesigns } from "@/lib/designs";
 import { listMasters } from "@/lib/masters";
 import { pickerGroups, templateForItem } from "@/lib/templates";
 import { saveOrderAction } from "../../actions";
@@ -46,7 +47,7 @@ export default async function NewOrder({
   return (
     <div className="space-y-4">
       <PageTitle icon="customers">New customer</PageTitle>
-      <OrderEditor action={saveOrderAction} masters={masters.map((m) => ({ id: m.id, name: m.name }))} items={[]} submitLabel="Save customer" picker={{ groups, templates, initial }} />
+      <OrderEditor action={saveOrderAction} masters={masters.map((m) => ({ id: m.id, name: m.name }))} items={[]} submitLabel="Save customer" designs={listDesigns({ activeOnly: true })} picker={{ groups, templates, initial }} />
     </div>
   );
 }

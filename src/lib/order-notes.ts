@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, photos } from "@/db/schema";
 import { remove } from "./storage";
@@ -34,4 +34,14 @@ export async function removeNotePicture(orderId: number, photoId: number) {
   db.delete(photos).where(eq(photos.id, row.id)).run();
   await remove(row.fileKey);
   await remove(row.thumbKey);
+}
+
+/** Takes one saved reference picture off an item (the cross on a picture under a field). Only the office's own reference pictures. */
+export async function removeItemPicture(itemId: number, photoId: number) {
+  const row = db.select().from(photos).where(and(eq(photos.id, photoId), eq(photos.itemId, itemId), eq(photos.type, "reference"))).get();
+  if (!row) return;
+  db.delete(photos).where(eq(photos.id, row.id)).run();
+  await remove(row.fileKey);
+  await remove(row.thumbKey);
+  db.update(orders).set({ changedForMasterAt: new Date() }).where(and(eq(orders.id, row.orderId), isNotNull(orders.masterSeenAt))).run(); // a master who opened it sees "Updated"
 }

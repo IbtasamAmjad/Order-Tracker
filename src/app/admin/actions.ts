@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { cleanMasterIds } from "@/lib/assign";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { addNotePictures, removeNotePicture } from "@/lib/order-notes";
+import { addNotePictures, removeItemPicture, removeNotePicture } from "@/lib/order-notes";
 import { addOrderPdf, chosenPdfs, listOrderFiles, pdfProblem, removeOrderFile } from "@/lib/order-files";
 import { checkDesignNumbers,
   addItem,
@@ -22,10 +22,11 @@ import { checkDesignNumbers,
 } from "@/lib/orders";
 import { remakeItems } from "@/lib/remake";
 import { setSetting } from "@/lib/settings";
-import { cleanValues, itemLabel, missingFields, type NewItem } from "@/lib/items";
+import { cleanValues, itemLabel, missingFields, noteKey, type NewItem } from "@/lib/items";
 import { templateForItem } from "@/lib/templates";
 import { addReferencePhoto, completeStage, reviewPhoto } from "@/lib/stages";
 import { storeUpload } from "@/lib/photo-upload";
+import { attachDesign, designByName } from "@/lib/designs";
 import { addStageNote, setInstruction } from "@/lib/history";
 import { refreshItemFromCategory } from "@/lib/item-sync";
 import type { EditorState } from "@/lib/editor-state";
@@ -66,6 +67,16 @@ async function savePictures(f: FormData, orderId: number, itemId: number, key: s
 }
 
 /**
+ * The design of an item is the design number in its Design number box, when that number is in the library: its pictures
+ * are copied onto the item (nothing happens when it is unchanged); another number, or an empty box, takes them off.
+ */
+async function chooseDesign(f: FormData, orderId: number, itemId: number, key: string, fields: FieldDef[]) {
+  const box = fields.find((fd) => fd.type === "designnumber");
+  if (!box || !f.has(`v:${key}:${box.key}`)) return; // no such box on this form
+  await attachDesign(orderId, itemId, designByName(String(f.get(`v:${key}:${box.key}`)))?.id ?? null);
+}
+
+/**
  * Saves a new order (no orderId) or edits one (orderId). If any field is empty it saves nothing and
  * returns the list of what is missing.
  */
@@ -98,6 +109,7 @@ ${v}` : v; // checkboxes send several
     for (const fd of fields) {
       const name = `v:${key}:${fd.key}`;
       raw[fd.key] = fd.type === "checkboxes" ? f.getAll(name).map(String).join("\n") : String(f.get(name) ?? "");
+      raw[noteKey(fd.key)] = String(f.get(`${name}__note`) ?? ""); // the small note under a measurement box
     }
     return cleanValues(fields, raw);
   };
@@ -129,10 +141,13 @@ ${v}` : v; // checkboxes send several
     updateOrder(orderId, input, itemValues);
     await savePdfs(orderId);
     await addNotePictures(orderId, f.getAll("pic:notes").filter((x): x is File => x instanceof File));
-    for (const it of listItems(orderId)) await savePictures(f, orderId, it.id, String(it.id), it.snapshot.fields);
+    for (const it of listItems(orderId)) {
+      await savePictures(f, orderId, it.id, String(it.id), it.snapshot.fields);
+      await chooseDesign(f, orderId, it.id, String(it.id), it.snapshot.fields);
+    }
     if (!wasSent) {
       if (send && sendOrder(orderId)) redirect(`/admin/customers?notify=new:${orderId}`);
-      redirect(`/admin/orders/${orderId}?draft=1`);
+      redirect(`/admin/customers?draft=${orderId}`); // Save draft: back to the list
     }
   } else {
     const items: NewItem[] = [];
@@ -154,10 +169,19 @@ ${v}` : v; // checkboxes send several
     await savePdfs(newId);
     await addNotePictures(newId, f.getAll("pic:notes").filter((x): x is File => x instanceof File));
     const saved = listItems(newId); // in the same order as the items given
-    for (const [n, key] of keys.entries()) await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
-    redirect(send ? `/admin/customers?notify=new:${newId}` : `/admin/orders/${newId}?draft=1`);
+    for (const [n, key] of keys.entries()) {
+      await savePictures(f, newId, saved[n].id, key, saved[n].snapshot.fields);
+      await chooseDesign(f, newId, saved[n].id, key, saved[n].snapshot.fields);
+    }
+    redirect(send ? `/admin/customers?notify=new:${newId}` : `/admin/customers?draft=${newId}`);
   }
   redirect(orderId ? `/admin/customers?notify=updated:${orderId}` : "/admin/customers");
+}
+
+/** Takes one saved picture off an item (the cross on a picture under a field). */
+export async function removeItemPictureAction(itemId: number, photoId: number) {
+  await requireAdmin();
+  await removeItemPicture(Number(itemId), Number(photoId));
 }
 
 /** Takes one picture off the notes of a customer (the cross next to it). */

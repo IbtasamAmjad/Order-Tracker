@@ -124,6 +124,8 @@ export type FieldDef = {
   options?: string[]; // choices for select / radio / checkboxes
   masterCanEdit?: boolean; // the master may fill or change this field (comments, pictures...)
   short?: string; // a short name (Ch for Chest) used on the tailor slip at the bottom of the printed page
+  perRow?: number; // a heading only: how many boxes go in one row of the printed measurements (empty = 4)
+  newRow?: boolean; // a text or number box: it starts a new row in the printed measurements
   pictures?: boolean; // text and long text only: the office can add pictures right under this field (for example Embroidery details)
 };
 
@@ -161,10 +163,22 @@ export const templates = sqliteTable("templates", {
   printGroup: text("print_group"),
   // the workflow this item type uses (its steps are the workflow's); null = its own custom steps
   workflowId: integer("workflow_id"),
+  // which slips are printed for this item type and how the karigar paper is laid out (null = the tailor slip only)
+  printLayout: text("print_layout", { mode: "json" }).$type<PrintLayout>(),
   updatedAt: ts("updated_at")
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+// Which cut-off slip(s) the printed order has for an item, chosen in the item builder.
+// tailor: the tailor's sheet (names, values on a line, notes); karigar: the small paper the karigar's measurements are
+// copied onto by hand (short names in rows, laid out by the office); both; none.
+export const SLIP_STYLES = ["tailor", "karigar", "both", "none"] as const;
+export type SlipStyle = (typeof SLIP_STYLES)[number];
+export type PrintLayout = {
+  slip: SlipStyle;
+  karigarRows?: string[][]; // field keys, one list per printed row of the karigar paper (empty = the measurements in form order)
+};
 
 export type ItemSnapshot = {
   templateName: string; // e.g. "Sherwani"
@@ -173,6 +187,7 @@ export type ItemSnapshot = {
   version: number;
   fields: FieldDef[];
   stages?: StageDef[]; // missing on items created before stages existed
+  print?: PrintLayout; // which slips to print and how the karigar paper is laid out (missing = the tailor slip only)
 };
 
 // One garment/accessory in an order. Keeps a snapshot of the template, so later
@@ -190,6 +205,8 @@ export const orderItems = sqliteTable("order_items", {
   position: integer("position").notNull(),
   // set when the office sends the item back for a remake: step photos from before this time no longer count
   remadeAt: ts("remade_at"),
+  // the design from the library this item was made from (its pictures were copied onto the item)
+  designId: integer("design_id"),
 });
 
 // ---------------------------------------------------------------- Phase 3
@@ -225,6 +242,7 @@ export const photos = sqliteTable("photos", {
   itemId: integer("item_id").references(() => orderItems.id),
   stageKey: text("stage_key"), // for stage photos
   fieldKey: text("field_key"), // for reference pictures (a picture field)
+  fromDesignId: integer("from_design_id"), // set when the picture was copied from a design of the library
   type: text("type", { enum: ["reference", "stage", "bill", "package"] }).notNull(),
   fileKey: text("file_key").notNull(),
   thumbKey: text("thumb_key").notNull(),
@@ -315,4 +333,27 @@ export const stageEvents = sqliteTable("stage_events", {
 export const appSettings = sqliteTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+});
+
+// The office's library of designs ("Design Category" page): a name, the item type it is for, and its pictures.
+// Choosing a design on a customer copies its pictures onto that item, so changing a design later never changes old customers.
+export const designs = sqliteTable("designs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  templateId: integer("template_id"), // the item type (Sherwani...), empty = any item
+  notes: text("notes").notNull().default(""),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: ts("created_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const designPhotos = sqliteTable("design_photos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  designId: integer("design_id")
+    .notNull()
+    .references(() => designs.id),
+  fileKey: text("file_key").notNull(),
+  thumbKey: text("thumb_key").notNull(),
+  bytes: integer("bytes").notNull(),
 });

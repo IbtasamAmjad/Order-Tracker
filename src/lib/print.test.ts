@@ -117,6 +117,6 @@ describe("print pages", () => {
 
     const blocks = p.layoutDetails(item.details, item.measures);
     expect(blocks.map((b) => b.type)).toEqual(["row", "row", "heading", "grid"]);
-    expect(blocks[3]).toEqual({ type: "grid", cells: [{ label: "Length", value: "42" }, { label: "Chest", value: "38" }] });
+    expect(blocks[3]).toEqual({ type: "grid", cols: 4, cells: [{ label: "Length", value: "42" }, { label: "Chest", value: "38" }] });
   });
 });

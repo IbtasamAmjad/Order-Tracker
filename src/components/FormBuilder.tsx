@@ -19,6 +19,8 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import type { PrintLayout } from "@/db/schema";
+import { PrintSlips } from "./PrintSlips";
 import { duplicateFieldNames } from "@/lib/items";
 import { Icon } from "./Icon";
 import { btnDanger, btnPrimary, btnSecondary, input, select, textarea } from "./ui";
@@ -38,7 +40,28 @@ export type BField = {
   boxes?: BBox[]; // a group of boxes only: each box has its own name and kind
   notes?: boolean; // a group only: add a notes line (a long text box) under its boxes
   short?: string; // short name for the tailor slip
+  perRow?: number; // a heading or group: boxes in one printed row of the measurements (empty = 4)
+  newRow?: boolean; // a text or number box starts a new printed row
 };
+/** How many measurement boxes go in one row of the printout (the tailor's sheet has 7 in the first row and 5 in the second). */
+function PerRow({ value, onChange }: { value?: number; onChange: (v: number | undefined) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-base font-medium">Boxes in one printed row</span>
+      <input
+        type="number"
+        min={1}
+        max={10}
+        value={value ?? ""}
+        placeholder="4"
+        onChange={(e) => onChange(e.target.value ? Math.min(10, Math.max(1, Math.round(Number(e.target.value)))) : undefined)}
+        className={`${input} !w-28`}
+      />
+      <span className="mt-1 block text-sm opacity-70">The printed measurements fill a row, then start the next one. Turn on &quot;Starts a new row&quot; on a box to break earlier.</span>
+    </label>
+  );
+}
+
 /** Inches, meters or none. A unit typed in an older form that is not in the list stays as an extra choice. */
 function UnitSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const known = ["", "inch", "meters", "cm"];
@@ -53,7 +76,7 @@ function UnitSelect({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-export type BBox = { name: string; type: "text" | "number"; pictures?: boolean; short?: string };
+export type BBox = { name: string; type: "text" | "number"; pictures?: boolean; short?: string; newRow?: boolean };
 export type BStep = { uid: string; key: string; label: string; photo: string; days?: string; needs: string[] };
 
 type PaletteItem = { type: string; name: string; hint: string; label: string };
@@ -113,7 +136,7 @@ const AUTO = ["customername", "deliverydate", "ordernumber", "designnumber"]; //
 function expandGroups(rows: BField[]): BField[] {
   return rows.flatMap((f) => {
     if (f.type !== "group") return [f];
-    const heading: BField = { uid: f.uid, key: "", label: f.label, type: "heading", required: false, masterCanEdit: false, unit: "", options: "" };
+    const heading: BField = { uid: f.uid, key: "", label: f.label, type: "heading", required: false, masterCanEdit: false, unit: "", options: "", ...(f.perRow ? { perRow: f.perRow } : {}) };
     const boxes = (f.boxes ?? [])
       .map((b, n): BField => ({
         uid: `${f.uid}-${n}`,
@@ -124,6 +147,7 @@ function expandGroups(rows: BField[]): BField[] {
         masterCanEdit: f.masterCanEdit,
         pictures: !!b.pictures,
         short: b.short?.trim() || undefined,
+        ...(b.newRow ? { newRow: true } : {}),
         unit: b.type === "number" ? f.unit : "",
         options: "",
       }))
@@ -286,6 +310,10 @@ function FieldCard({
               </select>
             </label>
           )}
+          {f.type === "heading" && /measure/i.test(f.label) && <PerRow value={f.perRow} onChange={(perRow) => onChange({ perRow })} />}
+          {(f.type === "text" || f.type === "number") && (
+            <Toggle label="Starts a new row in the printed measurements" checked={!!f.newRow} onChange={(v) => onChange({ newRow: v })} />
+          )}
           {f.type === "number" && (
             <label className="block">
               <span className="mb-1 block text-base font-medium">Unit</span>
@@ -334,6 +362,12 @@ function FieldCard({
                           Pictures next to it
                         </label>
                         <input value={b.short ?? ""} onChange={(e) => setBox({ short: e.target.value })} maxLength={12} placeholder="Short name" aria-label={`Box ${n + 1} short name for the tailor slip`} className={`${input} !w-32`} />
+                        {n > 0 && (
+                          <label className="flex min-h-12 cursor-pointer items-center gap-2 text-base">
+                            <input type="checkbox" className="checkbox checkbox-primary" checked={!!b.newRow} onChange={(e) => setBox({ newRow: e.target.checked })} />
+                            Starts a new row
+                          </label>
+                        )}
                       </div>
                     </div>
                   );
@@ -346,6 +380,7 @@ function FieldCard({
                   <Icon name="plus" /> Add another box
                 </button>
               </div>
+              <PerRow value={f.perRow} onChange={(perRow) => onChange({ perRow })} />
               <Toggle label="Add a notes line under the boxes" checked={!!f.notes} onChange={(v) => onChange({ notes: v })} />
               {(f.boxes ?? []).some((b) => b.type === "number") && (
                 <label className="block">
@@ -426,6 +461,7 @@ export function FormBuilder({
   initialSteps,
   workflows = [],
   initialWorkflowId = null,
+  initialPrint = null,
   copySources = [],
   action,
 }: {
@@ -435,6 +471,8 @@ export function FormBuilder({
   /** the reusable workflows this item can use for its steps */
   workflows?: { id: number; name: string; steps: { key: string; label: string; photo: string; days?: string }[] }[];
   initialWorkflowId?: number | null;
+  /** which slips the printed order has for this item, and the karigar paper rows */
+  initialPrint?: PrintLayout | null;
   /** other items whose fields can be copied into this form */
   copySources?: { id: number; name: string; fields: Omit<BField, "uid">[] }[];
   action: (f: FormData) => Promise<void>;
@@ -447,7 +485,9 @@ export function FormBuilder({
   const lastDragEnd = useRef(0);
   const [workflowId, setWorkflowId] = useState<number | null>(initialWorkflowId);
   const workflow = workflows.find((w) => w.id === workflowId) ?? null;
+  const [print, setPrint] = useState<PrintLayout>(initialPrint ?? { slip: "tailor" });
   const [start] = useState(() => JSON.stringify([initialFields, initialSteps, initialWorkflowId]));
+  const [startPrint] = useState(() => JSON.stringify(initialPrint ?? { slip: "tailor" }));
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -464,7 +504,9 @@ export function FormBuilder({
   const dupeNames = new Set(dupes.map((d) => d.toLowerCase()));
   const fieldsJson = JSON.stringify(strip(expandGroups(fields)));
   const stepsJson = JSON.stringify(strip(steps));
-  const dirty = JSON.stringify([strip(fields), strip(steps), workflowId]) !== start;
+  const dirty = JSON.stringify([strip(fields), strip(steps), workflowId]) !== start || JSON.stringify(print) !== startPrint;
+  // the boxes that can go on the karigar paper (saved ones only: a new box has no key until it is saved)
+  const slipBoxes = expandGroups(fields).filter((f) => (f.type === "text" || f.type === "number") && f.label.trim());
 
   function add(type: string, at?: number) {
     const item = ALL.find((i) => i.type === type)!;
@@ -556,6 +598,7 @@ export function FormBuilder({
       <input type="hidden" name="fields" value={fieldsJson} />
       <input type="hidden" name="stages" value={stepsJson} />
       <input type="hidden" name="workflowId" value={workflowId ?? ""} />
+      <input type="hidden" name="printLayout" value={JSON.stringify(print)} />
 
       <DndContext id="form-builder" sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -761,6 +804,13 @@ export function FormBuilder({
           </button>
         )}
       </section>
+
+      <PrintSlips
+        fields={slipBoxes.filter((f) => f.key).map((f) => ({ key: f.key, label: f.label, short: f.short }))}
+        unsaved={slipBoxes.filter((f) => !f.key).length}
+        initial={initialPrint}
+        onChange={setPrint}
+      />
 
       <SaveButton dirty={dirty} duplicates={dupes} />
     </form>

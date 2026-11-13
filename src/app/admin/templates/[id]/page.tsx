@@ -69,6 +69,7 @@ export default async function CategoryBuilder({
         initialSteps={t.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, days: s.days ? String(s.days) : "", needs: s.requiresFields ?? [] }))}
         workflows={listWorkflows().map((w) => ({ id: w.id, name: w.name, steps: w.stages.map((s) => ({ key: s.key, label: s.label, photo: s.photo, days: s.days ? String(s.days) : "" })) }))}
         initialWorkflowId={t.workflowId}
+        initialPrint={t.printLayout ?? null}
         copySources={listCategoryTree().flatMap((m) =>
           m.subs
             .filter((x) => x.template.id !== t.id && x.template.fields.length > 0)

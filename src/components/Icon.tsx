@@ -6,6 +6,7 @@ const PATHS: Record<string, string> = {
   photos: "M4 8h3l1.5-2h7L17 8h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
   reminders: "M18 16v-5a6 6 0 1 0-12 0v5l-1.5 2h15zM10 20a2 2 0 0 0 4 0",
   shipments: "M3 6.5h11v9H3zM14 9.5h4l3 3v3h-7zM7 18.5a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5ZM17 18.5a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z",
+  designs: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 10a1.25 1.25 0 1 0 0-2.5A1.25 1.25 0 0 0 9 10Z",
   masters: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1",
   finished: "M4 7.5h16V19H4zM3 4.5h18v3H3zM10 12h4",
   logout: "M9 4.5H5v15h4M16 8l4 4-4 4M20 12H9.5",

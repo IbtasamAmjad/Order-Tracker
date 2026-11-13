@@ -117,3 +117,9 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 76. On the master's screen an empty field is hidden unless it is marked "Warn if empty" (then only its name and a blank box show, so it is clear nothing was given) or it has pictures. Fields the master is allowed to fill still show their box.
 
 77. The printed order has a tailor slip at the bottom of each item with the measurements again (short names) and their notes, to cut off and give to the karigar so nobody copies them by hand. The slip never carries a date or price.
+
+78. The office keeps a library of design numbers, each with several pictures (Design Category page). Choosing a design number in the Design number box of a customer's item copies its pictures onto that item, so nothing has to be uploaded again; changing or removing a design later never changes customers that already have it. Another number, or an empty box, takes the pictures off. A design number is in the library once. The master only sees the pictures attached to his customer, never the library.
+
+79. The tailor slip repeats the measurements exactly like the tailor's own sheet: the customer name and "<item> Measurements" on top, rows of boxes (the number in a row is set by the office, and a box can start a new row), the name above the value, and a small note under a box when one was typed (for example "Add 1 inch"). The note is for the karigar, never a date or price.
+
+80. The office chooses per item what the printed order carries at the bottom: the tailor slip, the karigar paper (short names in rows laid out by the office, filled in with the answers), both, or none. A change reaches customers in progress without telling the master, because only the printout changed. The slips never carry a date or price.

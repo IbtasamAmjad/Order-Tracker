@@ -4,7 +4,8 @@ import { referencePhotos } from "@/lib/stages";
  * "The design the customer chose": the reference pictures of an item as small pictures. Tap one to open it full size.
  */
 export function DesignPictures({ token, itemId, fieldKeys }: { token: string; itemId: number; fieldKeys: string[] }) {
-  const pics = referencePhotos(itemId).filter((r) => fieldKeys.includes(r.fieldKey ?? ""));
+  // pictures copied from a design of the library count as the design the customer chose, wherever the form has a picture field or not
+  const pics = referencePhotos(itemId).filter((r) => r.fromDesignId !== null || fieldKeys.includes(r.fieldKey ?? ""));
   if (pics.length === 0) return null;
   const img = (id: number, thumb = false) => `/api/m/${token}/photos/${id}${thumb ? "?thumb=1" : ""}`;
   return (

@@ -1,6 +1,6 @@
 import type { FieldDef, ItemSnapshot } from "@/db/schema";
 import { saveMasterFieldsAction } from "@/app/m/actions";
-import { displayValue, isDisplayOnly, isTextEditable } from "@/lib/items";
+import { displayValue, isDisplayOnly, isTextEditable, noteKey } from "@/lib/items";
 import { referencePhotos } from "@/lib/stages";
 import { FieldPictures } from "./DesignPictures";
 import { FieldRow } from "./FieldRow";
@@ -84,6 +84,7 @@ export function MasterItemFields({
                         <p className="text-base text-muted">{f.label}</p>
                         {v ? <p className="whitespace-pre-wrap break-words text-3xl font-medium leading-tight">{big.main}</p> : <EmptyBox />}
                         {big.note && <p className="whitespace-pre-wrap text-base leading-snug text-ink-2">{big.note}</p>}
+                        {values[noteKey(f.key)] && <p className="text-base font-medium uppercase leading-snug text-ink-2">{values[noteKey(f.key)]}</p>}
                       </div>
                     );
                   })}

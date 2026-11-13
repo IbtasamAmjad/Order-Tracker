@@ -2,6 +2,7 @@ import { WhatsAppNotice } from "@/components/WhatsAppNotice";
 import { orderNotices } from "@/lib/notify";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { listDesigns } from "@/lib/designs";
 import { OrderEditor } from "@/components/OrderEditor";
 import { getOrder, listItems } from "@/lib/orders";
 import { assignedMasterIds } from "@/lib/assign";
@@ -209,6 +210,7 @@ export default async function EditOrder({
             orderId={order.id}
             submitLabel="Save changes"
             formId="order-form"
+            designs={listDesigns({ activeOnly: true })}
             pdfs={listOrderFiles(order.id).map((p) => ({ id: p.id, name: p.name, bytes: p.bytes }))}
             afterMasters={<AddItemBox orderId={order.id} options={templates.map((t) => ({ templateId: t.templateId, label: `${t.group} > ${t.name}` }))} />}
           />

@@ -107,6 +107,7 @@ export function AdminSidebar({
         )}
         {item("/admin/workflows", "note", "Steps", is("/admin/workflows"))}
         {item("/admin/masters", "masters", "Masters", is("/admin/masters"))}
+        {item("/admin/designs", "designs", "Design Category", is("/admin/designs"))}
 
         {divider()}
         {item("/admin/reminders", "reminders", "Reminders", is("/admin/reminders"), counts.reminders)}

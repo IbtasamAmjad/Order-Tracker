@@ -160,7 +160,7 @@ describe("measurements table with words and numbers", () => {
       [],
     );
     expect(blocks.map((b) => b.type)).toEqual(["heading", "grid"]);
-    expect(blocks[1]).toEqual({ type: "grid", cells: [{ label: "Length", value: "40 inch" }, { label: "Sleeve", value: "24 ready" }, { label: "Chest", value: "42 inch" }] });
+    expect(blocks[1]).toEqual({ type: "grid", cols: 4, cells: [{ label: "Length", value: "40 inch" }, { label: "Sleeve", value: "24 ready" }, { label: "Chest", value: "42 inch" }] });
     const num = { key: "l", label: "Length", type: "number", required: false, unit: "inch" } as import("@/db/schema").FieldDef;
     expect(it_.displayValue(num, "40")).toBe("40 inch");
     expect(it_.displayValue(num, "17 1/2")).toBe("17 1/2 inch");
@@ -208,5 +208,58 @@ describe("tailor slip", () => {
     ]);
     expect(rows[0].short).toBe("Ch");
     expect(rows[1].short).toBeUndefined();
+  });
+});
+
+describe("the tailor's measurement layout", () => {
+  it("cuts the boxes into rows of the heading's size, lets a box start a new row, and keeps the notes under a box", async () => {
+    const p = await import("./print");
+    const cells = ["Length", "Shoulder", "Sleeve", "Chest", "Lowerchest", "Stomach", "Hip", "Neck", "Armhole"].map((label) => ({ label, value: "1" }));
+    // 7 to a row: Length..Hip, then the rest
+    expect(p.gridRows(cells, 7).map((r) => r.length)).toEqual([7, 2]);
+    // a box that starts a new row ends the row before it (Neck starts row two, as on the tailor's sheet; Hip is the 7th)
+    const broken = cells.map((c) => (c.label === "Neck" ? { ...c, newRow: true } : c));
+    expect(p.gridRows(broken.slice(0, 8), 10).map((r) => r.map((c) => c.label))).toEqual([["Length", "Shoulder", "Sleeve", "Chest", "Lowerchest", "Stomach", "Hip"], ["Neck"]]);
+    // a "new row" on the very first box does not leave an empty row
+    expect(p.gridRows([{ label: "A", value: "1", newRow: true }], 3).length).toBe(1);
+
+    // the heading carries the row size and the note stays with its box
+    const blocks = p.layoutDetails(
+      [
+        { label: "Measurements", value: "", kind: "heading", perRow: 7 },
+        { label: "Armhole", value: "22", measure: true, note: "Add 1 inch" },
+        { label: "Arms", value: "14", measure: true, newRow: true },
+      ],
+      [],
+    );
+    expect(blocks[0]).toEqual({ type: "heading", label: "Measurements", measure: true });
+    expect(blocks[1]).toEqual({ type: "grid", cols: 7, cells: [{ label: "Armhole", value: "22", note: "Add 1 inch" }, { label: "Arms", value: "14", newRow: true }] });
+  });
+
+  it("saves the row settings from the builder and the small note under a box, only where they make sense", async () => {
+    const tpl = await import("./templates");
+    const items = await import("./items");
+    const fields = tpl.fieldsFromBuilder(
+      JSON.stringify([
+        { label: "Measurements", type: "heading", perRow: 7 },
+        { label: "Length", type: "number", newRow: true },
+        { label: "Fabric", type: "longtext", newRow: true },
+        { label: "Other", type: "heading", perRow: 99 },
+      ]),
+    );
+    expect(fields[0].perRow).toBe(7);
+    expect(fields[1].newRow).toBe(true);
+    expect(fields[2].newRow).toBeUndefined(); // long writing never sits in the table
+    expect(fields[3].perRow).toBeUndefined(); // out of range
+    const withNote = [fields[0], fields[1], { key: "sleeve", label: "Sleeve", type: "text", required: false }] as import("@/db/schema").FieldDef[];
+    const k = fields[1].key;
+    expect(items.cleanValues(withNote, { [k]: "40", [items.noteKey(k)]: "  Add   1 inch ", sleeve: "25", [items.noteKey("sleeve")]: "ignored?" })).toEqual({
+      [k]: "40",
+      [items.noteKey(k)]: "Add 1 inch",
+      sleeve: "25",
+      [items.noteKey("sleeve")]: "ignored?", // a one-line box under Measurements takes a note too
+    });
+    // a text box that is not under a Measurements heading has no note
+    expect(items.cleanValues([{ key: "fabric", label: "Fabric", type: "text", required: false }] as import("@/db/schema").FieldDef[], { fabric: "Silk", fabric__note: "x" })).toEqual({ fabric: "Silk" });
   });
 });

@@ -113,6 +113,20 @@
       "when": 1794510502835,
       "tag": "0015_wise_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1794591361747,
+      "tag": "0016_old_charles_xavier",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794597267907,
+      "tag": "0017_luxuriant_magdalene",
+      "breakpoints": true
     }
   ]
 }

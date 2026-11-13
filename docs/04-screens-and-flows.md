@@ -119,7 +119,7 @@ The Masters page shows each master as a card: name and status, progress (items, 
 - "Copy fields from another item" in the builder; "Make a copy" at the bottom of an item page; "Copy this group with its items" on the Items page.
 
 ## Drafts and Send (12 Nov 2026)
-- New customer: "Save, send later" (draft) or "Save and send to master". A draft opens its page with a note; there, "Save draft" and "Send to master". The Customers list tags drafts "Draft, not sent" and has a Drafts chip.
+- New customer: "Save, send later" (draft) or "Save and send to master". Saving a draft goes back to the Customers list with a "Draft saved" notice; on a draft's page there are "Save draft" and "Send to master". The Customers list tags drafts "Draft, not sent" and has a Drafts chip.
 
 ## Notes pictures and Paragraph (12 Nov 2026)
 - Under "Extra notes for this customer" there is always a picture box; saved pictures can be removed. The master sees them under the notes.
@@ -149,3 +149,21 @@ The Masters page shows each master as a card: name and status, progress (items, 
 - A field that has pictures takes a full row on the customer form (field on top, pictures under it).
 - Customer form: back to the earlier look (two columns, larger labels); the new features stay.
 - Sending with a "Warn if empty" field still empty: the first press shows the list and sends nothing, the next press sends anyway.
+
+## Design Category (13 Nov 2026)
+- Sidebar: Design Category, after Masters. The page has an "Add a design" form (design number, notes, pictures) and a grid of design cards; a card opens its edit page (change the number or notes, add or remove pictures, hide from the customer form).
+- Customer form: the item's **Design number** box is a dropdown of these design numbers, with the chosen design's pictures shown small under it. Press Save and the pictures are copied onto the item. The master sees them as "The design the customer chose"; print and PDF include them.
+
+- Customers list (13 Nov 2026): the small "Steps N of M" progress card on each customer card was removed by request; the "Fields" card and everything else stay. The master home cards still show "Steps N of M" as a pill.
+
+- Pictures (13 Nov 2026): every picture the office adds has a cross to remove it (waiting, saved under a field, under the notes, in a design). The master has none: he cannot delete.
+
+- Print and PDF with pictures (13 Nov 2026): a short answer with up to 3 pictures stays in the measurements table with its pictures small inside its box; the PDF draws the table row by row; the Pictures block can continue on the next page.
+
+## Measurement layout like the tailor's sheet (13 Nov 2026)
+- The tailor slip at the bottom of the printed order copies the tailor's own paper: "Customer Name X   Item Measurements", then rows of names (underlined) with the value under a line and a small note under a box if there is one. The main sheet keeps its ruled table. Row size is set in the item builder ("Boxes in one printed row" on the Measurements heading or group, "Starts a new row" on a box). On the customer form every measurement box can have a small note under it (for example Add 1 inch); the master sees it under the box.
+
+## Printed slips (14 Nov 2026)
+- Item builder, below the Steps: "Printed slips". A dropdown chooses what the printed order has at the bottom of each item: Tailor slip (default), Karigar paper, Both, or No slip. For the karigar paper the office drags the boxes of the form into rows (Add a row; boxes in "Not used" do not print). The printed order then has a second cut-off paper: the customer name and order number, then rows of short names (underlined) with the value under each, for the master to copy by hand.
+
+- Links for masters (14 Nov 2026): on the client's machine https is served on the same port 3002 (`deploy/linux/setup-https.sh`, undo with `rollback-https.sh`); `APP_URL` is the https address, so WhatsApp links are blue and open when tapped. Everybody, the office included, then uses the https address.

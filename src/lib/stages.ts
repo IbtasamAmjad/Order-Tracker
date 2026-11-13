@@ -286,7 +286,7 @@ export function addReferencePhoto(p: NewPhoto & { fieldKey: string; uploadedBy?:
 
 export function referencePhotos(itemId: number) {
   return db
-    .select({ id: photos.id, fieldKey: photos.fieldKey })
+    .select({ id: photos.id, fieldKey: photos.fieldKey, fromDesignId: photos.fromDesignId })
     .from(photos)
     .where(and(eq(photos.itemId, itemId), eq(photos.type, "reference")))
     .orderBy(asc(photos.id))

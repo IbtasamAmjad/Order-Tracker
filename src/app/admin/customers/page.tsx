@@ -12,9 +12,9 @@ import { moveOrderAction } from "../actions";
 export default async function Customers({
   searchParams,
 }: {
-  searchParams: Promise<{ master?: string; notify?: string; show?: string; sort?: string }>;
+  searchParams: Promise<{ master?: string; notify?: string; show?: string; sort?: string; draft?: string }>;
 }) {
-  const { master, notify, show, sort } = await searchParams;
+  const { master, notify, show, sort, draft } = await searchParams;
   const byDue = sort === "due"; // the chip "Sort by due date": earliest Karigar due date first
   const [kind, nid] = (notify ?? "").split(":");
   const notices = kind && nid ? orderNotices(kind as OrderNoticeKind, Number(nid)) : [];
@@ -71,6 +71,11 @@ export default async function Customers({
 
   return (
     <div className="space-y-4">
+      {draft && (
+        <p className="alert alert-success text-base font-medium">
+          Draft saved. The master cannot see it yet. Open it and press Send to master when it is ready.
+        </p>
+      )}
       <WhatsAppNotice notices={notices} />
       <PageHeader icon="customers" title="Customers" sub={byDue ? "By due date, the earliest first." : "In the order the masters should work them."}>
         <Link href="/admin/orders/new" className={btnPrimary}>
@@ -248,14 +253,6 @@ export default async function Customers({
                 </div>
 
                 <div className="ml-auto flex flex-wrap gap-3">
-                  {o.progress.total > 0 && (
-                    <div className={`${tile} w-44 border-rule bg-paper-2`}>
-                      <p className="flex items-baseline justify-between text-sm text-muted">
-                        Steps <b className="font-medium text-ink">{o.progress.done} of {o.progress.total}</b>
-                      </p>
-                      <Ruler value={o.progress.done} total={o.progress.total} label={`Steps ${pct(o.progress.done, o.progress.total)} percent`} />
-                    </div>
-                  )}
                   {o.fields.total > 0 && (
                     <div className={`${tile} w-44 border-rule bg-paper-2`}>
                       <p className="flex items-baseline justify-between text-sm text-muted">

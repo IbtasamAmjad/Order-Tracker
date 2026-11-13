@@ -72,7 +72,13 @@ export async function saveCategoryAction(f: FormData) {
   const fields = fieldsFromBuilder(String(f.get("fields") ?? "[]"));
   if (duplicateFieldNames(fields).length > 0) redirect(`/admin/templates/${id}?e=duplicate`);
   const workflowId = Number(f.get("workflowId")) || null; // empty = the item's own custom steps
-  saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")), workflowId);
+  let print: unknown;
+  try {
+    print = f.has("printLayout") ? JSON.parse(String(f.get("printLayout"))) : undefined;
+  } catch {
+    print = undefined;
+  }
+  saveTemplate(id, fields, stagesFromBuilder(String(f.get("stages") ?? "[]")), workflowId, print);
   const updated = syncActiveItems({ templateId: id }); // customers already in progress get the change too, nobody has to press a button
   redirect(`/admin/templates/${id}?saved=1${updated > 0 ? `&synced=${updated}` : ""}`);
 }

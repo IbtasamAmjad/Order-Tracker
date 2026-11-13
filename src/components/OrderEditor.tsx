@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import type { FieldDef } from "@/db/schema";
-import { itemLabel } from "@/lib/items";
+import { itemLabel, noteFieldKeys, noteKey } from "@/lib/items";
 import { daysUntil } from "@/lib/colour";
 import { emptyEditorState, type EditorItem, type EditorState } from "@/lib/editor-state";
 import { FieldRow, isWideField } from "./FieldRow";
@@ -13,6 +13,7 @@ import { NotePictures } from "./NotePictures";
 import { RemoveItemButton } from "./RemoveItemButton";
 import { OrderPdfBox, type PdfRow } from "./OrderPdfBox";
 import { FieldProgress } from "./FieldProgress";
+import type { DesignOption } from "./DesignPicker";
 import { Icon } from "./Icon";
 import { Field, RequiredMark, btnPrimary, btnSecondary, input, textarea, card } from "./ui";
 
@@ -44,7 +45,9 @@ export function OrderEditor({
   formId,
   afterMasters,
   pdfs = [],
+  designs = [],
 }: {
+  designs?: DesignOption[]; // the office's design library: the Design number box of an item is a dropdown of it
   pdfs?: PdfRow[]; // PDFs already attached to this customer
   action: (prev: EditorState, f: FormData) => Promise<EditorState>;
   masters: Master[];
@@ -298,12 +301,23 @@ export function OrderEditor({
                 // a picture pasted into a text box is kept under that box (its own key), not in the picture area
                 const photos = (item.photos ?? []).filter((p) => p.fieldKey === f.key);
                 return (
-                  <div key={f.key} id={`f-${item.key}-${f.key}`} className={`scroll-mt-24 ${isWideField(f) ? "sm:col-span-2" : ""} has-[img]:sm:col-span-2`}>
+                  <div key={f.key} id={`f-${item.key}-${f.key}`} className={`scroll-mt-24 flex flex-col ${isWideField(f) ? "sm:col-span-2" : ""} has-[img]:sm:col-span-2`}>
+                    {noteFieldKeys(item.fields).has(f.key) && (
+                      <input
+                        name={`${name}__note`}
+                        defaultValue={pick(`${name}__note`, item.values[noteKey(f.key)])}
+                        maxLength={40}
+                        placeholder="Small note under it, for example Add 1 inch"
+                        aria-label={`Small note for ${f.label}`}
+                        className={`${input} order-last mt-1 !min-h-9 text-sm`}
+                      />
+                    )}
                     <FieldRow
                       f={f}
                       name={name}
                       value={pick(name, item.values[f.key])}
                       compact
+                      designs={designs}
                       missing={state.missingKeys.includes(`${item.key}:${f.key}`)}
                       saved={orderId && item.photos ? { itemId: Number(item.key), photos } : undefined}
                     />

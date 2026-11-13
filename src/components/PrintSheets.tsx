@@ -1,4 +1,4 @@
-import { FIELD_PHOTO_MM, layoutDetails, photoHeightMm, type PrintData, type Sheet } from "@/lib/print";
+import { FIELD_CELL_PHOTO_MM, FIELD_PHOTO_MM, gridRows, layoutDetails, photoHeightMm, type PrintData, type Sheet } from "@/lib/print";
 
 /** Black-and-white printable pages: one per item type. */
 export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoId: number) => string }) {
@@ -7,7 +7,7 @@ export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoI
     <div className="mt-1.5 flex flex-wrap gap-2">
       {ids.map((id) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={id} src={imgUrl(id)} alt="Picture" style={{ height: `${mm}mm`, width: "auto" }} className="border border-neutral-400" />
+        <img key={id} src={imgUrl(id)} alt="Picture" style={{ height: `${mm}mm`, width: "auto", maxWidth: "100%" }} className="border border-neutral-400" />
       ))}
     </div>
   );
@@ -58,6 +58,8 @@ export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoI
                         <div key={c.label} className="bg-white px-2 py-1.5">
                           <p className="text-xs">{c.label}</p>
                           <p className="text-lg font-medium leading-tight">{c.value}</p>
+                          {c.note && <p className="text-[10px] uppercase leading-tight">{c.note}</p>}
+                          {c.photoIds && c.photoIds.length > 0 && pics(c.photoIds, FIELD_CELL_PHOTO_MM)}
                         </div>
                       ))}
                       {Array.from({ length: (3 - (b.cells.length % 3)) % 3 }, (_, k) => (
@@ -83,25 +85,49 @@ export function PrintSheets({ data, imgUrl }: { data: PrintData; imgUrl: (photoI
                 {item.slip && (
                   <div className="mt-6" style={{ breakInside: "avoid" }}>
                     <p className="border-t-2 border-dashed border-black pt-1 text-center text-[10px] uppercase tracking-widest">Cut here - tailor slip</p>
-                    <div className="border border-black p-1.5">
-                      <p className="text-sm font-medium leading-tight">
-                        #{data.orderNumber} {data.customerName} - {item.label}
-                      </p>
-                      <div className="mt-1 grid grid-cols-4 gap-px border border-black bg-black">
-                        {item.slip.cells.map((c, k) => (
-                          <div key={`${c.label}-${k}`} className="bg-white px-1.5 py-0.5">
-                            <p className="text-[9px] leading-tight">{c.label}</p>
-                            <p className="text-sm font-medium leading-tight">{c.value}</p>
-                          </div>
-                        ))}
-                        {Array.from({ length: (4 - (item.slip.cells.length % 4)) % 4 }, (_, k) => (
-                          <div key={`slip-pad-${k}`} className="bg-white" />
-                        ))}
+                    {/* the tailor's sheet: "Customer Name X   Item Measurements", then rows of names (underlined) with the value under a line and a small note under that */}
+                    <div className="mt-2 flex items-baseline justify-between text-sm">
+                      <div className="flex gap-12">
+                        <span>Customer Name {data.customerName}</span>
+                        <span>{item.label} Measurements</span>
                       </div>
-                      {item.slip.notes.map((t, k) => (
-                        <p key={k} className="mt-0.5 whitespace-pre-wrap text-xs leading-snug">
-                          {t}
-                        </p>
+                      <span className="text-[10px]">Order #{data.orderNumber}</span>
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      {gridRows(item.slip.cells, item.slip.cols).map((row, r) => (
+                        <div key={r} className="flex">
+                          {row.map((c, k) => (
+                            <div key={`${c.label}-${k}`} className="px-1 text-center" style={{ width: `${100 / item.slip!.cols}%` }}>
+                              <p className="text-sm underline">{c.label}</p>
+                              <p className="mt-0.5 border-b border-black text-base leading-snug">{c.value}</p>
+                              {c.note && <p className="text-[11px] uppercase leading-tight">{c.note}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    {item.slip.notes.map((t, k) => (
+                      <p key={k} className="mt-2 whitespace-pre-wrap text-xs leading-snug">
+                        {t}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {item.karigar && (
+                  <div className="mt-6" style={{ breakInside: "avoid" }}>
+                    <p className="border-t-2 border-dashed border-black pt-1 text-center text-[10px] uppercase tracking-widest">Cut here - karigar paper</p>
+                    {/* the paper the master writes out by hand for the karigar: the name, then short names (underlined) with the value under each */}
+                    <p className="mt-2 text-center text-lg font-medium">{item.karigar.title}</p>
+                    <div className="mt-3 space-y-5">
+                      {item.karigar.rows.map((row, r) => (
+                        <div key={r} className="flex">
+                          {row.map((c, k) => (
+                            <div key={`${c.label}-${k}`} className="px-1 text-center" style={{ width: `${100 / item.karigar!.cols}%` }}>
+                              <p className="text-base underline">{c.label}</p>
+                              <p className="text-xl leading-snug">{c.value}</p>
+                            </div>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   </div>

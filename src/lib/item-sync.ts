@@ -74,6 +74,21 @@ export function syncActiveItems(only: { templateId?: number; orderId?: number } 
     .where(and(eq(orders.status, "active"), only.templateId ? eq(orderItems.templateId, only.templateId) : undefined, only.orderId ? eq(orderItems.orderId, only.orderId) : undefined))
     .all();
   let n = 0;
-  for (const { item } of rows) if (categoryDiffers(item) && refreshItemFromCategory(item.id) === "ok") n++;
+  for (const { item } of rows) {
+    if (categoryDiffers(item)) {
+      if (refreshItemFromCategory(item.id) === "ok") n++;
+    } else if (item.templateId) {
+      // only the printed slips changed: copy that quietly (the master has nothing new to look at)
+      const tpl = templateForItem(item.templateId);
+      if (tpl && JSON.stringify(item.snapshot.print ?? null) !== JSON.stringify(tpl.snapshot.print ?? null)) {
+        const { print, ...rest } = item.snapshot;
+        void print;
+        db.update(orderItems)
+          .set({ snapshot: { ...rest, ...(tpl.snapshot.print ? { print: tpl.snapshot.print } : {}) } })
+          .where(eq(orderItems.id, item.id))
+          .run();
+      }
+    }
+  }
   return n;
 }

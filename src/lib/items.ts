@@ -118,9 +118,31 @@ export function normalizeHex(v: string): string {
 }
 
 /** Keep only values for known input fields, trimmed; choices must be one of the options. */
+/** Where the small note under a measurement box is kept in the item's values (for example "arms__note"). */
+export const noteKey = (fieldKey: string) => `${fieldKey}__note`;
+
+/**
+ * The boxes that can carry a small note on the customer form and the printout: number boxes, and the one-line text boxes
+ * under a Measurements heading. The same rule is used by the form, the master's page and the print.
+ */
+export function noteFieldKeys(fields: FieldDef[]): Set<string> {
+  const out = new Set<string>();
+  let inMeasure = false;
+  for (const f of fields) {
+    if (f.type === "heading") inMeasure = /measure/i.test(f.label);
+    else if (f.type === "number" || (inMeasure && f.type === "text")) out.add(f.key);
+  }
+  return out;
+}
+
 export function cleanValues(fields: FieldDef[], raw: ItemValues): ItemValues {
   const out: ItemValues = {};
+  const noted = noteFieldKeys(fields);
   for (const f of fields) {
+    if (noted.has(f.key)) {
+      const note = (raw[noteKey(f.key)] ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+      if (note) out[noteKey(f.key)] = note;
+    }
     if (f.type === "picture" || isDisplayOnly(f)) continue;
     let v = (raw[f.key] ?? "").replace(/\r\n?/g, "\n").trim(); // lines are kept, as plain new lines
     if (f.type === "checkboxes") {
