@@ -210,15 +210,3 @@ describe("tailor slip", () => {
     expect(rows[1].short).toBeUndefined();
   });
 });
-
-describe("links in WhatsApp messages", () => {
-  it("uses APP_URL, or LINK_URL when it is set, and puts the link on a line of its own", async () => {
-    const { linkBase } = await import("./config");
-    expect(linkBase("http://107.132.134.154:3002", undefined)).toBe("http://107.132.134.154:3002");
-    expect(linkBase("https://orders.example.com/", undefined)).toBe("https://orders.example.com");
-    expect(linkBase("http://107.132.134.154:3002", "https://107-132-134-154.sslip.io:8443/")).toBe("https://107-132-134-154.sslip.io:8443");
-    expect(linkBase("http://107.132.134.154:3002", "  ")).toBe("http://107.132.134.154:3002");
-    const text = w.messages.newOrder({ masterName: "Nasim", token: "tok123", orderNumber: 1, customer: "Hamza", karigarDue: "2026-12-07" });
-    expect(text.split("\n")).toContain(w.masterLink("tok123"));
-  });
-});

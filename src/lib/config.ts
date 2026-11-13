@@ -14,16 +14,6 @@ export const PIN_LOCK_MINUTES = 5;
 
 export const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
-/**
- * The address that goes into WhatsApp messages and the Copy button. Normally it is APP_URL. Set LINK_URL to give the
- * master links a different public address, which is what makes them tappable in WhatsApp: it needs a name (not a bare
- * IP number) and https, because phones try https for a named address (see deploy/linux/setup-https.sh).
- */
-export function linkBase(appUrl: string = APP_URL, override: string | undefined = process.env.LINK_URL): string {
-  const strip = (u: string) => u.replace(/\/+$/, "");
-  return strip(override && override.trim() ? override.trim() : appUrl);
-}
-
 // Login cookies are marked "secure" only when the site address is https. On a plain http office network a secure
 // cookie would never come back from the browser, and nobody could sign in.
 export const COOKIE_SECURE = APP_URL.startsWith("https://");
