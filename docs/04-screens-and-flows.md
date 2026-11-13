@@ -149,4 +149,4 @@ The Masters page shows each master as a card: name and status, progress (items, 
 - A field that has pictures takes a full row on the customer form (field on top, pictures under it).
 - Customer form: back to the earlier look (two columns, larger labels); the new features stay.
 - Sending with a "Warn if empty" field still empty: the first press shows the list and sends nothing, the next press sends anyway.
-- WhatsApp links: a public IP address in APP_URL is written as a nip.io name (or LINK_URL) so WhatsApp makes it tappable.
+- WhatsApp links use LINK_URL when set (a public https address, made by deploy/linux/setup-https.sh), otherwise APP_URL. A bare http IP is not tappable in WhatsApp, and a named http address fails on iPhones.

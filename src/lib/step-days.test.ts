@@ -212,18 +212,12 @@ describe("tailor slip", () => {
 });
 
 describe("links in WhatsApp messages", () => {
-  it("writes a public IP address as a name WhatsApp can make tappable, and leaves other addresses alone", async () => {
+  it("uses APP_URL, or LINK_URL when it is set, and puts the link on a line of its own", async () => {
     const { linkBase } = await import("./config");
-    expect(linkBase("http://107.132.134.154:3002", undefined)).toBe("http://107-132-134-154.nip.io:3002");
-    expect(linkBase("https://8.8.4.4", undefined)).toBe("https://8-8-4-4.nip.io");
-    // a real domain, localhost and office-network addresses stay as they are
+    expect(linkBase("http://107.132.134.154:3002", undefined)).toBe("http://107.132.134.154:3002");
     expect(linkBase("https://orders.example.com/", undefined)).toBe("https://orders.example.com");
-    expect(linkBase("http://localhost:3000", undefined)).toBe("http://localhost:3000");
-    expect(linkBase("http://192.168.1.20:3000", undefined)).toBe("http://192.168.1.20:3000");
-    expect(linkBase("http://10.0.0.5:3000", undefined)).toBe("http://10.0.0.5:3000");
-    // LINK_URL wins
-    expect(linkBase("http://107.132.134.154:3002", "https://orders.example.com/")).toBe("https://orders.example.com");
-    // the link sits alone on its own line
+    expect(linkBase("http://107.132.134.154:3002", "https://107-132-134-154.sslip.io:8443/")).toBe("https://107-132-134-154.sslip.io:8443");
+    expect(linkBase("http://107.132.134.154:3002", "  ")).toBe("http://107.132.134.154:3002");
     const text = w.messages.newOrder({ masterName: "Nasim", token: "tok123", orderNumber: 1, customer: "Hamza", karigarDue: "2026-12-07" });
     expect(text.split("\n")).toContain(w.masterLink("tok123"));
   });
