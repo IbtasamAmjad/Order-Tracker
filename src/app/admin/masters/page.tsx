@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listMasters, masterIsUnused } from "@/lib/masters";
 import { itemRows } from "@/lib/item-search";
-import { APP_URL } from "@/lib/config";
+import { linkBase } from "@/lib/config";
 import { CopyLink } from "@/components/CopyLink";
 import { DeleteToggle } from "@/components/DeleteToggle";
 import { AddMasterBox } from "@/components/AddMasterBox";
@@ -38,8 +38,8 @@ export default async function Masters({ searchParams }: { searchParams: Promise<
 
       <ul className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {masters.map((m) => {
-          const link = `${APP_URL}/m/${m.token}`;
-          const text = `Hello ${m.name}, this is your order link: ${link} . Ask me for your code. Please check it every day.`;
+          const link = `${linkBase()}/m/${m.token}`;
+          const text = `Hello ${m.name}, this is your order link:\n${link}\nAsk me for your code. Please check it every day.`;
           const wa = `https://wa.me/${m.whatsappNumber ?? ""}?text=${encodeURIComponent(text)}`;
           const rows = itemRows(m.id);
           const made = rows.filter((r) => r.status === "ready" || r.status === "shipped").length;

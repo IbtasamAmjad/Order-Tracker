@@ -6,7 +6,7 @@ import type { FieldDef } from "@/db/schema";
 import { itemLabel } from "@/lib/items";
 import { daysUntil } from "@/lib/colour";
 import { emptyEditorState, type EditorItem, type EditorState } from "@/lib/editor-state";
-import { FieldRow, fieldSpan } from "./FieldRow";
+import { FieldRow, isWideField } from "./FieldRow";
 import { MasterPicker } from "./MasterPicker";
 import { PictureStore } from "./PictureInput";
 import { NotePictures } from "./NotePictures";
@@ -117,19 +117,19 @@ export function OrderEditor({
 
       {state.error && <p role="alert" className="alert alert-error text-lg font-medium">{state.error}</p>}
 
-      <div className="rounded-3xl border border-rule bg-paper-2 p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-3 border-b border-rule pb-3">
-          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-deep">
+      <div className="rounded-3xl border border-rule bg-paper-2 p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-3 border-b border-rule pb-4">
+          <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-deep">
             <Icon name="customers" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-medium leading-tight">{orderId ? "Customer details" : "Add customer details"}</h2>
+            <h2 className="text-xl font-medium leading-tight">{orderId ? "Customer details" : "Add customer details"}</h2>
             <p className="text-sm text-muted">
-              <RequiredMark /> means it must be filled in.
+              Name, design number, masters and due dates. <RequiredMark /> means it must be filled in.
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
           <Field label="Customer name" required upper>
             <input name="customerName" required defaultValue={pick("customerName", base.customerName)} className={input} />
           </Field>
@@ -192,11 +192,8 @@ export function OrderEditor({
       <OrderPdfBox orderId={orderId} files={pdfs} />
 
       {picker && (
-        <section className="space-y-2 rounded-3xl border border-rule bg-paper-2 p-4 shadow-sm">
-          <h2 className="flex flex-wrap items-baseline gap-x-3 text-lg font-medium">
-            What does this customer need?
-            <span className="text-sm font-normal text-muted">Tick each item. Its fields open below.</span>
-          </h2>
+        <section className="space-y-3">
+          <h2 className="text-xl font-medium">What does this customer need?</h2>
           {picker.groups.length === 0 ? (
             <p className="text-lg">
               No items yet.{" "}
@@ -206,36 +203,41 @@ export function OrderEditor({
               , or save the customer without categories.
             </p>
           ) : (
-            picker.groups.map((g) => (
-              <div key={g.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                <h3 className="w-16 shrink-0 text-sm font-medium uppercase tracking-wide text-muted">{g.name}</h3>
-                {g.items.map((it) => {
-                  const on = (counts[it.templateId] ?? 0) > 0;
-                  return (
-                    <label
-                      key={it.templateId}
-                      className={`inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full px-3 py-0.5 text-base ${on ? "bg-accent-soft text-accent-deep" : "bg-paper-3 text-ink"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        name={`q${it.templateId}`}
-                        value="1"
-                        checked={on}
-                        onChange={() => toggle(it.templateId)}
-                        className="checkbox checkbox-sm checkbox-primary"
-                      />
-                      {it.name}
-                    </label>
-                  );
-                })}
-              </div>
-            ))
+            <>
+              <p className="text-lg">Tick each item this customer needs. Its fields open below.</p>
+              {picker.groups.map((g) => (
+                <div key={g.id} className="space-y-2">
+                  <h3 className="text-lg font-medium">{g.name}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {g.items.map((it) => {
+                      const on = (counts[it.templateId] ?? 0) > 0;
+                      return (
+                        <label
+                          key={it.templateId}
+                          className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-4 py-1 text-base ${on ? "bg-accent-soft text-accent-deep" : "bg-paper-3 text-ink"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            name={`q${it.templateId}`}
+                            value="1"
+                            checked={on}
+                            onChange={() => toggle(it.templateId)}
+                            className="checkbox checkbox-sm checkbox-primary"
+                          />
+                          {it.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </>
           )}
         </section>
       )}
 
       {allItems.map((item) => (
-        <section key={item.key} className={`${card} border-2 !p-3`} style={{ borderColor: item.colour }}>
+        <section key={item.key} className={`${card} border-2 !p-4`} style={{ borderColor: item.colour }}>
           {/* with more than two items the cards start closed, so the page stays short; the line under each name says where it is */}
           {/* a saved customer: an item with everything filled in starts closed, one with something still empty starts open; a new customer keeps the old rule */}
           <details open={orderId && item.progress && item.progress.total > 0 ? item.progress.filled < item.progress.total : allItems.length <= 2} className="group">
@@ -244,7 +246,7 @@ export function OrderEditor({
                 <span className="inline-block h-5 w-5 shrink-0 rounded-full" style={{ background: item.colour }} />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-medium">{item.label}</h2>
+                    <h2 className="text-xl font-medium">{item.label}</h2>
                     {item.progress && item.progress.total > 0 && (
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${
@@ -276,12 +278,12 @@ export function OrderEditor({
                 </div>
               )}
             </summary>
-            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 md:grid-cols-12">
+            <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <input type="hidden" name="itemKey" value={item.key} />
               {item.templateId ? <input type="hidden" name={`t:${item.key}`} value={item.templateId} /> : null}
               <input type="hidden" name={`l:${item.key}`} value={item.label} />
               {orderId && item.photos && (
-                <div className="col-span-full">
+                <div className="sm:col-span-2">
                   <FieldProgress
                     fields={item.fields}
                     values={item.values}
@@ -289,14 +291,14 @@ export function OrderEditor({
                   />
                 </div>
               )}
-              {orderId && item.extra && <div className="col-span-full">{item.extra}</div>}
-              {item.fields.length === 0 && <p className="col-span-full">This item has no fields yet.</p>}
+              {orderId && item.extra && <div className="sm:col-span-2">{item.extra}</div>}
+              {item.fields.length === 0 && <p className="sm:col-span-2">This item has no fields yet.</p>}
               {[...item.fields.filter((f) => f.type !== "picture"), ...item.fields.filter((f) => f.type === "picture")].map((f) => {
                 const name = `v:${item.key}:${f.key}`;
                 // a picture pasted into a text box is kept under that box (its own key), not in the picture area
                 const photos = (item.photos ?? []).filter((p) => p.fieldKey === f.key);
                 return (
-                  <div key={f.key} id={`f-${item.key}-${f.key}`} className={`scroll-mt-24 min-w-0 ${fieldSpan(f)}`}>
+                  <div key={f.key} id={`f-${item.key}-${f.key}`} className={`scroll-mt-24 ${isWideField(f) ? "sm:col-span-2" : ""} has-[img]:sm:col-span-2`}>
                     <FieldRow
                       f={f}
                       name={name}
@@ -319,6 +321,8 @@ export function OrderEditor({
         </Field>
       )}
 
+      {/* after the warning, the next press goes through even with these empty */}
+      {state.missing.length > 0 && <input type="hidden" name="confirmMissing" value="1" />}
       {state.missing.length > 0 && (
         <div role="alert" className="alert alert-warning block space-y-3 border-2">
           <p className="text-lg font-medium">You haven&apos;t given:</p>
@@ -327,7 +331,7 @@ export function OrderEditor({
               <li key={m}>{m}</li>
             ))}
           </ul>
-          <p className="text-base">Fill these in before sending, or attach an order PDF. Nothing was sent.</p>
+          <p className="text-base">Nothing was sent yet. Fill these in, or press the button again to send anyway.</p>
         </div>
       )}
 

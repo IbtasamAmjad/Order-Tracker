@@ -146,3 +146,7 @@ The Masters page shows each master as a card: name and status, progress (items, 
 - A text box takes several lines (Enter = new line; pasted lines stay apart) and the master sees each line on its own line.
 - The printed measurements table holds number and word boxes together in form order; a unit is added only after a plain number.
 - Printed sheet / PDF: each item ends with a "Cut here - tailor slip" box (customer name, order number, measurements in short names, notes, no dates). Builder: short name per measurement box, a Notes line tile, and a notes line option on a group of boxes.
+- A field that has pictures takes a full row on the customer form (field on top, pictures under it).
+- Customer form: back to the earlier look (two columns, larger labels); the new features stay.
+- Sending with a "Warn if empty" field still empty: the first press shows the list and sends nothing, the next press sends anyway.
+- WhatsApp links: a public IP address in APP_URL is written as a nip.io name (or LINK_URL) so WhatsApp makes it tappable.

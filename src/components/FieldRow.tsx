@@ -6,17 +6,6 @@ import { PictureInput } from "./PictureInput";
 import { Icon } from "./Icon";
 import { RequiredMark, input, select, textarea } from "./ui";
 
-/**
- * How much of the row a field takes on the office form (a 12-column grid from tablet width up; two columns on a phone):
- * numbers and dates four to a row, short text and lists three, long writing two, everything else the whole row; short fields sit two to a row on a phone 340 px or wider.
- */
-export function fieldSpan(f: FieldDef): string {
-  if (["number", "date", "time", "phone", "ordernumber"].includes(f.type)) return "md:col-span-3";
-  if (["text", "select", "yesno", "color", "customername", "deliverydate", "designnumber"].includes(f.type)) return "col-span-full min-[340px]:col-span-1 md:col-span-4";
-  if (f.type === "longtext") return "col-span-full md:col-span-6";
-  return "col-span-full";
-}
-
 /** Fields that need the whole row (long writing, pictures, choices, headings); the rest can sit two to a row. */
 export function isWideField(f: FieldDef): boolean {
   return ["longtext", "picture", "radio", "checkboxes", "heading", "note"].includes(f.type);
@@ -60,11 +49,11 @@ export function FieldRow({
   ) : (
     `${f.label}${unit}${f.required ? " (please fill in)" : ""}`
   );
-  const labelClass = compact ? "mb-0.5 block text-sm font-medium text-ink-2" : "mb-1 block text-lg font-medium";
+  const labelClass = compact ? "mb-1 block text-base font-medium" : "mb-1 block text-lg font-medium";
   const options = f.options ?? [];
 
   if (f.type === "heading") {
-    return <h3 className={compact ? "border-b border-rule pb-0.5 pt-2 text-base font-semibold" : "border-b-2 border-base-300 pb-1 pt-2 text-xl font-medium"}>{f.label}</h3>;
+    return <h3 className={compact ? "border-b border-rule pb-1 pt-1 text-lg font-medium" : "border-b-2 border-base-300 pb-1 pt-2 text-xl font-medium"}>{f.label}</h3>;
   }
   if (f.type === "note") {
     return <p className={`whitespace-pre-wrap opacity-80 ${compact ? "text-sm" : "text-base"}`}>{f.label}</p>;
@@ -84,7 +73,7 @@ export function FieldRow({
     return (
       <div>
         <span className={labelClass}>{label}</span>
-        <ColorInput name={name} value={value} compact={compact} />
+        <ColorInput name={name} value={value} />
       </div>
     );
   }
@@ -119,7 +108,7 @@ export function FieldRow({
   const withPictures = !!f.pictures && (f.type === "text" || f.type === "longtext" || f.type === "number") && !pictureNote;
   const control =
     f.type === "longtext" ? (
-      <textarea name={name} rows={compact ? 2 : 4} defaultValue={value} className={textarea} aria-label={withPictures ? f.label : undefined} aria-invalid={missing || undefined} />
+      <textarea name={name} rows={compact ? 3 : 4} defaultValue={value} className={textarea} aria-label={withPictures ? f.label : undefined} aria-invalid={missing || undefined} />
     ) : f.type === "select" ? (
       <select name={name} defaultValue={value} className={select} aria-invalid={missing || undefined}>
         <option value="">-</option>

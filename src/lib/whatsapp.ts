@@ -1,4 +1,4 @@
-import { APP_URL } from "./config";
+import { linkBase } from "./config";
 
 // Manual click-to-send: we build a wa.me link with the text already typed in.
 // Anas taps it, WhatsApp opens, he presses send. No API account needed.
@@ -13,7 +13,7 @@ export function waLink(number: string | null | undefined, text: string): string 
   return `https://wa.me/${cleanNumber(number)}?text=${encodeURIComponent(text)}`;
 }
 
-export const masterLink = (token: string) => `${APP_URL}/m/${token}`;
+export const masterLink = (token: string) => `${linkBase()}/m/${token}`;
 
 type Ctx = { masterName: string; token: string; orderNumber: number; customer: string };
 
@@ -59,7 +59,8 @@ export const messages = {
       `Due date: ${plainDate(c.karigarDue)}`,
       c.info && c.info.items.length > 0 && `Items: ${c.info.items.map((i) => i.label).join(", ")}`,
       "",
-      `Please open your list: ${masterLink(c.token)}`,
+      `Please open your list:`,
+      masterLink(c.token),
     ),
   movedUp: (c: Ctx & { info?: OrderInfo }) =>
     lines(
@@ -71,7 +72,8 @@ export const messages = {
       c.info && c.info.items.length > 0 && "",
       c.info && itemLines(c.info),
       "",
-      `Your list: ${masterLink(c.token)}`,
+      `Your list:`,
+      masterLink(c.token),
     ),
   updated: (c: Ctx) =>
     `Hello ${c.masterName}, order #${c.orderNumber} (${c.customer}) was changed. Please check it again.
@@ -99,7 +101,8 @@ ${masterLink(c.token)}`,
       nothingToMake(c.info)
         ? `Please send it today (open your Cart) and let me know.`
         : `Please finish what is left and send me an update today.`,
-      `Your list: ${masterLink(c.token)}`,
+      `Your list:`,
+      masterLink(c.token),
     ),
   dueSoon: (c: Ctx & { days: number; info?: OrderInfo }) =>
     lines(
@@ -113,7 +116,8 @@ ${masterLink(c.token)}`,
       c.info && itemLines(c.info),
       "",
       nothingToMake(c.info) ? `Please send it on time (open your Cart) and let me know.` : `Please finish it on time and send me an update.`,
-      `Your list: ${masterLink(c.token)}`,
+      `Your list:`,
+      masterLink(c.token),
     ),
   lateStep: (c: Ctx & { step: string; days: number; info?: OrderInfo }) =>
     lines(
@@ -124,7 +128,8 @@ ${masterLink(c.token)}`,
       c.info && `Due date: ${plainDate(c.info.dueDate)}`,
       "",
       `Please open your list, update the work, and let me know.`,
-      `Your list: ${masterLink(c.token)}`,
+      `Your list:`,
+      masterLink(c.token),
     ),
   /** From the master to the office: says which order the question is about, with a link the office can tap. */
   question: (c: { masterName: string; orderId: number; orderNumber: number; customer: string; info?: OrderInfo }) =>
@@ -133,7 +138,8 @@ ${masterLink(c.token)}`,
       c.info && c.info.items.length > 0 && `Items: ${c.info.items.map((i) => i.label).join(", ")}`,
       c.info && `Due date: ${plainDate(c.info.dueDate)}`,
       `From: ${c.masterName}`,
-      `Open the order: ${APP_URL}/admin/orders/${c.orderId}`,
+      `Open the order:`,
+      `${linkBase()}/admin/orders/${c.orderId}`,
       "",
       `My question:`,
       "",
@@ -150,6 +156,7 @@ ${masterLink(c.token)}`,
       c.info && itemLines(c.info),
       "",
       `Please open your list, update the work, and let me know.`,
-      `Your list: ${masterLink(c.token)}`,
+      `Your list:`,
+      masterLink(c.token),
     ),
 };

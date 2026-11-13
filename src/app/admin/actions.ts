@@ -88,6 +88,8 @@ ${v}` : v; // checkboxes send several
   const send = str(f, "intent") === "send";
   const wasSent = orderId ? !!getOrder(orderId)?.sentAt : false;
   const draftSave = !send && !wasSent; // saving an unsent order: the fields may stay empty
+  // the first time a "warn if empty" field is empty the office is warned; pressing the button again (the form then carries this) saves and sends anyway
+  const confirmed = str(f, "confirmMissing") === "1";
   // a design number is used once; a link must point at another order's design number
   const designProblem = checkDesignNumbers(input, orderId || undefined);
   if (designProblem) return { nonce, missing: [], missingKeys: [], values, error: designProblem };
@@ -123,7 +125,7 @@ ${v}` : v; // checkboxes send several
         missingKeys.push(`${it.id}:${m.key}`);
       }
     }
-    if (missing.length) return { nonce, missing, missingKeys, values };
+    if (missing.length && !confirmed) return { nonce, missing, missingKeys, values };
     updateOrder(orderId, input, itemValues);
     await savePdfs(orderId);
     await addNotePictures(orderId, f.getAll("pic:notes").filter((x): x is File => x instanceof File));
@@ -147,7 +149,7 @@ ${v}` : v; // checkboxes send several
       items.push({ templateId: tpl.id, label, snapshot: tpl.snapshot, values: vals });
       keys.push(key);
     }
-    if (missing.length) return { nonce, missing, missingKeys, values };
+    if (missing.length && !confirmed) return { nonce, missing, missingKeys, values };
     const newId = createOrder(input, items, { draft: !send });
     await savePdfs(newId);
     await addNotePictures(newId, f.getAll("pic:notes").filter((x): x is File => x instanceof File));
