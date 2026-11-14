@@ -6,7 +6,7 @@ import { PrintSheets } from "@/components/PrintSheets";
 import { btnSecondary } from "@/components/ui";
 import { linkState, requireMaster } from "@/lib/master-session";
 import { masterOrder } from "@/lib/orders";
-import { buildPrintData } from "@/lib/print";
+import { buildPrintData, hasSlips } from "@/lib/print";
 import { Icon } from "@/components/Icon";
 
 export default async function MasterPrint({ params }: { params: Promise<{ token: string; id: string }> }) {
@@ -30,6 +30,11 @@ export default async function MasterPrint({ params }: { params: Promise<{ token:
         <a href={`/api/m/${token}/orders/${order.id}/pdf`} className={btnSecondary}>
           Download PDF
         </a>
+        {hasSlips(data) && (
+          <a href={`/api/m/${token}/orders/${order.id}/pdf?only=slips`} className={btnSecondary}>
+            Download tailor slips
+          </a>
+        )}
       </div>
       <PrintSheets data={data} imgUrl={(pid) => `/api/m/${token}/photos/${pid}`} />
     </div>

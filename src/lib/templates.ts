@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { isAuto, isDisplayOnly, parseOptions } from "./items";
+import { slipEligible, underMeasurements, withoutSlip } from "./slip-fields";
 import {
   categories,
   templates,
@@ -192,7 +193,7 @@ export function karigarFieldKeys(fields: FieldDef[]): Set<string> {
 
 /** What the builder sent for "Printed slips", made safe: a known style, and rows holding each existing box once. */
 export function cleanPrintLayout(raw: unknown, fields: FieldDef[]): PrintLayout {
-  const o = (raw && typeof raw === "object" ? raw : {}) as { slip?: unknown; karigarRows?: unknown };
+  const o = (raw && typeof raw === "object" ? raw : {}) as { slip?: unknown; karigarRows?: unknown; slipShow?: unknown };
   const slip = (SLIP_STYLES as readonly string[]).includes(o.slip as string) ? (o.slip as SlipStyle) : "tailor";
   const ok = karigarFieldKeys(fields);
   const seen = new Set<string>();
@@ -208,7 +209,10 @@ export function cleanPrintLayout(raw: unknown, fields: FieldDef[]): PrintLayout 
     }
     if (keys.length) rows.push(keys);
   }
-  return rows.length ? { slip, karigarRows: rows } : { slip };
+  // extra details in the tailor slip header: only the ones switched on are kept
+  const show = (o.slipShow && typeof o.slipShow === "object" ? o.slipShow : {}) as Record<string, unknown>;
+  const slipShow = Object.fromEntries((["design", "colour", "count"] as const).filter((k) => show[k] === true).map((k) => [k, true]));
+  return { slip, ...(rows.length ? { karigarRows: rows } : {}), ...(Object.keys(slipShow).length ? { slipShow } : {}) };
 }
 
 export function saveTemplate(id: number, fields: FieldDef[], rawStages: StageDef[], workflowId?: number | null, rawPrint?: unknown) {
@@ -219,8 +223,9 @@ export function saveTemplate(id: number, fields: FieldDef[], rawStages: StageDef
   const stages = wf ? stagesFromWorkflow(wf.stages, rawStages, fields) : cleanStageRequirements(fields, rawStages);
   const newLink = wf ? wf.id : null;
   // the print layout: left out = keep what is saved; the tailor slip only is the default and is stored as nothing
-  const print = rawPrint === undefined ? old.printLayout : (() => { const p = cleanPrintLayout(rawPrint, fields); return p.slip === "tailor" && !p.karigarRows ? null : p; })();
-  const changed = JSON.stringify([old.fields, old.stages, old.workflowId]) !== JSON.stringify([fields, stages, newLink]);
+  const print = rawPrint === undefined ? old.printLayout : (() => { const p = cleanPrintLayout(rawPrint, fields); return p.slip === "tailor" && !p.karigarRows && !p.slipShow ? null : p; })();
+  // a change to the "On tailor slip" switches only is a printout change: no new version (it reaches customers quietly)
+  const changed = JSON.stringify([withoutSlip(old.fields), old.stages, old.workflowId]) !== JSON.stringify([withoutSlip(fields), stages, newLink]);
   db.update(templates)
     .set({ fields, stages, workflowId: newLink, printLayout: print ?? null, version: changed ? old.version + 1 : old.version, updatedAt: new Date() })
     .where(eq(templates.id, id))
@@ -262,12 +267,14 @@ export type BuilderRow = {
   short?: string; // short name for the tailor slip
   perRow?: number | string; // a heading: boxes in one printed row
   newRow?: boolean; // a text or number box starts a new printed row
+  slip?: boolean; // "On tailor slip" (left out = the default: on under a Measurements heading)
 };
 
 /** Turn submitted builder rows into field definitions. Rows with no label are dropped. */
 export function rowsToFields(rows: BuilderRow[]): FieldDef[] {
   const used = new Set(rows.map((r) => r.key).filter(Boolean));
   const out: FieldDef[] = [];
+  const slips: (boolean | undefined)[] = [];
   for (const r of rows) {
     const label = r.label.trim();
     if (!label) continue;
@@ -289,7 +296,14 @@ export function rowsToFields(rows: BuilderRow[]): FieldDef[] {
     if (type === "heading" && Number.isInteger(per) && per >= 1 && per <= 10) def.perRow = per;
     if (r.newRow === true && (type === "text" || type === "number")) def.newRow = true;
     out.push(def);
+    slips.push(typeof r.slip === "boolean" && slipEligible(type) ? r.slip : undefined);
   }
+  // "On tailor slip" is stored only where it differs from the default (under a Measurements heading = on), so saving an
+  // untouched form changes nothing, and a field moved under the heading follows it unless it was switched
+  const under = underMeasurements(out);
+  out.forEach((def, i) => {
+    if (slips[i] !== undefined && slips[i] !== under[i]) def.slip = slips[i];
+  });
   return out;
 }
 
@@ -329,6 +343,7 @@ export type BuilderField = {
   short?: string;
   perRow?: number | string;
   newRow?: boolean;
+  slip?: boolean;
   unit?: string;
   options?: string; // one choice per line
 };
@@ -359,6 +374,7 @@ export function fieldsFromBuilder(json: string): FieldDef[] {
       short: str(f?.short),
       perRow: f?.perRow,
       newRow: f?.newRow === true,
+      slip: typeof f?.slip === "boolean" ? f.slip : undefined,
     })),
   );
 }

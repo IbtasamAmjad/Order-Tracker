@@ -75,6 +75,12 @@ describe("print pages", () => {
     expect(p.photoHeightMm(sheet(4))).toBeGreaterThan(p.photoHeightMm(sheet(9)));
   });
 
+  it("knows the Reference picture field by its name", () => {
+    expect(p.REF_PHOTO_MM).toBe(52);
+    for (const name of ["Reference picture", "Referance Picture", " reference pictures "]) expect(p.isReferenceField(name)).toBe(true);
+    for (const name of ["Fabric picture", "Reference", "Embroidery details"]) expect(p.isReferenceField(name)).toBe(false);
+  });
+
   it("still makes a page for an order with no items", async () => {
     const master = m.createMaster({ name: "Pr2", pin: "1" });
     const id = o.createOrder({ customerName: "Plain", myDueDate: "2031-01-01", karigarDueDate: "2030-01-01", masterId: master, details: "Just notes" });
@@ -113,6 +119,7 @@ describe("print pages", () => {
     const item = data.sheets[0].items[0];
     expect(item.details.find((d) => d.label === "Embroidery details")!.photoIds).toEqual([under]); // right under its field
     expect(item.photoIds).toEqual([design]); // the other picture stays at the end, the field one is not repeated
+    expect(item.refPhotoIds).toEqual([design]); // the Reference picture field prints larger
     expect(p.allPhotoIds(data).sort()).toEqual([under, design].sort());
 
     const blocks = p.layoutDetails(item.details, item.measures);

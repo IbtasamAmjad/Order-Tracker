@@ -1,6 +1,6 @@
 import { Document, Image, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import sharp from "sharp";
-import { FIELD_CELL_PHOTO_MM, FIELD_PHOTO_MM, allPhotoIds, gridRows, layoutDetails, photoHeightMm, type PrintData } from "./print";
+import { FIELD_CELL_PHOTO_MM, FIELD_PHOTO_MM, REF_PHOTO_MM, allPhotoIds, gridRows, layoutDetails, photoHeightMm, slipExtras, slipItemTitle, type PrintData, type SheetItem } from "./print";
 import { getPhoto } from "./stages";
 import { get } from "./storage";
 
@@ -34,7 +34,7 @@ const s = StyleSheet.create({
   photos: { flexDirection: "row", flexWrap: "wrap", marginTop: 4, alignSelf: "stretch" },
   cutLine: { marginTop: 14, paddingTop: 2, borderTopWidth: 1.5, borderTopStyle: "dashed", borderTopColor: "#000", textAlign: "center", fontSize: 7, letterSpacing: 1.5, textTransform: "uppercase" },
   slipTitle: { flexDirection: "row", justifyContent: "space-between", marginTop: 6, fontSize: 10 },
-  slipTitleLeft: { flexDirection: "row" },
+  slipTitleLeft: { flexDirection: "row", flexWrap: "wrap", flex: 1 },
   slipGrid: { marginTop: 10 },
   slipRow: { flexDirection: "row", marginBottom: 10 },
   slipCell: { flexShrink: 0, paddingHorizontal: 3, alignItems: "center" },
@@ -56,7 +56,8 @@ async function jpeg(photoId: number): Promise<Buffer | null> {
 }
 
 /** The same pages as the on-screen print view, as one PDF file. */
-export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
+/** The order as a PDF. `only: "slips"` makes just the Tailor slips page(s) (the "Download tailor slips" button). */
+export async function renderOrderPdf(data: PrintData, opts: { only?: "slips" } = {}): Promise<Buffer> {
   const images = new Map<number, Buffer>();
   for (const id of allPhotoIds(data)) {
     const b = await jpeg(id);
@@ -78,8 +79,9 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
     </View>
   );
 
+  // `fixed`: repeated at the top of every page, also when an item type runs on to a second page (by request 14 Nov 2026)
   const head = (title: string) => (
-    <View style={s.head}>
+    <View style={s.head} fixed>
       <View style={s.headTop}>
         <View style={s.headLeft}>
           <Text style={s.small}>Order #{data.orderNumber}</Text>
@@ -101,6 +103,53 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
     </View>
   ) : null;
 
+  // one tailor slip: the tailor's own sheet, "Customer Name X   Item Measurements", then names (underlined) with the
+  // value under a line and a small note. Kept in one piece.
+  const tailorSlip = (item: SheetItem, key: string) =>
+    item.slip ? (
+      <View key={key} wrap={false}>
+        <Text style={s.cutLine}>Cut here - tailor slip</Text>
+        <View style={s.slipTitle}>
+          <View style={s.slipTitleLeft}>
+            <Text style={{ marginRight: 24, fontFamily: "Helvetica-Bold" }}>Customer Name: {data.customerName}</Text>
+            <Text style={{ marginRight: 24, fontFamily: "Helvetica-Bold" }}>{slipItemTitle(item.label, item.slip.head)}</Text>
+            {slipExtras(item.slip.head).map((t) => (
+              <Text key={t} style={{ marginRight: 24 }}>
+                {t}
+              </Text>
+            ))}
+          </View>
+          <Text style={{ fontFamily: "Helvetica-Bold" }}>Order #{data.orderNumber}</Text>
+        </View>
+        <View style={s.slipGrid}>
+          {gridRows(item.slip.cells, item.slip.cols).map((row, r) => (
+            <View key={r} style={s.slipRow}>
+              {row.map((c, k) => (
+                <View key={`${c.label}-${k}`} style={[s.slipCell, { width: `${100 / item.slip!.cols}%` }]}>
+                  <Text style={s.slipLabel}>{c.label}</Text>
+                  <Text style={s.slipValue}>{c.value}</Text>
+                  {c.note ? <Text style={s.slipCellNote}>{c.note}</Text> : null}
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+        {item.slip.notes.map((t, k) => (
+          <Text key={k} style={s.slipNote}>
+            {t}
+          </Text>
+        ))}
+      </View>
+    ) : null;
+  // every item's tailor slip, collected at the end of the PDF (by request 14 Nov 2026), so they are cut from one sheet
+  const slipItems = data.sheets.flatMap((sh) => sh.items.filter((i) => i.slip));
+  const slipsPage = slipItems.length ? (
+    <Page key="tailor-slips" size="A4" style={s.page}>
+      {head("Tailor slips")}
+      {slipItems.map((item, k) => tailorSlip(item, `slip-${k}`))}
+    </Page>
+  ) : null;
+
   const pages =
     data.sheets.length === 0
       ? [
@@ -114,12 +163,12 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
           return (
             <Page key={sheet.key} size="A4" style={s.page}>
               {head(sheet.title)}
-              {sheet.items.map((item) => (
-                <View key={item.label} style={s.item}>
+              {sheet.items.map((item, k) => (
+                <View key={`${item.label}-${k}`} style={s.item}>
                   {sheet.items.length > 1 || item.label !== sheet.title ? <Text style={s.itemLabel}>{item.label}</Text> : null}
                   {layoutDetails(item.details, item.measures).map((b, i) =>
                     b.type === "heading" ? (
-                      <Text key={i} style={s.headingLine}>
+                      <Text key={i} style={s.headingLine} minPresenceAhead={80}>
                         {b.label}
                       </Text>
                     ) : b.type === "note" ? (
@@ -160,40 +209,11 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
                       <Text style={s.galleryHead} minPresenceAhead={60}>
                         Pictures
                       </Text>
-                      {pics(item.photoIds, h)}
+                      {(item.refPhotoIds?.length ?? 0) > 0 && pics(item.refPhotoIds!, REF_PHOTO_MM)}
+                      {pics(item.photoIds.filter((id) => !item.refPhotoIds?.includes(id)), h)}
                     </View>
                   )}
-                  {item.slip && (
-                    <View wrap={false}>
-                      <Text style={s.cutLine}>Cut here - tailor slip</Text>
-                      {/* the tailor's own sheet: "Customer Name X   Item Measurements", then names (underlined) with the value under a line and a small note */}
-                      <View style={s.slipTitle}>
-                        <View style={s.slipTitleLeft}>
-                          <Text style={{ marginRight: 40 }}>Customer Name {data.customerName}</Text>
-                          <Text>{item.label} Measurements</Text>
-                        </View>
-                        <Text style={{ fontSize: 7 }}>Order #{data.orderNumber}</Text>
-                      </View>
-                      <View style={s.slipGrid}>
-                        {gridRows(item.slip.cells, item.slip.cols).map((row, r) => (
-                          <View key={r} style={s.slipRow}>
-                            {row.map((c, k) => (
-                              <View key={`${c.label}-${k}`} style={[s.slipCell, { width: `${100 / item.slip!.cols}%` }]}>
-                                <Text style={s.slipLabel}>{c.label}</Text>
-                                <Text style={s.slipValue}>{c.value}</Text>
-                                {c.note ? <Text style={s.slipCellNote}>{c.note}</Text> : null}
-                              </View>
-                            ))}
-                          </View>
-                        ))}
-                      </View>
-                      {item.slip.notes.map((t, k) => (
-                        <Text key={k} style={s.slipNote}>
-                          {t}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
+                  {/* the tailor slip is not here: all slips are on their own page(s) at the end */}
                   {item.karigar && (
                     <View wrap={false}>
                       <Text style={s.cutLine}>Cut here - karigar paper</Text>
@@ -220,5 +240,13 @@ export async function renderOrderPdf(data: PrintData): Promise<Buffer> {
           );
         });
 
-  return renderToBuffer(<Document title={`Order ${data.orderNumber}`}>{pages}</Document>);
+  if (opts.only === "slips") {
+    return renderToBuffer(<Document title={`Order ${data.orderNumber} tailor slips`}>{slipsPage}</Document>);
+  }
+  return renderToBuffer(
+    <Document title={`Order ${data.orderNumber}`}>
+      {pages}
+      {slipsPage}
+    </Document>,
+  );
 }

@@ -102,3 +102,81 @@ describe("which slips are printed", () => {
     expect(p.buildPrintData(live)!.sheets[0].items[0].slip).toBeDefined();
   });
 });
+
+describe("what goes on the tailor slip", () => {
+  it("stores the field switch only where it differs from the default (on under Measurements)", () => {
+    const f = t.rowsToFields([
+      { key: "", label: "Fabric", type: "text", required: "", unit: "", slip: true }, // above Measurements, switched on: kept
+      { key: "", label: "Picture", type: "picture", required: "", unit: "", slip: true }, // a picture can never be on it
+      { key: "", label: "Measurements", type: "heading", required: "", unit: "" },
+      { key: "", label: "Style", type: "select", required: "", unit: "", options: "A\nB", slip: false }, // under it, switched off: kept
+      { key: "", label: "Length", type: "number", required: "", unit: "inch", slip: true }, // same as the default: not stored
+      { key: "", label: "Due", type: "deliverydate", required: "", unit: "", slip: true }, // a date never goes on it
+    ]);
+    expect(f.map((x) => x.slip)).toEqual([true, undefined, undefined, false, undefined, undefined]);
+  });
+
+  it("prints the switched fields and, when chosen, the design number, colour and 1 of 2 in the header", async () => {
+    const main = t.createMainCategory("SW" + Math.random(), "#000000");
+    t.createSubCategory(main, "Kurta", "#111111");
+    const tpl = t.listCategoryTree().find((c) => c.id === main)!.subs[0].template.id;
+    const f = t.rowsToFields([
+      { key: "", label: "Fabric Color", type: "text", required: "", unit: "", slip: true },
+      { key: "", label: "Embroidery color", type: "text", required: "", unit: "" },
+      { key: "", label: "Measurements", type: "heading", required: "", unit: "" },
+      { key: "", label: "Style", type: "text", required: "", unit: "", slip: false },
+      { key: "", label: "Chest", type: "number", required: "", unit: "inch", short: "Ch" },
+    ]);
+    t.saveTemplate(tpl, f, [], null, { slip: "tailor", slipShow: { design: true, colour: true, count: true, junk: true } });
+    expect(t.getTemplate(tpl)!.printLayout).toEqual({ slip: "tailor", slipShow: { design: true, colour: true, count: true } });
+
+    const key = (l: string) => t.getTemplate(tpl)!.fields.find((x) => x.label === l)!.key;
+    const values = { [key("Fabric Color")]: "Offwhite", [key("Embroidery color")]: "Gold", [key("Style")]: "Mid-open", [key("Chest")]: "42" };
+    const master = m.createMaster({ name: "SlipSwitch", pin: "1" });
+    const snap = t.templateForItem(tpl)!.snapshot;
+    const order = o.createOrder(
+      { customerName: "Two Kurtas", designNumber: "D77", myDueDate: "2099-02-02", karigarDueDate: "2099-01-01", masterId: master, details: "" },
+      [
+        { templateId: tpl, label: "Kurta", snapshot: snap, values },
+        { templateId: tpl, label: "Kurta", snapshot: snap, values },
+      ],
+    );
+    const items = p.buildPrintData(order)!.sheets[0].items;
+    const slip = items[0].slip!;
+    expect(slip.cells.map((c) => c.label)).toEqual(["Fabric Color", "Ch"]); // Fabric switched on, Style switched off
+    expect(slip.head).toEqual({ design: "D77", colour: "Offwhite", count: "1 of 2" }); // the fabric colour, not the embroidery one
+    expect(items[1].slip!.head!.count).toBe("2 of 2");
+    expect(p.slipItemTitle("Kurta", slip.head)).toBe("Kurta Measurements (1 of 2)");
+    expect(p.slipExtras(slip.head)).toEqual(["Design D77", "Colour Offwhite"]);
+    expect(JSON.stringify(slip)).not.toContain("2099"); // never a date
+
+    // the PDF: one page for the Kurta type (both Kurtas), then ONE page at the end with both tailor slips
+    const { renderOrderPdf } = await import("./pdf");
+    const file = await renderOrderPdf(p.buildPrintData(order)!);
+    expect(file.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).toHaveLength(2);
+    // "Download tailor slips": only the slips page
+    expect(p.hasSlips(p.buildPrintData(order)!)).toBe(true);
+    const only = await renderOrderPdf(p.buildPrintData(order)!, { only: "slips" });
+    expect(only.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).toHaveLength(1);
+
+    // switched off again: the header shows nothing extra
+    t.saveTemplate(tpl, t.getTemplate(tpl)!.fields, [], null, { slip: "tailor" });
+    sync.syncActiveItems({ templateId: tpl });
+    expect(p.buildPrintData(order)!.sheets[0].items[0].slip!.head).toBeUndefined();
+  });
+  it('a switch-only change reaches customers in progress quietly: no new version, no Updated mark', () => {
+    const tpl = kind();
+    const master = m.createMaster({ name: 'SlipQuiet', pin: '1' });
+    const live = o.createOrder({ customerName: 'Quiet', myDueDate: '2099-01-01', karigarDueDate: '2099-01-01', masterId: master, details: '' }, [
+      { templateId: tpl, label: 'Coat', snapshot: t.templateForItem(tpl)!.snapshot, values: {} },
+    ]);
+    const before = t.getTemplate(tpl)!;
+    const mark = o.getOrder(live)!.changedForMasterAt;
+    const switched = before.fields.map((x) => (x.label === 'Fabric' ? { ...x, slip: true } : x));
+    t.saveTemplate(tpl, switched, before.stages, before.workflowId);
+    expect(t.getTemplate(tpl)!.version).toBe(before.version);
+    expect(sync.syncActiveItems({ templateId: tpl })).toBe(0);
+    expect(o.getOrder(live)!.changedForMasterAt).toEqual(mark);
+    expect(o.listItems(live)[0].snapshot.fields.find((x) => x.label === 'Fabric')!.slip).toBe(true);
+  });
+});

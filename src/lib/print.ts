@@ -1,4 +1,6 @@
+import type { FieldDef } from "@/db/schema";
 import { displayValue, isAuto, isDisplayOnly, noteFieldKeys, noteKey } from "./items";
+import { onSlip, underMeasurements } from "./slip-fields";
 import { getOrder, listItems } from "./orders";
 import { referencePhotos } from "./stages";
 
@@ -12,14 +14,36 @@ export type SheetItem = {
   details: { label: string; value: string; kind?: "heading" | "note"; photoIds?: number[]; measure?: boolean; note?: string; newRow?: boolean; perRow?: number }[];
   measures: { label: string; value: string }[];
   photoIds: number[]; // the item's other pictures (picture fields), printed at the end
+  refPhotoIds?: number[]; // the ones of photoIds from the "Reference picture" field, printed REF_PHOTO_MM high
   // the tailor slip: the measurements of this item again, in short names, to cut off and hand to the karigar. No dates.
-  slip?: { cells: GridCell[]; cols: number; notes: string[] };
+  // head: the extra details the office switched on for the slip's header line (never a date)
+  slip?: { cells: GridCell[]; cols: number; notes: string[]; head?: SlipHead };
   // the karigar paper: the measurements the karigar's own paper is written from, in short names, in the rows the office laid out
   karigar?: { title: string; cols: number; rows: { label: string; value: string }[][] };
 };
 
 /** One box of the printed measurements: the name above, the value under it, a small note under that. */
 export type GridCell = { label: string; value: string; note?: string; photoIds?: number[]; newRow?: boolean };
+
+/** Does the printed order have any tailor slip? (The "Download tailor slips" button shows only then.) */
+export const hasSlips = (data: PrintData) => data.sheets.some((sh) => sh.items.some((i) => i.slip));
+
+/** Extra details in the tailor slip's header line, each one only when the item's "Printed slips" switches it on. */
+export type SlipHead = { design?: string; colour?: string; count?: string };
+
+/** The slip's item title: "Sherwani Measurements", with "(1 of 2)" when the count is switched on and the item is there twice. */
+export const slipItemTitle = (label: string, head?: SlipHead) => `${label} Measurements${head?.count ? ` (${head.count})` : ""}`;
+
+/** The other header details, in order: "Design 1992", "Colour Offwhite". */
+export const slipExtras = (head?: SlipHead) => [head?.design ? `Design ${head.design}` : "", head?.colour ? `Colour ${head.colour}` : ""].filter(Boolean);
+
+/** The item's colour for the slip: a filled colour field, the fabric's first ("Fabric Color" before "Embroidery color"). */
+export function itemColour(fields: FieldDef[], values: Record<string, string>): string {
+  const found = fields
+    .filter((f) => (f.type === "color" || ((f.type === "text" || f.type === "select" || f.type === "radio") && /colou?r/i.test(f.label))) && values[f.key]?.trim())
+    .map((f) => ({ fabric: /fabric/i.test(f.label), value: displayValue(f, values[f.key]) }));
+  return (found.find((c) => c.fabric) ?? found[0])?.value ?? "";
+}
 
 /** Boxes in one printed row when the form does not say (the tailor's own sheet has 7 and 5). */
 export const DEFAULT_PER_ROW = 4;
@@ -89,7 +113,20 @@ export function buildPrintData(orderId: number): PrintData | null {
   if (!order) return null;
 
   const sheets = new Map<string, Sheet>();
-  for (const item of listItems(orderId)) {
+  const items = listItems(orderId);
+  // the tailor slip header extras the item's "Printed slips" switched on (design number, colour, "1 of 2")
+  const kindOf = (i: (typeof items)[number]) => `t:${i.templateId ?? i.snapshot.templateName}`;
+  const slipHead = (item: (typeof items)[number]): { head?: SlipHead } => {
+    const show = item.snapshot.print?.slipShow ?? {};
+    const same = items.filter((i) => kindOf(i) === kindOf(item));
+    const head: SlipHead = {
+      ...(show.design && order.designNumber ? { design: order.designNumber } : {}),
+      ...(show.colour && itemColour(item.snapshot.fields, item.values) ? { colour: itemColour(item.snapshot.fields, item.values) } : {}),
+      ...(show.count && same.length > 1 ? { count: `${same.indexOf(item) + 1} of ${same.length}` } : {}),
+    };
+    return Object.keys(head).length ? { head } : {};
+  };
+  for (const item of items) {
     const key = `t:${item.templateId ?? item.snapshot.templateName}`;
     const sheet = sheets.get(key) ?? { key, title: item.snapshot.templateName, items: [] };
     sheets.set(key, sheet);
@@ -98,6 +135,8 @@ export function buildPrintData(orderId: number): PrintData | null {
     const pics = referencePhotos(item.id);
     const under = (key: string) => pics.filter((r) => r.fieldKey === key).map((r) => r.id);
     const attachedKeys = new Set(item.snapshot.fields.filter((f) => f.type !== "picture").map((f) => f.key)); // under any text or number box
+    // the "Reference picture" field's pictures print larger (REF_PHOTO_MM)
+    const refKeys = new Set(item.snapshot.fields.filter((f) => f.type === "picture" && isReferenceField(f.label)).map((f) => f.key));
 
     const flow = item.snapshot.fields
       .filter((f) => f.type !== "picture")
@@ -108,18 +147,15 @@ export function buildPrintData(orderId: number): PrintData | null {
     const wantsTailor = slipStyle === "tailor" || slipStyle === "both";
     const measureHead = item.snapshot.fields.find((f) => f.type === "heading" && /measure/i.test(f.label));
     const karigar = slipStyle === "karigar" || slipStyle === "both" ? buildKarigarPaper(item.snapshot.fields, item.values, item.snapshot.print, measureHead?.perRow ?? DEFAULT_PER_ROW) : null;
-    // the tailor slip: everything under a Measurements heading (the notes under it go below the table)
+    // the tailor slip: every answered field that is "On tailor slip" (its own switch, or by default everything under a
+    // Measurements heading); long answers go below the table. Pictures, headings, notes and the dates never do.
     const slipCells: GridCell[] = [];
     const slipNotes: string[] = [];
     let slipCols = DEFAULT_PER_ROW;
-    let inMeasure = false;
-    for (const f of item.snapshot.fields) {
-      if (f.type === "heading") {
-        inMeasure = /measure/i.test(f.label);
-        if (inMeasure && f.perRow) slipCols = f.perRow;
-        continue;
-      }
-      if (!inMeasure || f.type === "picture" || isDisplayOnly(f) || isAuto(f)) continue;
+    const underMeasure = underMeasurements(item.snapshot.fields);
+    for (const [i, f] of item.snapshot.fields.entries()) {
+      if (f.type === "heading" && /measure/i.test(f.label) && f.perRow) slipCols = f.perRow;
+      if (!onSlip(f, underMeasure[i])) continue;
       const v = displayValue(f, item.values[f.key]);
       if (!v) continue;
       if (f.type === "longtext" || v.includes("\n") || v.length > 24) slipNotes.push(v);
@@ -143,7 +179,8 @@ export function buildPrintData(orderId: number): PrintData | null {
       })),
       measures: flow.filter((x) => x.f.type === "number").map((x) => ({ label: x.f.label, value: x.value })),
       photoIds: pics.filter((r) => !attachedKeys.has(r.fieldKey ?? "")).map((r) => r.id),
-      ...(slipCells.length > 0 && wantsTailor ? { slip: { cells: slipCells, cols: slipCols, notes: slipNotes } } : {}),
+      refPhotoIds: pics.filter((r) => r.fieldKey && refKeys.has(r.fieldKey)).map((r) => r.id),
+      ...(slipCells.length + slipNotes.length > 0 && wantsTailor ? { slip: { cells: slipCells, cols: slipCols, notes: slipNotes, ...slipHead(item) } } : {}),
       ...(karigar ? { karigar: { title: `${order.customerName} (${order.orderNumber})`, ...karigar } } : {}),
     });
   }
@@ -165,6 +202,12 @@ export const FIELD_PHOTO_MM = 24;
 /** Height (mm) of a picture inside a box of the measurements table (a field with up to MAX_CELL_PHOTOS pictures stays in the table). */
 export const FIELD_CELL_PHOTO_MM = 16;
 export const MAX_CELL_PHOTOS = 3;
+
+/** Pictures of the "Reference picture" field always print this high (mm), however many there are (by request 14 Nov 2026). */
+export const REF_PHOTO_MM = 52;
+
+/** A picture field named "Reference picture" (any spelling of reference, any case). */
+export const isReferenceField = (label: string) => /^\s*refer[ae]nce\s+pictures?\s*$/i.test(label);
 
 /** Picture height (mm) for the item's other pictures at the end of a page: fewer pictures = bigger, but never large. */
 export function photoHeightMm(sheet: Sheet): number {

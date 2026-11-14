@@ -17,7 +17,7 @@ import {
 import { SortableContext, arrayMove, horizontalListSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useEffect, useState } from "react";
-import type { PrintLayout, SlipStyle } from "@/db/schema";
+import type { PrintLayout, SlipShow, SlipStyle } from "@/db/schema";
 import { Icon } from "./Icon";
 import { btnSecondary, select } from "./ui";
 
@@ -34,6 +34,13 @@ const STYLES: { value: SlipStyle; name: string; hint: string }[] = [
   { value: "karigar", name: "Karigar paper", hint: "Short names in rows, to write out by hand for the karigar." },
   { value: "both", name: "Both", hint: "The tailor slip and the karigar paper, one under the other." },
   { value: "none", name: "No slip", hint: "Nothing to cut off for this item." },
+];
+
+// extra details the office can add to the tailor slip's header line
+const SHOW: { key: keyof SlipShow; name: string; hint: string }[] = [
+  { key: "design", name: "Design number", hint: "(for example Design 1992)" },
+  { key: "colour", name: "Colour", hint: "(from the item's colour field, for example Offwhite)" },
+  { key: "count", name: "Item count", hint: "(1 of 2, when the order has this item twice)" },
 ];
 
 function Chip({ field }: { field: SlipField }) {
@@ -80,6 +87,7 @@ function Lane({ id, keys, byKey, label, onRemove }: { id: string; keys: string[]
  */
 export function PrintSlips({ fields, unsaved, initial, onChange }: { fields: SlipField[]; unsaved: number; initial: PrintLayout | null; onChange: (p: PrintLayout) => void }) {
   const [slip, setSlip] = useState<SlipStyle>(initial?.slip ?? "tailor");
+  const [show, setShow] = useState<SlipShow>(initial?.slipShow ?? {});
   const valid = new Set(fields.map((f) => f.key));
   const [rows, setRows] = useState<string[][]>(() => (initial?.karigarRows ?? []).map((r) => r.filter((k) => valid.has(k))).filter((r) => r.length > 0));
   const byKey = new Map(fields.map((f) => [f.key, f]));
@@ -126,8 +134,14 @@ export function PrintSlips({ fields, unsaved, initial, onChange }: { fields: Sli
     setRows((cur) => cur.map((r, n) => (n === i ? arrayMove(r, r.indexOf(active), r.indexOf(over)) : r)));
   }
 
-  const layout: PrintLayout = { slip, ...(rows.some((r) => r.length) ? { karigarRows: rows.filter((r) => r.length) } : {}) };
+  const shown = Object.fromEntries(SHOW.filter((s) => show[s.key]).map((s) => [s.key, true])) as SlipShow;
+  const layout: PrintLayout = {
+    slip,
+    ...(rows.some((r) => r.length) ? { karigarRows: rows.filter((r) => r.length) } : {}),
+    ...(Object.keys(shown).length ? { slipShow: shown } : {}),
+  };
   const showRows = slip === "karigar" || slip === "both";
+  const showTailor = slip === "tailor" || slip === "both";
   const layoutJson = JSON.stringify(layout);
   useEffect(() => {
     onChange(JSON.parse(layoutJson) as PrintLayout);
@@ -149,6 +163,22 @@ export function PrintSlips({ fields, unsaved, initial, onChange }: { fields: Sli
           </select>
           <span className="mt-1 block text-sm text-muted">{STYLES.find((s) => s.value === slip)?.hint}</span>
         </label>
+
+        {showTailor && (
+          <fieldset className="space-y-1">
+            <legend className="text-base font-medium">Also on the tailor slip</legend>
+            <p className="text-sm text-muted">Customer name, item and order number are always there. Dates never are.</p>
+            {SHOW.map((s) => (
+              <label key={s.key} className="flex min-h-11 cursor-pointer items-center gap-3">
+                <input type="checkbox" className="checkbox checkbox-primary" checked={!!show[s.key]} onChange={(e) => setShow((cur) => ({ ...cur, [s.key]: e.target.checked }))} />
+                <span className="text-base">
+                  {s.name} <span className="text-sm text-muted">{s.hint}</span>
+                </span>
+              </label>
+            ))}
+            <p className="text-sm text-muted">Choose which fields go on it with &quot;Print on the tailor slip&quot; on each field.</p>
+          </fieldset>
+        )}
 
         {showRows && (
           <div className="space-y-3">

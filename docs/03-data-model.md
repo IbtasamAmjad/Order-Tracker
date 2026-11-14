@@ -226,4 +226,5 @@ The accountant's invoice and the handover to the shipping company are handled by
 - `FieldDef.perRow` (a heading: boxes in one printed row, 1 to 10) and `FieldDef.newRow` (a text or number box: starts a new printed row) live in the field JSON. The small note under a measurement box is stored in `order_items.values` as `<fieldKey>__note`. No migration.
 
 ## Print layout (14 Nov 2026)
-- `templates.print_layout` (JSON `{ slip: tailor|karigar|both|none, karigarRows: string[][] }` of field keys; null = tailor slip only; migration 0017). It is copied into `order_items.snapshot.print`.
+- `FieldDef.slip` (14 Nov 2026): "On tailor slip", true / false; missing = on when under a Measurements heading. Stored only when it differs from that default. No migration.
+- `templates.print_layout` (JSON `{ slip: tailor|karigar|both|none, karigarRows: string[][], slipShow?: { design?, colour?, count? } }` of field keys; null = tailor slip only; migration 0017). It is copied into `order_items.snapshot.print`.

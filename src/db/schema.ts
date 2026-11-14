@@ -127,6 +127,7 @@ export type FieldDef = {
   perRow?: number; // a heading only: how many boxes go in one row of the printed measurements (empty = 4)
   newRow?: boolean; // a text or number box: it starts a new row in the printed measurements
   pictures?: boolean; // text and long text only: the office can add pictures right under this field (for example Embroidery details)
+  slip?: boolean; // "On tailor slip": true = printed on it, false = never; missing = only when it is under a Measurements heading
 };
 
 // Two levels: main (parentId null) > sub. Templates hang off sub-categories.
@@ -178,7 +179,10 @@ export type SlipStyle = (typeof SLIP_STYLES)[number];
 export type PrintLayout = {
   slip: SlipStyle;
   karigarRows?: string[][]; // field keys, one list per printed row of the karigar paper (empty = the measurements in form order)
+  slipShow?: SlipShow; // extra details in the tailor slip's header line (missing = none)
 };
+// The tailor slip header can also show the design number, the item's colour, and "1 of 2" when an order has the same item twice.
+export type SlipShow = { design?: boolean; colour?: boolean; count?: boolean };
 
 export type ItemSnapshot = {
   templateName: string; // e.g. "Sherwani"

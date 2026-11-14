@@ -22,6 +22,7 @@ import { useFormStatus } from "react-dom";
 import type { PrintLayout } from "@/db/schema";
 import { PrintSlips } from "./PrintSlips";
 import { duplicateFieldNames } from "@/lib/items";
+import { onSlip, slipEligible, underMeasurements } from "@/lib/slip-fields";
 import { Icon } from "./Icon";
 import { btnDanger, btnPrimary, btnSecondary, input, select, textarea } from "./ui";
 
@@ -42,6 +43,7 @@ export type BField = {
   short?: string; // short name for the tailor slip
   perRow?: number; // a heading or group: boxes in one printed row of the measurements (empty = 4)
   newRow?: boolean; // a text or number box starts a new printed row
+  slip?: boolean; // "On tailor slip": set by the office; left out = on when under a Measurements heading
 };
 /** How many measurement boxes go in one row of the printout (the tailor's sheet has 7 in the first row and 5 in the second). */
 function PerRow({ value, onChange }: { value?: number; onChange: (v: number | undefined) => void }) {
@@ -212,9 +214,11 @@ function FieldCard({
   onRemove,
   onMove,
   duplicate,
+  slipOn,
 }: {
   f: BField;
   duplicate: boolean;
+  slipOn: boolean; // printed on the tailor slip (its own switch, or the default under a Measurements heading)
   index: number;
   count: number;
   selected: boolean;
@@ -260,6 +264,7 @@ function FieldCard({
               {f.required && f.type !== "picture" && <span className="rounded bg-error/15 px-1.5 text-error">Warns if empty</span>}
               {f.masterCanEdit && <span className="rounded bg-secondary/15 px-1.5 text-secondary">Master can fill</span>}
               {f.pictures && <span className="rounded bg-secondary/15 px-1.5 text-secondary">Pictures</span>}
+              {slipOn && <span className="rounded bg-ok/15 px-1.5 text-ok">On tailor slip</span>}
             </span>
           </span>
           <Icon name="chevron" className={`h-4 w-4 shrink-0 transition-transform ${selected ? "rotate-180" : ""}`} />
@@ -296,6 +301,12 @@ function FieldCard({
               <Toggle label="The master can fill this in" checked={f.masterCanEdit} onChange={(v) => onChange({ masterCanEdit: v })} />
               {(f.type === "text" || f.type === "longtext" || f.type === "number") && (
                 <Toggle label="Pictures can be added under it" checked={!!f.pictures} onChange={(v) => onChange({ pictures: v })} />
+              )}
+              {slipEligible(f.type) && (
+                <>
+                  <Toggle label="Print on the tailor slip" checked={slipOn} onChange={(v) => onChange({ slip: v })} />
+                  <p className="-mt-2 text-sm opacity-70">Fields under Measurements are on it unless you switch them off.</p>
+                </>
               )}
             </>
           )}
@@ -544,9 +555,15 @@ export function FormBuilder({
   }
 
   // one switch for every field at once (headings and notes have nothing to fill; a picture has no "warn if empty")
-  const answerable = (f: BField, key: "required" | "masterCanEdit") => !DISPLAY_ONLY.includes(f.type) && !(key === "required" && f.type === "picture");
-  const setAll = (key: "required" | "masterCanEdit", v: boolean) => setFields((rows) => rows.map((r) => (answerable(r, key) ? { ...r, [key]: v } : r)));
-  const countOn = (key: "required" | "masterCanEdit") => ({ on: fields.filter((f) => answerable(f, key) && f[key]).length, all: fields.filter((f) => answerable(f, key)).length });
+  // "On tailor slip" has a default (on under a Measurements heading), so its state is worked out per field
+  type AllKey = "required" | "masterCanEdit" | "slip";
+  const under = underMeasurements(fields);
+  const slipOn = (f: BField, i: number) => onSlip(f, under[i]);
+  const answerable = (f: BField, key: AllKey) =>
+    key === "slip" ? slipEligible(f.type) : !DISPLAY_ONLY.includes(f.type) && !(key === "required" && f.type === "picture");
+  const isOn = (f: BField, i: number, key: AllKey) => (key === "slip" ? slipOn(f, i) : f[key]);
+  const setAll = (key: AllKey, v: boolean) => setFields((rows) => rows.map((r) => (answerable(r, key) ? { ...r, [key]: v } : r)));
+  const countOn = (key: AllKey) => ({ on: fields.filter((f, i) => answerable(f, key) && isOn(f, i, key)).length, all: fields.filter((f) => answerable(f, key)).length });
 
   const patch = (uid: string, p: Partial<BField>) => setFields((rows) => rows.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const remove = (uid: string) => {
@@ -619,6 +636,7 @@ export function FormBuilder({
                     [
                       ["required", "Warn if empty"],
                       ["masterCanEdit", "Master can fill"],
+                      ["slip", "On tailor slip"],
                     ] as const
                   ).map(([key, name]) => {
                     const c = countOn(key);
@@ -657,6 +675,7 @@ export function FormBuilder({
                     f={f}
                     index={i}
                     count={fields.length}
+                    slipOn={slipOn(f, i)}
                     selected={selected === f.uid}
                     onSelect={() => setSelected(selected === f.uid ? null : f.uid)}
                     onChange={(p) => patch(f.uid, p)}

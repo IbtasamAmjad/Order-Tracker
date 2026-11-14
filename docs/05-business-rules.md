@@ -58,7 +58,7 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 37. Masters must be able to **print / export** order details. This is critical: the printout is attached to the fabric and travels with it through every station.
 38. **One page per item type per order** (Sherwani page, Kurta + pants page, Pagri page...).
 39. Admin can configure which item types **share a page** (for example Pagri and Shoes), because printing costs about 10 rupees per page.
-40. Attached pictures **auto-resize** to fit a single concise page.
+40. Attached pictures **auto-resize** to fit a single concise page, except the "Reference picture" field, whose pictures always print 52 mm high (14 Nov 2026, by request).
 
 ## Usability constraints
 41. The end user is **very basic**: click, click, click. English-only UI. Large buttons. Minimal options.
@@ -94,7 +94,7 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 61. The WhatsApp reminders to a master say in plain words which order it is, the Karigar due date, how late it is, and which items are finished, sent or still to make. They never contain My due date.
 62. The master sees, for each order, which items are sent, finished (waiting in the cart) and still to make.
 63. A text, long text or number field can allow pictures right under it (for example Embroidery details): Admin switches it on per field in the item form; the office adds the pictures on the customer form and the master sees them as small pictures under that field. The text is still needed if marked "Warn if empty"; a picture does not replace it.
-64. The printed order sheet and the PDF are the same: a header with the order, customer, design number and due date in words (never My due date), a divider under every row, measurements in a ruled grid, pictures added under a field printed right under that field, and the item's other pictures small at the end.
+64. The printed order sheet and the PDF are the same: a header with the order, customer, design number and due date in words (never My due date), a divider under every row, measurements in a ruled grid, pictures added under a field printed right under that field, and the item's other pictures (reference pictures) at the end. The pictures of the "Reference picture" field print 52 mm high; the others stay small. The header is repeated at the top of every printed page, also when an item type runs on to a second page.
 
 ## Order PDF
 65. The office can attach a PDF (for example the customer's own order form) to an order instead of typing every detail. With a PDF attached, the item fields may stay empty; without one, the "Warn if empty" fields are still needed (rule 10).
@@ -116,10 +116,12 @@ These are the rules that come directly from the stakeholder (Anas) and are easy 
 75. The customer name, order number, design number and delivery date (the Karigar due date, never My due date) can be put on an item form as automatic fields. They start with the order's value, follow the order until the office changes them, can be edited by the office, are never required, and the date is separate from the name so a forwarded screenshot can leave it out.
 76. On the master's screen an empty field is hidden unless it is marked "Warn if empty" (then only its name and a blank box show, so it is clear nothing was given) or it has pictures. Fields the master is allowed to fill still show their box.
 
-77. The printed order has a tailor slip at the bottom of each item with the measurements again (short names) and their notes, to cut off and give to the karigar so nobody copies them by hand. The slip never carries a date or price.
+77. The printed order has a tailor slip for each item (all of them together on a "Tailor slips" page at the end, 14 Nov 2026; "Download tailor slips" gives only that page, for the office and the master) with the measurements again (short names) and their notes, to cut off and give to the karigar so nobody copies them by hand. The slip never carries a date or price.
 
 78. The office keeps a library of design numbers, each with several pictures (Design Category page). Choosing a design number in the Design number box of a customer's item copies its pictures onto that item, so nothing has to be uploaded again; changing or removing a design later never changes customers that already have it. Another number, or an empty box, takes the pictures off. A design number is in the library once. The master only sees the pictures attached to his customer, never the library.
 
 79. The tailor slip repeats the measurements exactly like the tailor's own sheet: the customer name and "<item> Measurements" on top, rows of boxes (the number in a row is set by the office, and a box can start a new row), the name above the value, and a small note under a box when one was typed (for example "Add 1 inch"). The note is for the karigar, never a date or price.
 
 80. The office chooses per item what the printed order carries at the bottom: the tailor slip, the karigar paper (short names in rows laid out by the office, filled in with the answers), both, or none. A change reaches customers in progress without telling the master, because only the printout changed. The slips never carry a date or price.
+
+81. The office chooses per field whether it is printed on the tailor slip (by default the fields under Measurements are). It can also add the design number, the item's colour and "1 of 2" (when an order has the same item twice) to the slip's header line. Pictures, notes and every date can never be put on the slip. These changes reach customers in progress without telling the master.

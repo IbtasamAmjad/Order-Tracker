@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { PrintSheets } from "@/components/PrintSheets";
 import { btnSecondary } from "@/components/ui";
-import { buildPrintData } from "@/lib/print";
+import { buildPrintData, hasSlips } from "@/lib/print";
 import { Icon } from "@/components/Icon";
 
 export default async function AdminPrint({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +20,11 @@ export default async function AdminPrint({ params }: { params: Promise<{ id: str
         <a href={`/api/admin/orders/${id}/pdf`} className={btnSecondary}>
           Download PDF
         </a>
+        {hasSlips(data) && (
+          <a href={`/api/admin/orders/${id}/pdf?only=slips`} className={btnSecondary}>
+            Download tailor slips
+          </a>
+        )}
       </div>
       <PrintSheets data={data} imgUrl={(pid) => `/api/admin/photos/${pid}`} />
     </div>

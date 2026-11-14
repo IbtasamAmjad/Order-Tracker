@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { itemStages, orderItems, orders, type ItemSnapshot } from "@/db/schema";
 import { templateForItem } from "./templates";
 import { withAutoValues } from "./items";
+import { withoutSlip } from "./slip-fields";
 
 /**
  * An order keeps its own copy of its category's form and steps, so editing the category never changes it.
@@ -12,7 +13,8 @@ export function categoryDiffers(item: { templateId: number | null; snapshot: Ite
   if (!item.templateId) return false;
   const tpl = templateForItem(item.templateId);
   if (!tpl) return false;
-  return JSON.stringify([item.snapshot.fields, item.snapshot.stages ?? []]) !== JSON.stringify([tpl.snapshot.fields, tpl.snapshot.stages]);
+  // the "On tailor slip" switches only change the printout, so they do not count as a change for the master
+  return JSON.stringify([withoutSlip(item.snapshot.fields), item.snapshot.stages ?? []]) !== JSON.stringify([withoutSlip(tpl.snapshot.fields), tpl.snapshot.stages]);
 }
 
 export type RefreshResult = "ok" | "no-category" | "closed" | "not-found";
@@ -78,13 +80,16 @@ export function syncActiveItems(only: { templateId?: number; orderId?: number } 
     if (categoryDiffers(item)) {
       if (refreshItemFromCategory(item.id) === "ok") n++;
     } else if (item.templateId) {
-      // only the printed slips changed: copy that quietly (the master has nothing new to look at)
+      // only the printed slips changed (the layout, or which fields are on the tailor slip): copy that quietly (the
+      // master has nothing new to look at)
       const tpl = templateForItem(item.templateId);
-      if (tpl && JSON.stringify(item.snapshot.print ?? null) !== JSON.stringify(tpl.snapshot.print ?? null)) {
+      const printDiffers = tpl && JSON.stringify(item.snapshot.print ?? null) !== JSON.stringify(tpl.snapshot.print ?? null);
+      const slipDiffers = tpl && JSON.stringify(item.snapshot.fields) !== JSON.stringify(tpl.snapshot.fields);
+      if (tpl && (printDiffers || slipDiffers)) {
         const { print, ...rest } = item.snapshot;
         void print;
         db.update(orderItems)
-          .set({ snapshot: { ...rest, ...(tpl.snapshot.print ? { print: tpl.snapshot.print } : {}) } })
+          .set({ snapshot: { ...rest, fields: tpl.snapshot.fields, ...(tpl.snapshot.print ? { print: tpl.snapshot.print } : {}) } })
           .where(eq(orderItems.id, item.id))
           .run();
       }
